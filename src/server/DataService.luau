@@ -159,11 +159,8 @@ function DataService.AddCash(player: Player, amount: number): number
 	if whole > 0 then
 		data.Stats.Earned += whole
 	end
+	-- cash reaches the client as an attribute; the full profile goes out with the next real change
 	player:SetAttribute("Cash", data.Cash)
-	local entry = entries[player]
-	if entry then
-		entry.Dirty = true
-	end
 	return whole
 end
 

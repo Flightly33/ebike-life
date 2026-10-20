@@ -50,7 +50,9 @@ local function control(rider: Rider, name: string, chainRoot: string, endEffecto
 	ik.ChainRoot = rootPart
 	ik.EndEffector = effector
 	ik.Target = target
-	ik.Pole = pole
+	if pole then
+		ik.Pole = pole
+	end
 	ik.SmoothTime = 0.06
 	ik.Weight = 1
 	ik.Parent = rider.Humanoid
@@ -109,7 +111,7 @@ local function update()
 			end
 			local seat = bike:FindFirstChild("Seat")
 			local occupant = if seat and seat:IsA("Seat") then seat.Occupant else nil
-			local rider = riders[bike]
+			local rider: Rider? = riders[bike]
 			if rider and (not occupant or rider.Humanoid ~= occupant) then
 				teardown(rider)
 				riders[bike] = nil

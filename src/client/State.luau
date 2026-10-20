@@ -22,6 +22,16 @@ function State.Get(): Profile.Data?
 	return State.Profile
 end
 
+-- Cash right now (the attribute is fresher than the profile copy)
+function State.Cash(): number
+	local cash = State.Player:GetAttribute("Cash")
+	if type(cash) == "number" then
+		return cash
+	end
+	local data = State.Profile
+	return if data then data.Cash else 0
+end
+
 function State.Settings(): Profile.Settings
 	local data = State.Profile
 	if data then

@@ -123,7 +123,7 @@ function BikeCamera.Update(dt: number, bike: CFrame, kmh: number, airborne: bool
 end
 
 function BikeCamera.Init()
-	UserInputService.InputChanged:Connect(function(input, processed)
+	UserInputService.InputChanged:Connect(function(input: InputObject, processed: boolean)
 		if active and not processed and input.UserInputType == Enum.UserInputType.MouseWheel then
 			zoom = math.clamp(zoom - input.Position.Z * 0.1, 0.6, 2.2)
 		end

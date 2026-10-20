@@ -1,1 +1,25 @@
--- placeholder (client entry point comes next)
+--[[
+	Client entry point.
+]]
+
+local State = require(script.State)
+local Sound = require(script.Sound)
+local Music = require(script.Music)
+local World = require(script.World)
+local Input = require(script.Input)
+local BikeCamera = require(script.BikeCamera)
+local BikeController = require(script.BikeController)
+local Visuals = require(script.Visuals)
+local RiderPose = require(script.RiderPose)
+local UI = require(script.UI)
+
+State.Init()
+Sound.Init()
+World.Init()
+Input.Init()
+BikeCamera.Init()
+BikeController.Init()
+Visuals.Init()
+RiderPose.Init()
+UI.Init()
+Music.Init()

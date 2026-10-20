@@ -79,6 +79,10 @@ function BikeController.Kmh(): number
 	return if s then BikePhysics.Kmh(s) else 0
 end
 
+function BikeController.Charging(): boolean
+	return chargeLeft > 0
+end
+
 function BikeController.BatteryFraction(): number
 	local s, spec = BikeController.Physics, BikeController.Spec
 	if not s or not spec or spec.BatteryWh <= 0 then
@@ -285,12 +289,18 @@ function BikeController.Start(model: Model)
 	BikeController.Physics = s
 	BikeController.Active = true
 
-	local attachment = part:FindFirstChild("EB_Lift") or Instance.new("Attachment")
-	attachment.Name = "EB_Lift"
-	attachment.Parent = part
+	local existing = part:FindFirstChild("EB_Lift")
+	local attachment: Attachment
+	if existing and existing:IsA("Attachment") then
+		attachment = existing
+	else
+		attachment = Instance.new("Attachment")
+		attachment.Name = "EB_Lift"
+		attachment.Parent = part
+	end
 	local force = Instance.new("VectorForce")
 	force.Name = "EB_AntiGravity"
-	force.Attachment0 = attachment :: Attachment
+	force.Attachment0 = attachment
 	force.RelativeTo = Enum.ActuatorRelativeTo.World
 	force.ApplyAtCenterOfMass = true
 	force.Parent = part
