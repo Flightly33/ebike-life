@@ -243,7 +243,7 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 		model:SetAttribute("Up_" .. slot.Name, Upgrades.Level(levels, slot.Name))
 	end
 	local bikeRoot = model.PrimaryPart :: BasePart
-	local seat = model:FindFirstChild("Seat") :: Seat
+	local seat = model:FindFirstChildOfClass("Seat") :: Seat
 
 	-- Beside the player, facing the way they face
 	local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)

@@ -100,8 +100,8 @@ local function load(player: Player)
 	else
 		data = Profile.Default()
 	end
-	if player.Parent ~= Players then
-		return
+	if not player.Parent then
+		return -- left while loading
 	end
 	entries[player] = { Data = data, Saveable = saveable, Dirty = true }
 	attributes(player, data)
@@ -134,7 +134,7 @@ end
 
 function DataService.WaitFor(player: Player): Profile.Data?
 	local deadline = os.clock() + 30
-	while not entries[player] and player.Parent == Players and os.clock() < deadline do
+	while not entries[player] and player.Parent ~= nil and os.clock() < deadline do
 		task.wait(0.1)
 	end
 	return DataService.Get(player)

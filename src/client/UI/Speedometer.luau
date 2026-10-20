@@ -41,8 +41,8 @@ local function digit(parent: Instance, x: number, w: number, h: number): Digit
 			Name = name,
 			BorderSizePixel = 0,
 			BackgroundColor3 = C.DigitOff,
-			Position = UDim2.fromOffset(px, py),
-			Size = UDim2.fromOffset(sw, sh),
+			Position = UDim2.fromOffset(math.floor(px), math.floor(py)),
+			Size = UDim2.fromOffset(math.floor(sw), math.floor(sh)),
 			Parent = holder,
 		})
 	end

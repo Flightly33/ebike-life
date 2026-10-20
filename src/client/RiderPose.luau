@@ -72,7 +72,7 @@ local function setup(bike: Model, humanoid: Humanoid): Rider?
 		return nil
 	end
 	local rider: Rider = { Character = character, Humanoid = humanoid, Bike = bike, Controls = {}, Targets = {} }
-	local seat = bike:FindFirstChild("Seat")
+	local seat = bike:FindFirstChildOfClass("Seat")
 	local seatY = if seat and seat:IsA("BasePart") then root.CFrame:PointToObjectSpace(seat.Position).Y else 2.6
 	-- Free-hand targets and elbow / knee poles, in the bike's frame
 	rider.Targets.FreeL = attachment(root, "EB_FreeL", Vector3.new(-2.1, seatY + 2.4, 0.3))
@@ -109,7 +109,15 @@ local function update()
 			if not bike:IsA("Model") then
 				continue
 			end
-			local seat = bike:FindFirstChild("Seat")
+			-- Only the owner gets the "Enter" prompt (the server can't hide it per player)
+			if bike:GetAttribute("Owner") ~= Players.LocalPlayer.UserId then
+				local root = bike.PrimaryPart
+				local prompt = root and root:FindFirstChild("EnterPrompt")
+				if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled then
+					prompt.Enabled = false
+				end
+			end
+			local seat = bike:FindFirstChildOfClass("Seat")
 			local occupant = if seat and seat:IsA("Seat") then seat.Occupant else nil
 			local rider: Rider? = riders[bike]
 			if rider and (not occupant or rider.Humanoid ~= occupant) then

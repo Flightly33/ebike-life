@@ -1,0 +1,47 @@
+# E-Bike Life: project memory
+
+A Roblox open-world e-bike game: ride Flightly e-bikes around a city, earn money while riding (more for
+wheelies, air time and tricks), and get chased by police for wheelies and stunts near cops. Bikes are
+bought at the Flighty Mechanics dealership. It's a Rojo project in Luau, modelled on the owner's
+reference videos (a Roblox e-scooter game): its HUD, menus, money loop and police chase.
+
+## Working rules (from the owner)
+- After every finished change, rebuild `EbikeLife.rbxl` (`rojo build default.project.json -o EbikeLife.rbxl`) and send the file to the user.
+- Don't write README text.
+- Develop and push on branch `claude/great-fermat-1koovo`. Don't open a PR unless asked.
+- Push back when something isn't the best approach, and ask when an answer depends on details you don't have.
+- Never invent Roblox asset or sound IDs. Sounds come from `AssetService:SearchAudioAsync` at runtime or from IDs the owner puts in `AssetIds`.
+- Bikes are real e-bike types with real-world specs (motor power, battery Wh, assist class, weight, tyres).
+
+## Open issues (not yet confirmed in Studio)
+Everything below passes the simulator, but nothing has been played in Studio yet.
+1. The bike is kinematic and client-owned: the client runs `BikePhysics.Step` every frame and writes the root CFrame and velocity (an anti-gravity VectorForce holds it up). Replication to other players, network ownership hand-off on mount, and the seat weld need checking.
+2. Rider pose uses IKControls (hands to `GripL/R`, feet to `PedalL/R` or `PegL/R`). Unverified on AnimationConstraint rigs; CharacterService sets the constraints kinematic.
+3. Police and traffic cars are server-owned, unanchored, driven kinematically by `CarDriver` along the road graph. Check they don't jitter or sink.
+4. Audio search needs "Allow HTTP / Studio API access" and may return nothing in an unpublished place; the game falls back to `rbxasset://` sounds.
+5. DataStores need Studio API access; without it DataService runs from an in-memory profile.
+6. Game pass IDs in `AssetIds.GamePasses` are 0 (passes disabled).
+If any of these fail in Studio, ask the user for the Output window's errors and warnings.
+
+## Layout
+- `src/shared`: Config (all tuning: units, physics, wheelie, battery, economy, police, traffic, lights), Bikes (12 Flightly bikes with specs and prices), Modes (OFF/ECO/TOUR/SPORT/TURBO assist modes, owner-customisable), Upgrades, Paints (paints and crates), BikeStats (spec + upgrades -> physics stats), Economy (money per second, multiplier, trick payouts, XP), Heat (police offences and stars), BikePhysics (the ride model), Profile (save data), Shop, Remotes, AssetIds, AudioCatalog, PartKit (part builders), Models/ (BikeModel, CarModel), City/ (Layout: road grid, graph, places, chargers; Builder and the district builders).
+- `src/server`: DataService (DataStore, attributes Cash/Level/Xp), BikeService (spawn/park/mount, validates BikeState), EconomyService (pay loop, tricks, combos, levels), ShopService (dealership, upgrades, paints, crates, boosts, teleports, modes), PoliceService (sight, heat, dispatch, bust, escape), TrafficService, CarDriver (car AI), CityService (builds the city if the baked map is missing, charger prompts), CharacterService, AudioService.
+- `src/client`: BikeController (local ride, events -> Trick remote), BikeCamera, Input (keyboard, gamepad, touch), Visuals (wheels, cranks, motor/siren sound, police lights, traffic lights), RiderPose, World (ray/blockcast adapter), Sound, Music, State, UI/ (Hud, Speedometer, Minimap, TrickHud, WantedHud, Toasts, Rides (My Rides + dealership), Tuning, Store, MainMenu, TouchControls).
+- `map/City.rbxm`: baked city. Rebake with `lune run tools/lune/bake_city.luau` after any change to City/ or the bike and car models (the dealership and police station hold static copies).
+- `tools/preview`: offline three.js renders of the map and models (`node render.mjs`, Playwright Chromium).
+
+## Checks (run before every push)
+- `tools/tc.sh`: Luau strict type check (luau-lsp, old solver). Empty output means clean.
+- `lune run tests/physics.luau`: ride model checks (top speeds per mode and class, range, wheelie balance, jumps, landings, hops, surfaces).
+- `lune run tests/consistency.luau`: data checks (bikes, paints, upgrades, modes, layout).
+- `rojo sourcemap default.project.json -o sourcemap.json && lune run tests/sim_smoke.luau`: boots server and client in the simulator (`tools/sim`, virtual clock) and plays a session: buy, ride, modes, wheelies, tricks, payouts, police chase, bust, escape. The one expected warning is the runtime city build.
+- Tools: Lune 0.11, Rojo 7.7; luau-lsp at /root/tools/luau-lsp.
+- The simulator only approximates Roblox. A passing sim doesn't prove the game works in Studio.
+
+## Conventions
+- Units: 1 stud = 0.28 m (`Config.STUDS_PER_METER`); 1 stud/s is about 1 km/h. Physics runs in SI and converts at the edges.
+- Bikes are drawn at `VISUAL_STUDS_PER_METER` so they fit Roblox avatars; physics uses real dimensions.
+- Server time (`workspace:GetServerTimeNow()`) for traffic lights and anything shared; `os.clock()` for local timing.
+- The server never trusts client money: the client reports events (land, flip, wheelie end), the server checks them against the bike's state and pays.
+- UI is built from Instances only (no image IDs): ViewportFrames for 3D icons, emoji glyphs, Frames for the 7-segment digits.
+- Commit messages end with the Co-Authored-By and Claude-Session lines the session provides.

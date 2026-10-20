@@ -518,7 +518,7 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	-- seat
 	local seatFront = Vector3.new(0, seatH - 0.02, caseBack.Z - 0.1)
 	local seatBack = Vector3.new(0, seatH + 0.04, g.RearAxle.Z - 0.05)
-	bar(b, frame, "Seat", scale(seatFront), scale(seatBack), 0.22, 0.08, nil, Color3.fromRGB(28, 28, 30))
+	bar(b, frame, "SeatPad", scale(seatFront), scale(seatBack), 0.22, 0.08, nil, Color3.fromRGB(28, 28, 30))
 	-- tail section
 	bar(b, frame, "Tail", scale(seatBack + Vector3.new(0, -0.07, -0.05)), scale(seatBack + Vector3.new(0, -0.02, 0.32)), 0.16, 0.05, frame)
 	neon(b, frame, "Taillight", Vector3.new(0.08 * VIS, 0.03 * VIS, 0.015 * VIS), CFrame.new(scale(seatBack + Vector3.new(0, -0.03, 0.33))), Color3.fromRGB(255, 30, 30))

@@ -47,10 +47,15 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 	Theme.Round(canvas)
 	local pivot = New("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(0, 0), Position = UDim2.fromScale(0.5, 0.5), Parent = canvas })
 	local W = Layout.WORLD_HALF
-	local map = New("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(2 * W * SCALE, 2 * W * SCALE), Parent = pivot })
+	local mapSize = math.floor(2 * W * SCALE + 0.5)
+	local map = New("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(mapSize, mapSize), Parent = pivot })
 
+	-- UI offsets are whole pixels
+	local function px(v: number): number
+		return math.floor(v + 0.5)
+	end
 	local function toMap(x: number, z: number): (number, number)
-		return (x + W) * SCALE, (z + W) * SCALE
+		return px((x + W) * SCALE), px((z + W) * SCALE)
 	end
 	local function rect(x0: number, z0: number, x1: number, z1: number, color: Color3, z: number)
 		local mx, mz = toMap(x0, z0)
@@ -58,7 +63,7 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 			BorderSizePixel = 0,
 			BackgroundColor3 = color,
 			Position = UDim2.fromOffset(mx, mz),
-			Size = UDim2.fromOffset(math.max(1, (x1 - x0) * SCALE), math.max(1, (z1 - z0) * SCALE)),
+			Size = UDim2.fromOffset(math.max(1, px((x1 - x0) * SCALE)), math.max(1, px((z1 - z0) * SCALE))),
 			ZIndex = z,
 			Parent = map,
 		})
@@ -81,8 +86,8 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 			BorderSizePixel = 0,
 			BackgroundColor3 = Color3.fromRGB(150, 150, 156),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset((ax + bx) / 2, (az + bz) / 2),
-			Size = UDim2.fromOffset(length + edge.Width * SCALE, math.max(3, edge.Width * SCALE)),
+			Position = UDim2.fromOffset(px((ax + bx) / 2), px((az + bz) / 2)),
+			Size = UDim2.fromOffset(px(length + edge.Width * SCALE), math.max(3, px(edge.Width * SCALE))),
 			Rotation = math.deg(math.atan2(bz - az, bx - ax)),
 			ZIndex = 3,
 			Parent = map,
