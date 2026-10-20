@@ -125,7 +125,7 @@ local kmh = BikeController.Kmh()
 local moved = bike and (bike.PrimaryPart.Position - start).Magnitude or 0
 print(string.format("[test] %.1f km/h after 8 s, moved %.0f studs", kmh, moved))
 check(kmh > 25 and kmh < 34, "the commuter reaches its 32 km/h class limit")
-check(moved > 120, "the bike moved")
+check(moved > 34 * Config.STUDS_PER_METER, string.format("the bike moved (%.0f m)", moved / Config.STUDS_PER_METER))
 check(ride ~= nil and ride.State.Kmh > 20, "the server gets the rider's state")
 check((player:GetAttribute("Cash") :: number) > cashBefore, string.format("riding pays (%s -> %s)", tostring(cashBefore), tostring(player:GetAttribute("Cash"))))
 check(payouts > 0, "+$ pops reach the client")
