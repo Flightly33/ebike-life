@@ -5,3 +5,5 @@ sourcemap.json
 roblox.toml
 .DS_Store
 node_modules/
+blender/out/renders/
+blender/__pycache__/

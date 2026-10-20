@@ -21,6 +21,7 @@ local Bikes = require(script.Parent.Parent.Bikes)
 local Config = require(script.Parent.Parent.Config)
 local Paints = require(script.Parent.Parent.Paints)
 local PartKit = require(script.Parent.Parent.PartKit)
+local MeshKit = require(script.Parent.MeshKit)
 
 local BikeModel = {}
 
@@ -128,7 +129,7 @@ local function wheel(b: Builder, group: string, axle: Vector3, diameter: number,
 	cyl(b, group, "Rotor", rotorD, 0.006, at * CFrame.new(-(tireW * 0.75 + 0.02) * VIS, 0, 0), nil, SILVER, METAL)
 end
 
-type Geo = {
+export type Geo = {
 	RearAxle: Vector3,
 	FrontAxle: Vector3,
 	Rf: number,
@@ -196,6 +197,11 @@ local function geometry(bike: Bikes.Bike): Geo
 		ST = st,
 		Bars = bars,
 	}
+end
+
+-- The bike's key points in metres (model space), for tools that build meshes to match the rig
+function BikeModel.Geometry(bike: Bikes.Bike): Geo
+	return geometry(bike)
 end
 
 local function scale(v: Vector3): Vector3
@@ -663,6 +669,45 @@ function BikeModel.Build(bike: Bikes.Bike, choice: PaintChoice?, options: Option
 	rearWheel(b, bike, g, isMoto)
 	if bike.Pedals then
 		cranks(b, bike, g)
+	end
+
+	-- Imported Blender meshes replace the part-built look; joints, attachments and lamps stay
+	if MeshKit.Has(bike.Id) then
+		local _, materials = resolvePaints(bike, choice)
+		local lamps = { Headlight = true, Taillight = true }
+		for _, group in b.Groups do
+			local pivot = group.Pivot
+			local holder: BasePart = pivot or root
+			local kept: { BasePart } = {}
+			for _, part in group.Parts do
+				if part == pivot then
+					table.insert(kept, part)
+					continue
+				end
+				for _, child in part:GetChildren() do
+					if child:IsA("Attachment") then
+						local world = part.CFrame * child.CFrame
+						child.Parent = holder
+						child.CFrame = holder.CFrame:ToObjectSpace(world)
+					end
+				end
+				if lamps[part.Name] then
+					part.Transparency = 1
+					table.insert(kept, part)
+				else
+					part:Destroy()
+				end
+			end
+			group.Parts = kept
+		end
+		for _, item in MeshKit.Place(model, bike.Id, VIS, colors :: any, materials :: any) do
+			local group = b.Groups[item.Group]
+			if not group then
+				group = { Parts = {} }
+				b.Groups[item.Group] = group
+			end
+			table.insert(group.Parts, item.Part)
+		end
 	end
 
 	-- Seat: where the rider's hips go, tipped forward for the riding position

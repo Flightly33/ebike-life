@@ -16,6 +16,7 @@
 ]]
 
 local PartKit = require(script.Parent.Parent.PartKit)
+local MeshKit = require(script.Parent.MeshKit)
 
 local CarModel = {}
 
@@ -60,6 +61,8 @@ local DIMS: { [string]: Dims } = {
 	SUV = { Length = 4.75, Width = 1.95, BodyHeight = 0.78, Clearance = 0.24, CabinHeight = 0.62, CabinLength = 2.95, Wheelbase = 2.85, Wheel = 0.76, Hood = 0.24, Rake = 1.05, RearRake = 0.25, Trunk = false },
 	Van = { Length = 5.3, Width = 2.0, BodyHeight = 0.9, Clearance = 0.22, CabinHeight = 1.0, CabinLength = 4.4, Wheelbase = 3.3, Wheel = 0.7, Hood = 0.12, Rake = 0.55, RearRake = 0.05, Trunk = false },
 }
+
+CarModel.Dims = DIMS
 
 local CIVILIAN_KINDS: { Kind } = { "Sedan", "Sedan", "Hatch", "Hatch", "SUV", "Van", "Taxi" }
 CarModel.CivilianKinds = CIVILIAN_KINDS
@@ -301,6 +304,8 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 
 	-- Wheels, each on a hub so they can spin, inside dark arches
 	local wheels: { BasePart } = {}
+	local hubsByName: { [string]: BasePart } = {}
+	local wheelVisuals: { BasePart } = {}
 	local rimColor = if police then Color3.fromRGB(70, 70, 74) elseif kind == "Van" then Color3.fromRGB(150, 152, 156) else CHROME
 	local D = dims.Wheel
 	for _, zs in { -1, 1 } do
@@ -312,6 +317,7 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 			local hub = PartKit.Box(model, "WheelHub", Vector3.new(0.1, 0.1, 0.1), hubCF, BLACK, SMOOTH, { Transparency = 1, Collide = false, Query = false, Touch = false })
 			hub.Massless = true
 			table.insert(wheels, hub)
+			hubsByName["Wheel_" .. (if zs < 0 then "F" else "R") .. (if xs < 0 then "L" else "R")] = hub
 			local wheelParts: { BasePart } = {}
 			local function wpart(p: BasePart)
 				p.CanCollide = false
@@ -319,6 +325,7 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 				p.CanTouch = false
 				p.Massless = true
 				table.insert(wheelParts, p)
+				table.insert(wheelVisuals, p)
 			end
 			local face = xs * 0.12 -- outer face offset
 			wpart(PartKit.Cylinder(model, "Tire", D * S, 0.2 * S, hubCF, TIRE, SMOOTH))
@@ -426,12 +433,49 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 		end
 	end
 
+	-- Imported Blender meshes replace the part-built shell; hulls, lamps and lettering stay
+	local hubParts: { { Part: BasePart, Hub: BasePart } } = {}
+	local meshId = "Car_" .. kind
+	if MeshKit.Has(meshId) then
+		local keep = { Body = true, Cabin = true, LightRed = true, LightBlue = true, Takedown = true }
+		local lettering = { Plate = true, DoorPanel = true, RoofNumber = true, TaxiSign = true, Headlight = true, Taillight = true }
+		local kept: { BasePart } = {}
+		for _, p in body do
+			if keep[p.Name] then
+				table.insert(kept, p)
+			elseif lettering[p.Name] then
+				p.Transparency = 1
+				table.insert(kept, p)
+			else
+				p:Destroy()
+			end
+		end
+		body = kept
+		for _, p in wheelVisuals do
+			p:Destroy()
+		end
+		for _, item in MeshKit.Place(model, meshId, S, { Paint = paint }) do
+			local hub = hubsByName[item.Group]
+			if hub then
+				table.insert(hubParts, { Part = item.Part :: BasePart, Hub = hub })
+			else
+				table.insert(body, item.Part)
+			end
+		end
+	end
+
 	if not static then
 		for _, p in body do
 			local w = Instance.new("WeldConstraint")
 			w.Part0 = root
 			w.Part1 = p
 			w.Parent = p
+		end
+		for _, item in hubParts do
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = item.Hub
+			w.Part1 = item.Part
+			w.Parent = item.Part
 		end
 		for _, hub in wheels do
 			local motor = Instance.new("Motor6D")

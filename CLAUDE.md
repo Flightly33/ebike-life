@@ -29,11 +29,15 @@ If any of these fail in Studio, ask the user for the Output window's errors and 
 - `src/client`: BikeController (local ride, events -> Trick remote), BikeCamera, Input (keyboard, gamepad, touch), Visuals (wheels, cranks, motor/siren sound, police lights, traffic lights), RiderPose, World (ray/blockcast adapter), Sound, Music, State, UI/ (Hud, Speedometer, Minimap, TrickHud, WantedHud, Toasts, Rides (My Rides + dealership), Tuning, Store, MainMenu, TouchControls).
 - `map/City.rbxm`: baked city. Rebake with `lune run tools/lune/bake_city.luau` after any change to City/ or the bike and car models (the dealership and police station hold static copies).
 - `tools/preview`: offline three.js renders of the map and models (`node render.mjs`, Playwright Chromium).
+- `blender/`: `build_vehicles.py` (with `meshkit.py`) models every bike and car in Blender and writes `blender/out/Vehicles.fbx` and `src/shared/Models/MeshManifest.luau`. Run `lune run tools/lune/export_vehicles.luau` first (rig points from BikeModel.Geometry, car dims), then `/root/tools/blendenv/bin/python blender/build_vehicles.py [--render all|id,id] [--only id,id]`. bpy 5.2 (pip, Python 3.13 venv at /root/tools/blendenv), Cycles on CPU. Meshes are split as `<Group>__<Slot>` (group = the joint it rides on, slot = colour/material, MeshKit.Slots).
+- The owner imports Vehicles.fbx in Studio (File > Import 3D) into ReplicatedStorage as `VehicleMeshes`. MeshKit swaps those in for the part-built visuals (joints, seat, attachments, lamps, signs stay) and falls back to parts when they're missing or imported rotated. The rbxl built here does not contain them (they need uploading from Studio).
+- Admin: `src/server/AdminService.luau` (Studio, place/group owner, `Admin.UserIds`, or the chat code `ender=cool`, which is server-only and hidden from chat). Panel: ADMIN button or F2.
 
 ## Checks (run before every push)
 - `tools/tc.sh`: Luau strict type check (luau-lsp, old solver). Empty output means clean.
 - `lune run tests/physics.luau`: ride model checks (top speeds per mode and class, range, wheelie balance, jumps, landings, hops, surfaces).
 - `lune run tests/consistency.luau`: data checks (bikes, paints, upgrades, modes, layout).
+- `lune run tests/meshes.luau`: the Blender mesh path with a faked import (every vehicle, joints, fallback).
 - `rojo sourcemap default.project.json -o sourcemap.json && lune run tests/sim_smoke.luau`: boots server and client in the simulator (`tools/sim`, virtual clock) and plays a session: buy, ride, modes, wheelies, tricks, payouts, police chase, bust, escape. The one expected warning is the runtime city build.
 - Tools: Lune 0.11, Rojo 7.7; luau-lsp at /root/tools/luau-lsp.
 - The simulator only approximates Roblox. A passing sim doesn't prove the game works in Studio.

@@ -206,6 +206,8 @@ function Landmarks.Plaza(parent: Instance, block: Layout.Block, rng: Random)
 	PartKit.Box(model, "Plinth", Vector3.new(16, 8, 10), CFrame.new(sx, fy + 4, sz), Color3.fromRGB(80, 82, 88), Enum.Material.Granite)
 	local statue = BikeModel.Build(Bikes.List[#Bikes.List], { Frame = "gold", Accent = "gold", Rims = "gold" }, { Static = true })
 	PartKit.PlaceStatic(statue, CFrame.new(sx, fy + 8.9, sz) * CFrame.Angles(0, math.rad(60), 0) * CFrame.Angles(math.rad(25), 0, 0))
+	statue.Name = "Statue"
+	statue:SetAttribute("Gold", true)
 	statue.Parent = model
 	local plaque = PartKit.Box(model, "StatuePlaque", Vector3.new(12, 3, 0.3), CFrame.new(sx, fy + 4, sz + 5.2), Color3.fromRGB(200, 170, 70), Enum.Material.Metal, DECOR)
 	PartKit.Sign(plaque, Enum.NormalId.Back, "Flightly — est. 2026", Color3.fromRGB(40, 30, 10), nil, Enum.Font.FredokaOne, 20)
