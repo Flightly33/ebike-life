@@ -1,0 +1,10 @@
+{
+  "name": "ebike-life-preview",
+  "private": true,
+  "type": "module",
+  "description": "Offline renders of baked parts (city, bikes, cars) with three.js in headless Chromium",
+  "dependencies": {
+    "three": "0.160.0",
+    "playwright": "1.56.1"
+  }
+}

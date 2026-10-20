@@ -1,0 +1,105 @@
+{
+  "name": "EbikeLife",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "$properties": {
+        "CameraMaxZoomDistance": 80,
+        "CameraMinZoomDistance": 4,
+        "EnableMouseLockOption": true,
+        "CharacterWalkSpeed": 16,
+        "CharacterJumpPower": 50,
+        "AutoJumpEnabled": false
+      },
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": false,
+        "Gravity": 196.2
+      },
+      "City": {
+        "$path": "map/City.rbxm"
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future",
+        "ClockTime": 14.2,
+        "GeographicLatitude": 38,
+        "Brightness": 3,
+        "Ambient": [0.36, 0.36, 0.4],
+        "OutdoorAmbient": [0.55, 0.56, 0.6],
+        "ColorShift_Top": [1, 0.97, 0.9],
+        "ColorShift_Bottom": [0.55, 0.6, 0.7],
+        "EnvironmentDiffuseScale": 1,
+        "EnvironmentSpecularScale": 1,
+        "ExposureCompensation": 0.1,
+        "GlobalShadows": true,
+        "ShadowSoftness": 0.2
+      },
+      "Atmosphere": {
+        "$className": "Atmosphere",
+        "$properties": {
+          "Density": 0.3,
+          "Offset": 0.12,
+          "Color": [0.78, 0.84, 0.92],
+          "Decay": [0.55, 0.65, 0.8],
+          "Glare": 0.15,
+          "Haze": 1.1
+        }
+      },
+      "Sky": {
+        "$className": "Sky",
+        "$properties": {
+          "SunAngularSize": 14,
+          "StarCount": 3000,
+          "CelestialBodiesShown": true
+        }
+      },
+      "Bloom": {
+        "$className": "BloomEffect",
+        "$properties": {
+          "Intensity": 0.6,
+          "Size": 28,
+          "Threshold": 1.4
+        }
+      },
+      "Grade": {
+        "$className": "ColorCorrectionEffect",
+        "$properties": {
+          "Brightness": 0.02,
+          "Contrast": 0.08,
+          "Saturation": 0.12,
+          "TintColor": [1, 0.99, 0.97]
+        }
+      },
+      "SunRays": {
+        "$className": "SunRaysEffect",
+        "$properties": {
+          "Intensity": 0.04,
+          "Spread": 0.6
+        }
+      }
+    },
+    "SoundService": {
+      "$properties": {
+        "RespectFilteringEnabled": true
+      }
+    }
+  }
+}
