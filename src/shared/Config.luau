@@ -58,6 +58,19 @@ Config.Wheelie = {
 	SweetHigh = 0.78,
 }
 
+Config.Drift = {
+	MinSpeed = 4.5, -- m/s (~16 km/h) to throw the tail out
+	YawRate = 1.25, -- rad/s of tail swing at full steer...
+	YawPerSpeed = 0.035, -- ...plus this per m/s
+	Grip = 0.8, -- fraction of lateral grip that bends the line while sliding
+	LockedDecel = 0.07, -- g of the locked rear tyre
+	SlideDecel = 0.3, -- g more at a 90 degree slip
+	SpinOut = 1.25, -- rad of slip that spins you out
+	StartSlip = 0.22, -- rad: past this it counts as a drift
+	EndSlip = 0.1,
+	Recover = 5, -- how fast the line snaps back to the heading after a drift (1/s)
+}
+
 Config.Hop = {
 	ChargeTime = 0.45, -- seconds to fully preload
 	MinFraction = 0.55, -- of the bike's hop speed on a tap
@@ -90,6 +103,9 @@ Config.Economy = {
 	WheelieLumpMin = 2, -- seconds before a wheelie pays a lump sum when it ends
 	WheelieLump = 2.2, -- $ * seconds^1.2
 	AirLump = 16, -- $ per second of air
+	DriftLumpMin = 0.8, -- seconds before a drift pays
+	DriftLump = 6, -- $ * seconds^1.15 * (1 + degrees/60)
+	ComboDrift = 0.05, -- per drift
 	FlipLump = 75,
 	SpinLump = 40,
 	NoHanderLump = 25,
@@ -118,6 +134,7 @@ Config.Police = {
 	HeatDecay = 12, -- per second with nothing seen
 	Wheelie = 38, -- per second
 	NoHands = 16,
+	Drift = 32, -- per second sliding past a cop
 	Speeding = 12, -- per second while over the legal limit, plus...
 	SpeedingPerKmh = 1.2, -- ...this per km/h over
 	SpeedingGrace = 4, -- km/h over the limit before it counts

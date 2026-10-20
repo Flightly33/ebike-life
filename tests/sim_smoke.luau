@@ -89,8 +89,10 @@ ClientRemotes.Event("Police").OnClientEvent:Connect(function(kind)
 	print("[test] police event: " .. tostring(kind))
 end)
 local payouts = 0
+local payoutLabels: { string } = {}
 ClientRemotes.Event("Payout").OnClientEvent:Connect(function(amount, label)
 	payouts += 1
+	table.insert(payoutLabels, tostring(label))
 	if label ~= "" then
 		print(string.format("[test] payout +$%d %s", amount, label))
 	end
@@ -184,6 +186,52 @@ world:Run(0.5)
 world.Keys.Q = false
 world:Run(2)
 print(string.format("[test] payouts so far: %d", payouts))
+
+--------------------------------------------------------------------------------
+print("== drift, skid marks and first person")
+local Input = client.Require(Client:WaitForChild("Input"))
+local BikeCamera = client.Require(Client:WaitForChild("BikeCamera"))
+world.Keys.W = true
+world:Run(4)
+world.Keys.W = false
+world.Keys.R = true
+world.Keys.D = true
+local maxSlip = 0
+for _ = 1, 12 do
+	world:Run(0.1)
+	local s = BikeController.Physics
+	if s then
+		maxSlip = math.max(maxSlip, math.abs(s.Slip))
+	end
+end
+world.Keys.R = false
+world.Keys.D = false
+world:Run(2)
+print(string.format("[test] drift max slip %.0f deg", math.deg(maxSlip)))
+check(maxSlip > 0.25, "R + steer throws the tail out")
+local driftPaid = false
+for _, label in payoutLabels do
+	if string.find(label, "Drift", 1, true) then
+		driftPaid = true
+	end
+end
+check(driftPaid, "the drift paid out")
+local skids = 0
+for _, d in WS:GetChildren() do
+	if d.Name == "SkidMark" then
+		skids += 1
+	end
+end
+check(skids > 0, string.format("skid marks on the road (%d)", skids))
+Input.Action:Fire("Camera")
+world:Run(0.5)
+check(BikeCamera.FirstPerson == true, "F switches to first person")
+local head = rig:FindFirstChild("Head")
+local camPos = WS.CurrentCamera.CFrame.Position
+check(head ~= nil and (camPos - head.Position).Magnitude < 3, string.format("the first-person eye is at the rider's head (%.1f studs)", if head then (camPos - head.Position).Magnitude else -1))
+Input.Action:Fire("Camera")
+world:Run(0.5)
+check(BikeCamera.FirstPerson == false, "F again goes back to the chase camera")
 
 --------------------------------------------------------------------------------
 print("== shopping")

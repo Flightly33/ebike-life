@@ -141,6 +141,8 @@ local function onEvent(event: BikePhysics.Event)
 		sendTrick(kind, event.Value)
 	elseif kind == "WheelieEnd" then
 		sendTrick("WheelieEnd", event.Value, event.Extra)
+	elseif kind == "DriftEnd" then
+		sendTrick("DriftEnd", event.Value, event.Extra, event.Text)
 	elseif kind == "Crash" then
 		sendTrick("Crash", 0, 0, event.Text)
 		BikeCamera.Shake(2)
@@ -176,6 +178,8 @@ local function sendState(s: BikePhysics.State, spec: BikeStats.Spec)
 		Sf = s.Surface,
 		Cr = s.Crash > 0,
 		K = math.floor(BikePhysics.Kmh(s)),
+		D = s.DriftActive,
+		Sl = math.floor(s.Slip * 100) / 100,
 	})
 end
 
@@ -222,6 +226,7 @@ local function step(dt: number)
 	if not s.Grounded then
 		travelYaw = if s.AirVelocity.Magnitude > 2 then BikePhysics.YawOf(s.AirVelocity.Unit) else nil
 	end
+	BikeCamera.Rough = if s.Offroad then 1 elseif s.Surface == "Sidewalk" then 0.45 else 0.15
 	BikeCamera.Update(dt, cf, travelYaw, BikePhysics.Kmh(s), not s.Grounded)
 
 	sendClock += dt
@@ -371,6 +376,8 @@ function BikeController.Init()
 			BikeController.SetMode(Modes.Next(BikeController.ModeName, -1))
 		elseif action == "Mode" and index then
 			BikeController.SetMode(Modes.Order[index])
+		elseif action == "Camera" then
+			BikeCamera.Toggle()
 		elseif action == "Bell" then
 			Sound.Play("Bell", if root then root.Position else nil)
 		end

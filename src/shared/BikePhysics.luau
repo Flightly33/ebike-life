@@ -31,6 +31,7 @@ local BikePhysics = {}
 
 local P = Config.Physics
 local WH = Config.Wheelie
+local DR = Config.Drift
 local STUDS = Config.STUDS_PER_METER
 local UP = Vector3.yAxis
 local TAU = math.pi * 2
@@ -46,6 +47,7 @@ export type Input = {
 	Hop: boolean, -- held
 	OneHand: boolean,
 	NoHands: boolean,
+	Drift: boolean, -- rear brake locked to slide the tail out
 }
 
 export type Hit = {
@@ -110,6 +112,11 @@ export type State = {
 	NoiseA: number,
 	NoiseB: number,
 	Hands: number, -- 0 both, 1 one hand, 2 no hands (what the pose shows)
+	TravelYaw: number, -- direction the bike is actually moving (differs from Yaw in a drift)
+	Slip: number, -- rad between heading and travel (+ = tail out to the right)
+	DriftActive: boolean,
+	DriftTime: number,
+	DriftAngle: number, -- biggest slip of this drift, rad
 }
 
 local OFFROAD = { Grass = true, Dirt = true, Sand = true, Mud = true }
@@ -178,11 +185,16 @@ function BikePhysics.new(spec: Spec, ground: CFrame, battery: number?, seed: num
 		NoiseA = (s * 1.618) % TAU,
 		NoiseB = (s * 2.718) % TAU,
 		Hands = 0,
+		TravelYaw = BikePhysics.YawOf(ground.LookVector),
+		Slip = 0,
+		DriftActive = false,
+		DriftTime = 0,
+		DriftAngle = 0,
 	}
 end
 
 function BikePhysics.Idle(): Input
-	return { Throttle = 0, Brake = 0, Steer = 0, Wheelie = false, Hop = false, OneHand = false, NoHands = false }
+	return { Throttle = 0, Brake = 0, Steer = 0, Wheelie = false, Hop = false, OneHand = false, NoHands = false, Drift = false }
 end
 
 -- km/h along the heading
@@ -404,9 +416,43 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	if math.abs(v * yawRate) > lateralMax then
 		yawRate = math.sign(yawRate) * lateralMax / math.max(math.abs(v), 0.1)
 	end
-	s.Yaw -= yawRate * dt
+	-- Drift: the rear brake is locked, so the tail is free to swing out. The steering throws the
+	-- heading round faster than grip allows, while the direction of travel catches up only as fast
+	-- as the tyres can bend it (lateral grip / speed). The gap is the slip angle; sliding scrubs speed.
+	local drifting = riding and input.Drift and v > DR.MinSpeed and s.Wheelie < 0.05
+	if drifting then
+		s.Yaw -= input.Steer * handsFactor * (DR.YawRate + DR.YawPerSpeed * v) * dt
+		local catchUp = lateralMax * DR.Grip / math.max(v, 1)
+		s.TravelYaw += math.clamp(wrap(s.Yaw - s.TravelYaw), -catchUp * dt, catchUp * dt)
+		s.Slip = wrap(s.Yaw - s.TravelYaw)
+		v = math.max(0, v - (DR.LockedDecel + DR.SlideDecel * math.abs(math.sin(s.Slip))) * g * dt)
+		if math.abs(s.Slip) > DR.SpinOut then
+			crash(s, events, "Spun out")
+		end
+	else
+		s.Yaw -= yawRate * dt
+		s.TravelYaw += wrap(s.Yaw - s.TravelYaw) * math.min(1, DR.Recover * dt)
+		s.Slip = wrap(s.Yaw - s.TravelYaw)
+	end
+	if s.DriftActive then
+		s.DriftTime += dt
+		s.DriftAngle = math.max(s.DriftAngle, math.abs(s.Slip))
+		if math.abs(s.Slip) < DR.EndSlip or s.Crash > 0 then
+			s.DriftActive = false
+			push(events, "DriftEnd", s.DriftTime, math.deg(s.DriftAngle), if s.Crash > 0 then "Failed" else nil)
+		end
+	elseif drifting and math.abs(s.Slip) > DR.StartSlip then
+		s.DriftActive = true
+		s.DriftTime = 0
+		s.DriftAngle = math.abs(s.Slip)
+		push(events, "DriftStart")
+	end
 
 	local leanTarget = -math.atan(v * yawRate / g)
+	if drifting then
+		-- lean into the slide, opposite the tail
+		leanTarget = math.clamp(s.Slip * 0.6, -0.5, 0.5)
+	end
 	if input.NoHands and riding and math.abs(v) > 0.5 then
 		leanTarget += noise(s) * 0.06 * math.clamp(6 / math.abs(v), 0.4, 2)
 	end
@@ -463,10 +509,11 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	-- Hands (what the pose shows; tricks only count while moving)
 	s.Hands = if not riding then 0 elseif input.NoHands then 2 elseif input.OneHand then 1 else 0
 
-	-- Move along the ground
+	-- Move along the ground (along the travel direction; the wheels probe along the heading)
 	local dir = heading(s.Yaw)
+	local moveDir = heading(s.TravelYaw)
 	local horizontal = v * math.cos(s.Pitch) * STUDS * dt
-	local delta = dir * horizontal
+	local delta = moveDir * horizontal
 	local moved, normal, into, hitKind = sweepMove(s, spec, world, delta)
 	if normal then
 		impact(s, events, math.abs(v), into, hitKind)
@@ -477,6 +524,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		if tangent.Magnitude > 0.05 and into < 0.85 then
 			local tangentYaw = BikePhysics.YawOf(if v >= 0 then tangent.Unit else -tangent.Unit)
 			s.Yaw += wrap(tangentYaw - s.Yaw) * 0.5
+			s.TravelYaw += wrap(tangentYaw - s.TravelYaw) * 0.5
 		end
 	end
 	local target = s.Position + moved
@@ -505,7 +553,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		local vy = math.max(s.RearVy, -1)
 		s.Grounded = false
 		s.VerticalSpeed = vy - g * dt
-		s.AirVelocity = dir * (horizontalSpeed * STUDS)
+		s.AirVelocity = moveDir * (horizontalSpeed * STUDS)
 		s.Position = Vector3.new(target.X, predicted + half * math.sin(s.Pitch), target.Z)
 		s.Pitch += s.Wheelie
 		s.Wheelie = 0
@@ -549,7 +597,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	s.Distance += math.abs(v) * dt
 	s.WheelAngle = (s.WheelAngle + v / spec.WheelRadiusM * dt) % TAU
 	if s.Grounded then
-		s.Velocity = dir * (v * math.cos(s.Pitch) * STUDS) + UP * (v * math.sin(s.Pitch) * STUDS)
+		s.Velocity = moveDir * (v * math.cos(s.Pitch) * STUDS) + UP * (v * math.sin(s.Pitch) * STUDS)
 	else
 		s.Velocity = s.AirVelocity + UP * (s.VerticalSpeed * STUDS)
 	end
@@ -619,6 +667,13 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	local g = P.Gravity
 	s.AirTime += dt
 	s.VerticalSpeed -= g * dt
+	-- no drifting in the air: land facing where you're going
+	s.TravelYaw = s.Yaw
+	s.Slip = 0
+	if s.DriftActive then
+		s.DriftActive = false
+		push(events, "DriftEnd", s.DriftTime, math.deg(s.DriftAngle))
+	end
 	local riding = s.Crash <= 0
 
 	-- Pitch: pull back to rotate (backflip), brake to push the nose down, otherwise ease toward a

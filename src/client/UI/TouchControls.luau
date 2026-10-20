@@ -1,6 +1,6 @@
 --[[
 	TouchControls: riding buttons for phones and tablets (the thumbstick steers and also works as
-	gas). Gas, brake, wheelie and hop are held; one hand and no hands toggle; MODE cycles the assist.
+	gas). Gas, brake, wheelie, hop and drift are held; one hand and no hands toggle; MODE cycles the assist, CAM switches to first person.
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -61,10 +61,14 @@ function TouchControls.Init(gui: ScreenGui)
 	holdButton("BRAKE", C.Red, 72, UDim2.new(1, -180, 1, -200), "Brake")
 	holdButton("WHEELIE", C.Orange, 80, UDim2.new(1, -90, 1, -360), "Wheelie")
 	holdButton("HOP", C.Blue, 64, UDim2.new(1, -190, 1, -300), "Hop")
+	holdButton("DRIFT", C.Purple, 64, UDim2.new(1, -190, 1, -390), "Drift")
 	toggleButton("ONE HAND", UDim2.new(1, -270, 1, -380), "OneHand")
 	toggleButton("NO HANDS", UDim2.new(1, -270, 1, -340), "NoHands")
 	Theme.Button({ Text = "MODE", Size = UDim2.fromOffset(84, 34), Position = UDim2.new(1, -270, 1, -300), AnchorPoint = Vector2.new(0.5, 0.5), Color = C.Purple, TextSize = 14, Parent = holder, OnClick = function()
 		Input.Action:Fire("ModeUp")
+	end })
+	Theme.Button({ Text = "CAM", Size = UDim2.fromOffset(84, 34), Position = UDim2.new(1, -270, 1, -260), AnchorPoint = Vector2.new(0.5, 0.5), Color = C.Gray, TextSize = 14, Parent = holder, OnClick = function()
+		Input.Action:Fire("Camera")
 	end })
 	BikeController.Started:Connect(function()
 		holder.Visible = UserInputService.TouchEnabled

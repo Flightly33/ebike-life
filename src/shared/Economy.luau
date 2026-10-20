@@ -55,6 +55,14 @@ function Economy.Multiplier(bonus: Bonus): number
 end
 
 -- Lump sums for finished tricks (before the combo bonus)
+-- A drift's lump: longer and deeper pays more
+function Economy.DriftLump(seconds: number, degrees: number): number
+	if seconds < E.DriftLumpMin then
+		return 0
+	end
+	return math.floor(E.DriftLump * seconds ^ 1.15 * (1 + math.clamp(degrees, 0, 75) / 60))
+end
+
 function Economy.WheelieLump(seconds: number): number
 	if seconds < E.WheelieLumpMin then
 		return 0

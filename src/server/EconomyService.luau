@@ -31,6 +31,7 @@ type Tracker = {
 	ComboAt: number,
 	LastLand: number,
 	LastWheelieEnd: number,
+	LastDriftEnd: number?,
 	WheelieComboStep: number,
 	Popups: number, -- whole dollars paid since the last "+$" popup
 }
@@ -194,6 +195,20 @@ local function onTrick(player: Player, kind: any, value: any, extra: any, text: 
 			if seconds >= 3 then
 				notify(player, "Info", string.format("New best wheelie: %.1fs", seconds))
 			end
+		end
+	elseif kind == "DriftEnd" then
+		-- trust the server's clock over the client's; one drift per 0.3 s
+		local since = ride.DriftSince
+		local seconds = math.clamp(math.min(v, if since then now - since + 1 else v), 0, 12)
+		if now - (t.LastDriftEnd or 0) < 0.3 or text == "Failed" then
+			return
+		end
+		t.LastDriftEnd = now
+		local lump = Economy.DriftLump(seconds, x)
+		if lump > 0 then
+			payTrick(player, lump, string.format("Drift %.1fs · %d°", seconds, math.floor(math.clamp(x, 0, 75))))
+			bumpCombo(player, E.ComboDrift)
+			EconomyService.Trick:Fire(player, "Drift", seconds)
 		end
 	elseif kind == "Crash" then
 		t.Combo = 0

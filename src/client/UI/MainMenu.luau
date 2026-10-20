@@ -26,6 +26,7 @@ local HELP = {
 	"Riding pays: the faster you go, the more you earn. Tricks multiply it.",
 	"Wheelie: hold Shift (or Ctrl). Throttle lifts the front, the brake (S) brings it down. Stay in the green.",
 	"C = one hand, V = no hands. Q = bunny hop. In the air, hold Shift to backflip and steer to spin.",
+	"R + steer = drift (locks the rear brake; let go to straighten up). F = first person.",
 	"Wheelies and no-hands near cops fill their heat meter. A full meter is a wanted star and a chase.",
 	"Lose the cops (get out of sight) to escape and get paid. Stop next to them and you're busted.",
 	"Assist modes (M or 1-5): ECO goes far, TURBO goes hard. Customise them in Tuning → Ride Modes.",

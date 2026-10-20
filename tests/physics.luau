@@ -222,6 +222,52 @@ do
 	check(look.X > 0, "heading swung toward +X (right of -Z)")
 end
 
+print("== drift: lock the rear, swing the tail, pay on the way out")
+do
+	local spec, state = spawn("ridge_ht")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }))
+	local before = kmh(state)
+	local maxSlip, started, ended = 0, false, nil
+	local yaw0, travel0 = state.Yaw, state.TravelYaw
+	local events = ride(spec, state, Modes.Defaults.TURBO, flat, 1.2, input({ Drift = true, Steer = 1 }), function(_, s)
+		maxSlip = math.max(maxSlip, math.abs(s.Slip))
+	end)
+	for _, e in events do
+		if e.Kind == "DriftStart" then
+			started = true
+		end
+	end
+	local during = kmh(state)
+	local swung = yaw0 - state.Yaw
+	local bent = travel0 - state.TravelYaw
+	events = ride(spec, state, Modes.Defaults.TURBO, flat, 1.5, input({ Throttle = 1 }))
+	for _, e in events do
+		if e.Kind == "DriftEnd" then
+			ended = e
+		end
+	end
+	print(string.format("  %.0f -> %.0f km/h, heading swung %.0f deg, line bent %.0f deg, max slip %.0f deg", before, during, math.deg(swung), math.deg(bent), math.deg(maxSlip)))
+	check(started, "a drift starts")
+	check(maxSlip > 0.3 and maxSlip < Config.Drift.SpinOut, "the tail swings out without spinning")
+	check(swung > bent, "the heading turns faster than the line (that's the slide)")
+	check(during < before - 2, "sliding scrubs speed")
+	check(ended ~= nil and (ended.Value or 0) > 0.3, "releasing ends the drift with its time")
+	check(math.abs(state.Slip) < 0.1, "the line snaps back to the heading")
+	-- holding it too long at full lock spins you out
+	spec, state = spawn("ridge_ht")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }))
+	local crashed = false
+	ride(spec, state, Modes.Defaults.TURBO, flat, 4, input({ Drift = true, Steer = 1, Throttle = 1 }), function(_, s)
+		crashed = crashed or s.Crash > 0
+	end)
+	check(crashed or state.Speed < 2, "holding full lock spins you out (or slides to a stop)")
+	-- too slow to drift
+	spec, state = spawn("ridge_ht")
+	ride(spec, state, Modes.Defaults.OFF, flat, 1, input({ Throttle = 0.3 }))
+	ride(spec, state, Modes.Defaults.OFF, flat, 1, input({ Drift = true, Steer = 1 }))
+	check(math.abs(state.Slip) < 0.05, "no drifting at walking pace")
+end
+
 print("== wheelie: hold the key, stay up, loop out if ignored")
 do
 	for _, id in { "metro_c1", "ridge_ht", "storm_x", "haul_lt" } do

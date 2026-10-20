@@ -42,6 +42,8 @@ export type ClientState = {
 	Surface: string,
 	Crash: boolean,
 	Kmh: number,
+	Drift: boolean,
+	Slip: number,
 }
 
 export type Ride = {
@@ -56,6 +58,7 @@ export type Ride = {
 	State: ClientState,
 	StateAt: number,
 	WheelieSince: number?,
+	DriftSince: number?,
 	ParkedAt: number,
 	Connections: { RBXScriptConnection },
 }
@@ -81,6 +84,8 @@ local function idleState(battery: number): ClientState
 		Surface = "Road",
 		Crash = false,
 		Kmh = 0,
+		Drift = false,
+		Slip = 0,
 	}
 end
 
@@ -280,6 +285,7 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 		State = idleState(1),
 		StateAt = 0,
 		WheelieSince = nil,
+		DriftSince = nil,
 		ParkedAt = os.clock(),
 		Connections = {},
 	}
@@ -379,6 +385,8 @@ local function readState(raw: any): ClientState?
 		Surface = if type(raw.Sf) == "string" and #raw.Sf < 16 then raw.Sf else "Road",
 		Crash = raw.Cr == true,
 		Kmh = n(raw.K, 0, 200),
+		Drift = raw.D == true,
+		Slip = n(raw.Sl, -1.6, 1.6),
 	}
 end
 
@@ -424,6 +432,12 @@ function BikeService.Init()
 		setAttribute(model, "Crash", state.Crash)
 		setAttribute(model, "Power", math.floor(state.Power * 10 + 0.5) / 10)
 		setAttribute(model, "Wheelie", state.Wheelie)
+		setAttribute(model, "Drift", if state.Drift then math.floor(state.Slip * 10 + 0.5) / 10 else 0)
+		if state.Drift and not ride.DriftSince then
+			ride.DriftSince = now
+		elseif not state.Drift then
+			ride.DriftSince = nil
+		end
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)

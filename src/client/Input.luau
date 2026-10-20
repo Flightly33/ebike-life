@@ -3,9 +3,9 @@
 
 	Keyboard (as on the reference HUD): W gas, S brake, A/D steer, Shift or Ctrl wheelie, C one hand,
 	V no hands, Space get off (Roblox's own jump does that), plus Q bunny hop (hold to preload),
-	M ride mode, 1-5 pick a mode, H bell.
-	Gamepad: RT gas, LT brake, left stick steer, X wheelie, Y hop, d-pad left/right one/no hands,
-	RB/LB mode, A get off. Touch: the on-screen riding buttons (UI/TouchControls) and the thumbstick.
+	M ride mode, 1-5 pick a mode, H bell, R drift (locks the rear brake), F first person.
+	Gamepad: RT gas, LT brake, left stick steer, X wheelie, Y hop, B drift, d-pad left/right one/no
+	hands, RB/LB mode, R3 first person, A get off. Touch: the on-screen riding buttons (UI/TouchControls) and the thumbstick.
 ]]
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -19,7 +19,7 @@ local Signal = require(Shared.Signal)
 
 local Input = {}
 
-Input.Action = Signal.new() -- ("ModeUp" | "ModeDown" | "Mode" (index) | "Bell")
+Input.Action = Signal.new() -- ("ModeUp" | "ModeDown" | "Mode" (index) | "Bell" | "Camera")
 
 -- Held states set by the touch buttons
 Input.Touch = {
@@ -27,6 +27,7 @@ Input.Touch = {
 	Brake = false,
 	Wheelie = false,
 	Hop = false,
+	Drift = false,
 	OneHand = false,
 	NoHands = false,
 }
@@ -72,6 +73,13 @@ local function gamepad(): (number, number, number, boolean, boolean, boolean, bo
 	return gas, brake, steer, wheelie, hop, oneHand, noHands
 end
 
+local function gamepadDrift(): boolean
+	if not UserInputService:GetGamepadConnected(Enum.UserInputType.Gamepad1) then
+		return false
+	end
+	return UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonB)
+end
+
 -- The riding input right now (focus in a text box ignores the keyboard)
 function Input.Read(): BikePhysics.Input
 	local input = BikePhysics.Idle()
@@ -110,6 +118,7 @@ function Input.Read(): BikePhysics.Input
 	input.Hop = down(Enum.KeyCode.Q) or gpHop or t.Hop
 	input.OneHand = down(Enum.KeyCode.C) or gpOne or t.OneHand
 	input.NoHands = down(Enum.KeyCode.V) or gpNo or t.NoHands
+	input.Drift = down(Enum.KeyCode.R) or gamepadDrift() or t.Drift
 	return input
 end
 
@@ -128,6 +137,8 @@ function Input.SetRiding(riding: boolean)
 				Input.Action:Fire("ModeDown")
 			elseif key == Enum.KeyCode.H then
 				Input.Action:Fire("Bell")
+			elseif key == Enum.KeyCode.F or key == Enum.KeyCode.ButtonR3 then
+				Input.Action:Fire("Camera")
 			else
 				local index = table.find({ Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five }, key)
 				if index then
@@ -135,7 +146,7 @@ function Input.SetRiding(riding: boolean)
 				end
 			end
 			return Enum.ContextActionResult.Pass
-		end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.M, Enum.KeyCode.H, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.ButtonR1, Enum.KeyCode.ButtonL1)
+		end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.M, Enum.KeyCode.H, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.ButtonR1, Enum.KeyCode.ButtonL1, Enum.KeyCode.F, Enum.KeyCode.ButtonR3)
 	else
 		ContextActionService:UnbindAction("EB_Ride")
 		for key in Input.Touch do

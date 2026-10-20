@@ -1,7 +1,7 @@
 --[[
 	Heat: the wanted system, as pure rules the PoliceService drives.
 
-	Cops that can see you fill a heat meter while you break the rules: wheelies and no-hands riding
+	Cops that can see you fill a heat meter while you break the rules: wheelies, drifts and no-hands riding
 	(the main way to get chased), speeding past the bike's legal limit, fast riding on the pavement,
 	running red lights, jumps and flips, and hitting a cop car. A full meter is a wanted star; each
 	star needs a bigger meter than the last. During a chase, staying in sight adds stars over time.
@@ -28,6 +28,7 @@ export type State = {
 export type Offences = {
 	Wheelie: boolean,
 	NoHands: boolean,
+	Drift: boolean,
 	SpeedOver: number, -- km/h over the legal limit (0 when not speeding)
 	Sidewalk: boolean,
 }
@@ -39,7 +40,7 @@ function Heat.new(): State
 end
 
 function Heat.NoOffences(): Offences
-	return { Wheelie = false, NoHands = false, SpeedOver = 0, Sidewalk = false }
+	return { Drift = false, Wheelie = false, NoHands = false, SpeedOver = 0, Sidewalk = false }
 end
 
 -- Heat for the next star
@@ -56,6 +57,9 @@ function Heat.Rate(offences: Offences): number
 	local rate = 0
 	if offences.Wheelie then
 		rate += C.Wheelie
+	end
+	if offences.Drift then
+		rate += C.Drift
 	end
 	if offences.NoHands then
 		rate += C.NoHands

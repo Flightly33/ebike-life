@@ -387,6 +387,7 @@ local function tick(dt: number)
 			local moving = kmh > 6
 			offences.Wheelie = state.Wheelie and moving
 			offences.NoHands = state.Hands == 2 and moving
+			offences.Drift = state.Drift and moving
 			if state.Surface == "Road" then
 				offences.SpeedOver = math.max(0, kmh - ride.Bike.LegalKmh)
 			end
