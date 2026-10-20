@@ -148,6 +148,7 @@ function Props.Streetscape(parent: Instance, a: Vector3, b: Vector3, rng: Random
 		if trees and i < count then
 			local mid = a:Lerp(b, (i + 1) / (count + 1))
 			Props.Tree(parent, mid, rng, rng:NextNumber(0.75, 1.0))
+			PartKit.Box(parent, "TreeGrate", Vector3.new(4, 0.08, 4), CFrame.new(mid + Vector3.new(0, 0.04, 0)), Color3.fromRGB(46, 44, 42), Enum.Material.DiamondPlate, DECOR)
 		end
 	end
 	if rng:NextNumber() < 0.5 then

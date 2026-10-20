@@ -17,7 +17,7 @@ local Theme = require(script.Parent.Theme)
 local Minimap = {}
 
 local New = Theme.New
-local SCALE = 0.26 -- pixels per stud
+local SCALE = 0.325 -- pixels per stud
 local SIZE = 150
 
 export type Minimap = {

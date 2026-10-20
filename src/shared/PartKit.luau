@@ -181,6 +181,26 @@ function PartKit.PlaceStatic(model: Instance, cframe: CFrame)
 	end
 end
 
+-- Scales a built (static) model about the world origin: positions, sizes, attachments, light
+-- ranges, prompt distances; SurfaceGui text keeps its size on screen
+function PartKit.Scale(root: Instance, k: number)
+	for _, d in root:GetDescendants() do
+		if d:IsA("BasePart") then
+			local cf = d.CFrame
+			d.Size *= k
+			d.CFrame = CFrame.new(cf.Position * k) * (cf - cf.Position)
+		elseif d:IsA("Attachment") then
+			d.Position *= k
+		elseif d:IsA("PointLight") or d:IsA("SpotLight") or d:IsA("SurfaceLight") then
+			d.Range *= k
+		elseif d:IsA("SurfaceGui") then
+			d.PixelsPerStud /= k
+		elseif d:IsA("ProximityPrompt") then
+			d.MaxActivationDistance *= k
+		end
+	end
+end
+
 function PartKit.Model(parent: Instance?, name: string): Model
 	local m = Instance.new("Model")
 	m.Name = name

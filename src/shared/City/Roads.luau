@@ -5,8 +5,11 @@
 	above it (bikes' ground rays pass through them).
 ]]
 
-local Layout = require(script.Parent.Layout)
+local LayoutModule = require(script.Parent.Layout)
+-- Built in design units (1 stud = 0.28 m); the Builder shrinks the finished city to WORLD_SCALE
+local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
+local Detail = require(script.Parent.Detail)
 local PartKit = require(script.Parent.Parent.PartKit)
 
 local Roads = {}
@@ -115,6 +118,18 @@ function Roads.Build(city: Instance)
 			local size = if edge.Axis == "X" then Vector3.new(length, 0, edge.Width) else Vector3.new(edge.Width, 0, length)
 			slab(roads, "Road", center, size)
 			markings(marks, p0, p1, edge.Kind, edge.Width, edge.Lanes)
+			-- manholes in the lanes, drains along both kerbs
+			local side = Vector3.new(-dir.Z, 0, dir.X)
+			local laneW = edge.Width / (edge.Lanes * 2)
+			Detail.Manhole(marks, Vector3.new(center.X, MARK_Y, center.Z) + side * laneW * 0.5 + dir * (length * 0.18))
+			Detail.Manhole(marks, Vector3.new(center.X, MARK_Y, center.Z) - side * laneW * 0.5 - dir * (length * 0.3))
+			local drains = math.floor(length / 70)
+			for k = 1, drains do
+				for _, sgn in { -1, 1 } do
+					local p = Vector3.new(p0.X, MARK_Y, p0.Z) + dir * (k * length / (drains + 1)) + side * sgn * (edge.Width / 2 - 1)
+					Detail.Drain(marks, CFrame.lookAt(p, p + dir))
+				end
+			end
 			-- crosswalks and stop lines where there are lights
 			local lightsA, lightsB = Layout.HasLights(na), Layout.HasLights(nb)
 			if lightsA then
@@ -125,6 +140,18 @@ function Roads.Build(city: Instance)
 			end
 			-- stop lines across the lanes arriving at each lit end
 			local right = Vector3.new(-dir.Z, 0, dir.X)
+			-- lane arrows before the stop lines on the avenues
+			if edge.Kind == "Avenue" then
+				for lane = 1, edge.Lanes do
+					local o = laneW * (lane - 0.5)
+					if lightsB then
+						Detail.Arrow(marks, Vector3.new(p1.X, MARK_Y, p1.Z) - dir * 24 + side * o, dir, if lane == 1 then -1 else 0, C.White)
+					end
+					if lightsA then
+						Detail.Arrow(marks, Vector3.new(p0.X, MARK_Y, p0.Z) + dir * 24 - side * o, -dir, if lane == 1 then -1 else 0, C.White)
+					end
+				end
+			end
 			if lightsB then
 				local s = p1 - dir * 12
 				local from, to = s + right * 0.6, s + right * (edge.Width / 2 - 0.6)

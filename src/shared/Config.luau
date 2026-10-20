@@ -1,18 +1,20 @@
 --[[
 	Config: every tuning number in one place.
 
-	Units: physics runs in SI (metres, m/s, kg, W, N); the world is in studs. Roblox's own conversion is
-	1 stud = 0.28 m, which makes 1 stud/s = 1.008 km/h. Bikes are drawn a little smaller than true size
-	(VISUAL_STUDS_PER_METER) so they sit right under Roblox avatars, which are short for their stud count.
+	Units: physics runs in SI (metres, m/s, kg, W, N); the world is in studs. The whole game shares
+	one scale, 1 m = 0.8 / 0.28 ≈ 2.86 studs (1 stud = 0.35 m): Roblox avatars are about 5.2 studs
+	tall, a 1.8 m person at that scale, so the bikes, cars and city all match the player. The city
+	is authored in Roblox's standard units (1 stud = 0.28 m) and shrunk by WORLD_SCALE.
 ]]
 
 local Config = {}
 
-Config.METERS_PER_STUD = 0.28
-Config.STUDS_PER_METER = 1 / 0.28
-Config.KMH_PER_STUD_PER_SECOND = 0.28 * 3.6
--- Bike and car models are built from real dimensions in metres at this scale
-Config.VISUAL_STUDS_PER_METER = 0.8 / 0.28
+Config.WORLD_SCALE = 0.8
+Config.METERS_PER_STUD = 0.28 / Config.WORLD_SCALE
+Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
+Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
+-- Bike and car models are built from real dimensions in metres at this scale (the same one)
+Config.VISUAL_STUDS_PER_METER = Config.STUDS_PER_METER
 
 Config.BRAND = "Flightly"
 Config.DEALERSHIP = "Flighty Mechanics"
@@ -21,8 +23,8 @@ Config.GAME_NAME = "E-Bike Life"
 Config.Physics = {
 	Gravity = 9.81, -- m/s², real
 	AirDensity = 1.2, -- kg/m³
-	StepHeight = 1.5, -- studs a wheel rolls up without stopping (curbs are 0.5)
-	SnapDistance = 0.6, -- studs the ground may drop away before the bike counts as airborne
+	StepHeight = 1.2, -- studs a wheel rolls up without stopping (curbs are 0.4)
+	SnapDistance = 0.5, -- studs the ground may drop away before the bike counts as airborne
 	MaxSteer = 0.55, -- rad of handlebar at walking pace
 	MinSteer = 0.07, -- rad at full speed (bikes turn by leaning at speed)
 	SteerRate = 4.5, -- how fast the bars follow the input (1/s)
@@ -106,7 +108,7 @@ Config.Economy = {
 }
 
 Config.Police = {
-	SightRange = 230, -- studs a cop notices you from
+	SightRange = 184, -- studs a cop notices you from
 	PatrolCount = 6,
 	MaxPursuers = 5,
 	PatrolSpeed = 13, -- m/s (~47 km/h)
@@ -128,11 +130,11 @@ Config.Police = {
 	StarEvery = 50, -- seconds of being seen in a chase that add a star
 	EvadeBase = 7, -- seconds out of sight to escape at one star...
 	EvadePerStar = 2.5, -- ...plus this per extra star
-	LoseRange = 420, -- studs: further than this always counts as out of sight
-	BustRange = 17, -- studs
+	LoseRange = 336, -- studs: further than this always counts as out of sight
+	BustRange = 14, -- studs
 	BustKmh = 12, -- slower than this near a cop and the cuffs come out
 	BustTime = 2.6,
-	FootBustRange = 70,
+	FootBustRange = 56,
 	FinePercent = 0.1,
 	FineMin = 25,
 	FineMax = 20000,
@@ -157,7 +159,7 @@ Config.Lights = {
 }
 
 Config.Bikes = {
-	DespawnDistance = 900, -- an empty bike this far from its owner goes back to the garage
+	DespawnDistance = 720, -- an empty bike this far from its owner goes back to the garage
 	IdleDespawn = 300, -- seconds an empty bike may sit before it goes back
 	StateRate = 10, -- client state updates per second
 }

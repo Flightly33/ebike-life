@@ -15,12 +15,13 @@
 	The model's "Kind" attribute ("Cop" or "Car") tells the bike's collision sweep what it hit.
 ]]
 
+local Config = require(script.Parent.Parent.Config)
 local PartKit = require(script.Parent.Parent.PartKit)
 local MeshKit = require(script.Parent.MeshKit)
 
 local CarModel = {}
 
-CarModel.SCALE = 3.2 -- studs per metre for cars (a touch under true scale, like the bikes)
+CarModel.SCALE = Config.STUDS_PER_METER -- studs per metre, the scale of everything else
 local S = CarModel.SCALE
 local SMOOTH = Enum.Material.SmoothPlastic
 local GLASS = Enum.Material.Glass
@@ -100,6 +101,10 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 	model.Name = kind
 	model:SetAttribute("Kind", if kind == "Police" then "Cop" else "Car")
 	model:SetAttribute("CarKind", kind)
+	if not (options ~= nil and options.Static == true) then
+		-- with streaming on, a vehicle always arrives whole
+		model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	end
 	local paint = if options and options.Color then options.Color elseif kind == "Police" then Color3.fromRGB(18, 18, 20) elseif kind == "Taxi" then Color3.fromRGB(250, 196, 18) else Color3.fromRGB(200, 30, 35)
 	local police = kind == "Police"
 	local white = Color3.fromRGB(242, 242, 242)

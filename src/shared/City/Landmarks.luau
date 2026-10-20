@@ -6,7 +6,9 @@
 	TuningPrompt (the service bay). Showroom bikes are static BikeModels on turntables.
 ]]
 
-local Layout = require(script.Parent.Layout)
+local LayoutModule = require(script.Parent.Layout)
+-- Built in design units (1 stud = 0.28 m); the Builder shrinks the finished city to WORLD_SCALE
+local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local PartKit = require(script.Parent.Parent.PartKit)
 local Bikes = require(script.Parent.Parent.Bikes)
@@ -41,7 +43,7 @@ end
 --------------------------------------------------------------------------------
 -- Flighty Mechanics
 --------------------------------------------------------------------------------
-function Landmarks.Dealership(parent: Instance, block: Layout.Block, rng: Random)
+function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: Random)
 	local model = PartKit.Model(parent, "FlightyMechanics")
 	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
 	local cx = (x0 + x1) / 2
@@ -95,6 +97,7 @@ function Landmarks.Dealership(parent: Instance, block: Layout.Block, rng: Random
 		PartKit.Post(model, "Turntable", 14, 1.0, Vector3.new(x, deckY, z), Color3.fromRGB(30, 32, 36), SMOOTH)
 		PartKit.Post(model, "TurntableRing", 14.4, 0.3, Vector3.new(x, deckY + 0.85, z), Bikes.RarityColors[bike.Rarity], Enum.Material.Neon, DECOR)
 		local display = BikeModel.Build(bike, nil, { Static = true })
+		PartKit.Scale(display, 1 / Config.WORLD_SCALE) -- vehicles are true size; the city shrinks later
 		PartKit.PlaceStatic(display, CFrame.new(x, deckY + 1.0, z) * CFrame.Angles(0, math.rad(if row == 0 then 35 else -35), 0))
 		display.Name = "Display_" .. bike.Id
 		display.Parent = model
@@ -152,7 +155,7 @@ end
 --------------------------------------------------------------------------------
 -- Police station
 --------------------------------------------------------------------------------
-function Landmarks.Police(parent: Instance, block: Layout.Block, rng: Random)
+function Landmarks.Police(parent: Instance, block: LayoutModule.Block, rng: Random)
 	local model = PartKit.Model(parent, "PoliceStation")
 	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
 	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
@@ -174,6 +177,7 @@ function Landmarks.Police(parent: Instance, block: Layout.Block, rng: Random)
 	-- parked cruisers
 	for i = 0, 3 do
 		local car = CarModel.Build("Police", { Static = true })
+		PartKit.Scale(car, 1 / Config.WORLD_SCALE) -- vehicles are true size; the city shrinks later
 		PartKit.PlaceStatic(car, CFrame.new(x0 + 30 + i * 26, floorY, z1 - 40) * CFrame.Angles(0, math.pi, 0))
 		car.Parent = model
 		PartKit.Box(model, "Bay", Vector3.new(0.4, 0.05, 24), CFrame.new(x0 + 17 + i * 26, floorY + 0.03, z1 - 40), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
@@ -187,7 +191,7 @@ end
 --------------------------------------------------------------------------------
 -- City plaza: fountain, bike statue, steps up to a terrace with a street kicker
 --------------------------------------------------------------------------------
-function Landmarks.Plaza(parent: Instance, block: Layout.Block, rng: Random)
+function Landmarks.Plaza(parent: Instance, block: LayoutModule.Block, rng: Random)
 	local model = PartKit.Model(parent, "Plaza")
 	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
 	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
@@ -205,6 +209,7 @@ function Landmarks.Plaza(parent: Instance, block: Layout.Block, rng: Random)
 	local sx, sz = cx + 80, cz - 70
 	PartKit.Box(model, "Plinth", Vector3.new(16, 8, 10), CFrame.new(sx, fy + 4, sz), Color3.fromRGB(80, 82, 88), Enum.Material.Granite)
 	local statue = BikeModel.Build(Bikes.List[#Bikes.List], { Frame = "gold", Accent = "gold", Rims = "gold" }, { Static = true })
+	PartKit.Scale(statue, 1 / Config.WORLD_SCALE) -- vehicles are true size; the city shrinks later
 	PartKit.PlaceStatic(statue, CFrame.new(sx, fy + 8.9, sz) * CFrame.Angles(0, math.rad(60), 0) * CFrame.Angles(math.rad(25), 0, 0))
 	statue.Name = "Statue"
 	statue:SetAttribute("Gold", true)
@@ -277,7 +282,7 @@ end
 --------------------------------------------------------------------------------
 -- Jump Park: a mega ramp with a roll-in tower, a dirt jump line and a row of wooden kickers
 --------------------------------------------------------------------------------
-function Landmarks.JumpPark(parent: Instance, block: Layout.Block, rng: Random)
+function Landmarks.JumpPark(parent: Instance, block: LayoutModule.Block, rng: Random)
 	local model = PartKit.Model(parent, "JumpPark")
 	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
 	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
@@ -354,7 +359,7 @@ end
 --------------------------------------------------------------------------------
 -- Central Park (two blocks): lawns, paths, a pond, lots of trees, benches and a few small hills
 --------------------------------------------------------------------------------
-function Landmarks.Park(parent: Instance, blocks: { Layout.Block }, rng: Random)
+function Landmarks.Park(parent: Instance, blocks: { LayoutModule.Block }, rng: Random)
 	local model = PartKit.Model(parent, "CentralPark")
 	for _, block in blocks do
 		local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ

@@ -3,13 +3,17 @@
 	map/City.rbxm and a runtime rebuild are identical. Bake: lune run tools/lune/bake_city.luau
 ]]
 
-local Layout = require(script.Parent.Layout)
+local LayoutModule = require(script.Parent.Layout)
+-- Built in design units (1 stud = 0.28 m); the Builder shrinks the finished city to WORLD_SCALE
+local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local Roads = require(script.Parent.Roads)
 local Buildings = require(script.Parent.Buildings)
 local Landmarks = require(script.Parent.Landmarks)
 local Countryside = require(script.Parent.Countryside)
+local Detail = require(script.Parent.Detail)
 local PartKit = require(script.Parent.Parent.PartKit)
+local Config = require(script.Parent.Parent.Config)
 
 local Builder = {}
 
@@ -95,6 +99,74 @@ local function streetscape(city: Instance, rng: Random)
 	end
 end
 
+-- Street names for the grid lines (x = Line(i) runs north-south, z = Line(j) runs east-west)
+local NS_NAMES = { "Maple Ave", "Cedar Ave", "Birch Ave", "Flightly Blvd", "Elm Ave", "Aspen Ave", "Willow Ave" }
+local EW_NAMES = { "1st St", "2nd St", "3rd St", "Volt Ave", "5th St", "6th St", "7th St" }
+
+local BUSY: { [string]: boolean } = { Downtown = true, Midtown = true, Plaza = true, Dealership = true, Police = true }
+
+-- Benches, bins, racks, meters, news boxes and bollards along the pavements; bus stops on the
+-- avenues; street-name signs at the crossings
+local function furniture(city: Instance, rng: Random)
+	local folder = PartKit.Folder(city, "Furniture")
+	local newsColors = { Color3.fromRGB(200, 40, 40), Color3.fromRGB(40, 80, 170), Color3.fromRGB(240, 200, 40), Color3.fromRGB(40, 140, 80) }
+	for _, block in Layout.Blocks do
+		if not BUSY[block.District] then
+			continue
+		end
+		local inset = 4.5 -- just inside the kerb
+		local sides = {
+			{ a = Vector3.new(block.MinX + 16, Y, block.MinZ + inset), b = Vector3.new(block.MaxX - 16, Y, block.MinZ + inset), road = Vector3.new(0, 0, -1), line = block.Bz },
+			{ a = Vector3.new(block.MinX + 16, Y, block.MaxZ - inset), b = Vector3.new(block.MaxX - 16, Y, block.MaxZ - inset), road = Vector3.new(0, 0, 1), line = block.Bz + 1 },
+			{ a = Vector3.new(block.MinX + inset, Y, block.MinZ + 16), b = Vector3.new(block.MinX + inset, Y, block.MaxZ - 16), road = Vector3.new(-1, 0, 0), line = block.Bx },
+			{ a = Vector3.new(block.MaxX - inset, Y, block.MinZ + 16), b = Vector3.new(block.MaxX - inset, Y, block.MaxZ - 16), road = Vector3.new(1, 0, 0), line = block.Bx + 1 },
+		}
+		for _, side in sides do
+			local length = (side.b - side.a).Magnitude
+			local dir = (side.b - side.a).Unit
+			local avenue = Layout.IsAvenue(side.line)
+			-- the lamps and trees sit every 40 studs from Props.Streetscape; furniture goes between
+			local slots = math.floor(length / 40)
+			for k = 1, slots - 1 do
+				local p = side.a + dir * (k * length / slots + 12)
+				local face = CFrame.lookAt(p, p + side.road)
+				local r = rng:NextNumber()
+				if avenue and k == math.floor(slots / 2) then
+					Detail.BusStop(folder, CFrame.lookAt(p - side.road * 2.5, p - side.road * 2.5 + side.road), tostring(rng:NextInteger(2, 48)))
+				elseif r < 0.3 then
+					Props.Bench(folder, face * CFrame.new(0, 0, 3))
+					Detail.Bin(folder, (face * CFrame.new(5, 0, 3)).Position)
+				elseif r < 0.5 and block.District == "Midtown" then
+					Detail.BikeRack(folder, face * CFrame.new(0, 0, 5), 4)
+				elseif r < 0.65 and block.District == "Downtown" then
+					Detail.NewsBox(folder, face * CFrame.new(-1.5, 0, 4) * CFrame.Angles(0, math.pi, 0), newsColors[rng:NextInteger(1, #newsColors)])
+					Detail.NewsBox(folder, face * CFrame.new(1, 0, 4) * CFrame.Angles(0, math.pi, 0), newsColors[rng:NextInteger(1, #newsColors)])
+				elseif r < 0.8 then
+					Detail.Bin(folder, (face * CFrame.new(0, 0, 1)).Position)
+				end
+				if block.District == "Midtown" and not avenue then
+					Detail.ParkingMeter(folder, p + side.road * 1.2 - dir * 6)
+				end
+			end
+			-- bollards at both ends of busy sides
+			for _, endPoint in { side.a, side.b } do
+				for k = 0, 2 do
+					Detail.Bollard(folder, endPoint - dir * (k * 3.2) * (if endPoint == side.a then -1 else 1) + side.road * 1.6)
+				end
+			end
+		end
+	end
+	-- street-name signs on the north-east corner of every crossing
+	for _, node in Layout.Nodes do
+		if node.Grid and node.I and node.J then
+			local wx = Layout.LineWidth(node.I)
+			local wz = Layout.LineWidth(node.J)
+			local base = node.Position + Vector3.new(wx / 2 + 3.5, Y - Layout.ROAD_Y, -(wz / 2 + 3.5))
+			Detail.StreetSign(folder, base, NS_NAMES[node.I + 1], Vector3.new(0, 0, 1), EW_NAMES[node.J + 1])
+		end
+	end
+end
+
 local function chargers(city: Instance)
 	local folder = PartKit.Folder(city, "Chargers")
 	for _, position in Layout.Chargers do
@@ -157,9 +229,12 @@ function Builder.Build(): Model
 	end
 	Landmarks.Park(blocks, parkBlocks, rng)
 	streetscape(city, rng)
+	furniture(city, rng)
 	chargers(city)
 	Countryside.Build(city, rng)
 	spawnPoint(city)
+	-- Built at Roblox's standard scale; shrink to the avatar scale the game runs at
+	PartKit.Scale(city, Config.WORLD_SCALE)
 	return city
 end
 

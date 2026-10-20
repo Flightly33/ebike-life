@@ -29,8 +29,11 @@
     },
     "Workspace": {
       "$properties": {
-        "StreamingEnabled": false,
-        "Gravity": 196.2
+        "StreamingEnabled": true,
+        "Gravity": 196.2,
+        "StreamingMinRadius": 160,
+        "StreamingTargetRadius": 800,
+        "StreamOutBehavior": "Opportunistic"
       },
       "City": {
         "$path": "map/City.rbxm"
@@ -42,10 +45,26 @@
         "ClockTime": 14.2,
         "GeographicLatitude": 38,
         "Brightness": 3,
-        "Ambient": [0.36, 0.36, 0.4],
-        "OutdoorAmbient": [0.55, 0.56, 0.6],
-        "ColorShift_Top": [1, 0.97, 0.9],
-        "ColorShift_Bottom": [0.55, 0.6, 0.7],
+        "Ambient": [
+          0.36,
+          0.36,
+          0.4
+        ],
+        "OutdoorAmbient": [
+          0.55,
+          0.56,
+          0.6
+        ],
+        "ColorShift_Top": [
+          1,
+          0.97,
+          0.9
+        ],
+        "ColorShift_Bottom": [
+          0.55,
+          0.6,
+          0.7
+        ],
         "EnvironmentDiffuseScale": 1,
         "EnvironmentSpecularScale": 1,
         "ExposureCompensation": 0.1,
@@ -57,8 +76,16 @@
         "$properties": {
           "Density": 0.3,
           "Offset": 0.12,
-          "Color": [0.78, 0.84, 0.92],
-          "Decay": [0.55, 0.65, 0.8],
+          "Color": [
+            0.78,
+            0.84,
+            0.92
+          ],
+          "Decay": [
+            0.55,
+            0.65,
+            0.8
+          ],
           "Glare": 0.15,
           "Haze": 1.1
         }
@@ -85,7 +112,11 @@
           "Brightness": 0.02,
           "Contrast": 0.08,
           "Saturation": 0.12,
-          "TintColor": [1, 0.99, 0.97]
+          "TintColor": [
+            1,
+            0.99,
+            0.97
+          ]
         }
       },
       "SunRays": {

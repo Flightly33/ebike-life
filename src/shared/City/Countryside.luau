@@ -4,8 +4,11 @@
 	the map edge.
 ]]
 
-local Layout = require(script.Parent.Layout)
+local LayoutModule = require(script.Parent.Layout)
+-- Built in design units (1 stud = 0.28 m); the Builder shrinks the finished city to WORLD_SCALE
+local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
+local Detail = require(script.Parent.Detail)
 local PartKit = require(script.Parent.Parent.PartKit)
 
 local Countryside = {}
@@ -183,6 +186,47 @@ function Countryside.Build(city: Instance, rng: Random)
 		if (outside or verge) and not Countryside.Blocked(x, zz, 6) then
 			Props.Tree(woods, Vector3.new(x, 0, zz), rng, rng:NextNumber(1.1, 1.8))
 			placed += 1
+		end
+	end
+
+	-- Wind turbines on the hills outside the ring and along the east fields
+	local wind = PartKit.Folder(folder, "WindFarm")
+	local turbines = 0
+	local attempts = 0
+	while turbines < 9 and attempts < 400 do
+		attempts += 1
+		local x = rng:NextNumber(-Layout.WORLD_HALF + 80, Layout.WORLD_HALF - 80)
+		local zz = rng:NextNumber(-Layout.WORLD_HALF + 80, Layout.WORLD_HALF - 80)
+		if Countryside.RingDistance(x, zz) > 140 and not Countryside.Blocked(x, zz, 40) then
+			Detail.WindTurbine(wind, Vector3.new(x, 0, zz), rng:NextNumber(150, 190), math.rad(200) + rng:NextNumber(-0.2, 0.2))
+			turbines += 1
+		end
+	end
+
+	-- Post-and-rail fences along the country roads, with hay bales in the verges
+	local fences = PartKit.Folder(folder, "Fences")
+	for _, edge in Layout.Edges do
+		if edge.Kind == "Rural" then
+			local a = Layout.Nodes[edge.A].Position
+			local b = Layout.Nodes[edge.B].Position
+			local dir = edge.Direction
+			local side = Vector3.new(-dir.Z, 0, dir.X)
+			local start = a + dir * (Layout.AVENUE_WIDTH + 40)
+			local finish = b - dir * (Layout.RING_WIDTH + 30)
+			local length = (finish - start).Magnitude
+			local pieces = math.floor(length / 120)
+			for k = 0, pieces - 1 do
+				local p0 = start + dir * (k * 120 + 6)
+				local p1 = start + dir * (k * 120 + 114)
+				for _, sgn in { -1, 1 } do
+					local off = side * sgn * (edge.Width / 2 + 9)
+					Detail.FarmFence(fences, Vector3.new(p0.X, 0, p0.Z) + off, Vector3.new(p1.X, 0, p1.Z) + off)
+				end
+				if rng:NextNumber() < 0.35 then
+					local sgn = if rng:NextNumber() < 0.5 then -1 else 1
+					Detail.HayBale(fences, Vector3.new(p0.X, 0, p0.Z) + dir * 50 + side * sgn * (edge.Width / 2 + 18), rng:NextNumber(0, math.pi))
+				end
+			end
 		end
 	end
 

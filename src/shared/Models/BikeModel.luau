@@ -767,6 +767,10 @@ function BikeModel.Build(bike: Bikes.Bike, choice: PaintChoice?, options: Option
 	end
 
 	model:SetAttribute("BikeId", bike.Id)
+	if not (options ~= nil and options.Static == true) then
+		-- with streaming on, a vehicle always arrives whole
+		model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	end
 	BikeModel.ApplyPaint(model, bike, choice)
 	return model
 end
