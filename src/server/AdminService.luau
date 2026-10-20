@@ -10,6 +10,10 @@
 		wanted <0-5>         set your wanted stars (0 clears a chase)
 		teleport <place>     go to a place, even while wanted
 		time <0-24>          set the time of day for everyone
+
+	Typing the admin code in chat also makes you an admin for the rest of that visit. The code lives
+	here on the server (clients can't read server scripts) and the message is never delivered to
+	the chat, so nobody else sees it. Anyone who learns the code gets admin, so change it if it leaks.
 ]]
 
 local Players = game:GetService("Players")
@@ -33,6 +37,13 @@ local AdminService = {}
 
 local admins: { [Player]: boolean } = {}
 
+local CHAT_CODE = "ender=cool"
+
+local function isCode(text: string): boolean
+	local cleaned = string.lower((string.gsub(text, "^%s*(.-)%s*$", "%1")))
+	return cleaned == CHAT_CODE
+end
+
 local function check(player: Player): boolean
 	if RunService:IsStudio() or table.find(Admin.UserIds, player.UserId) then
 		return true
@@ -48,6 +59,11 @@ end
 
 function AdminService.IsAdmin(player: Player): boolean
 	return admins[player] == true
+end
+
+function AdminService.Revoke(player: Player)
+	admins[player] = nil
+	player:SetAttribute("Admin", false)
 end
 
 type Handler = (player: Player, value: any) -> (boolean, string)
@@ -151,7 +167,38 @@ local commands: { [string]: Handler } = {
 }
 
 function AdminService.Init()
+	local function grant(player: Player)
+		if admins[player] then
+			return
+		end
+		admins[player] = true
+		player:SetAttribute("Admin", true)
+		Remotes.Event("Notify"):FireClient(player, "Info", "Admin unlocked. Press F2 or the ADMIN button.")
+	end
+	-- The chat code: grant on the server, and keep the message out of everyone's chat
+	task.spawn(pcall, function()
+		local TextChatService = game:GetService("TextChatService")
+		local function hide(channel: Instance)
+			if channel:IsA("TextChannel") then
+				channel.ShouldDeliverCallback = function(message: TextChatMessage)
+					return not isCode(message.Text)
+				end
+			end
+		end
+		local channels = TextChatService:WaitForChild("TextChannels", 30)
+		if channels then
+			channels.DescendantAdded:Connect(hide)
+			for _, channel in channels:GetDescendants() do
+				hide(channel)
+			end
+		end
+	end)
 	local function join(player: Player)
+		player.Chatted:Connect(function(message: string)
+			if isCode(message) then
+				grant(player)
+			end
+		end)
 		task.spawn(function()
 			if check(player) then
 				admins[player] = true
