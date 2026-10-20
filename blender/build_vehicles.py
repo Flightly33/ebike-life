@@ -1051,7 +1051,7 @@ def setup_materials(colors_by_vehicle):
 
     for ob in bpy.data.objects:
         if ob.type == "MESH" and ob.parent:
-            slot = ob.name.split("__")[1].split(".")[0]
+            slot = ob.name.split("__")[-1].split(".")[0]
             ob.data.materials.append(mat(ob.parent.name, slot))
 
 

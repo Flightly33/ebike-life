@@ -4,7 +4,7 @@
 
 	Import: Studio, File > Import 3D, blender/out/Vehicles.fbx, then name the imported model
 	"VehicleMeshes" and put it in ReplicatedStorage. It holds one model per vehicle (bike id, or
-	Car_<Kind>) with MeshParts named "<Group>__<Slot>". MeshManifest says where each one sits in
+	Car_<Kind>) with MeshParts named "<vehicle>__<Group>__<Slot>" (found by name anywhere inside). MeshManifest says where each one sits in
 	the vehicle (metres) and which joint group it rides on; the slot gives its colour and material
 	(Frame / Accent / Rims / Paint are the paintable ones).
 
@@ -52,13 +52,45 @@ MeshKit.Paintable = { Frame = true, Accent = true, Rims = true, Paint = true }
 
 local checked: { [string]: boolean } = {}
 
-local function folderFor(vehicleId: string): Instance?
+local index: { [string]: MeshPart }? = nil
+local reported = false
+
+-- Every MeshPart under ReplicatedStorage.VehicleMeshes by name, wherever the importer put it
+-- (Studio's importer may flatten or rename the per-vehicle folders, so names carry the vehicle).
+local function meshIndex(): { [string]: MeshPart }
+	if index then
+		return index
+	end
+	local found: { [string]: MeshPart } = {}
 	-- (pcall: the offline city bake runs under Lune, where there's no real ReplicatedStorage)
-	local ok, found = pcall(function()
-		local root = ReplicatedStorage:FindFirstChild("VehicleMeshes")
-		return if root then root:FindFirstChild(vehicleId, true) else nil
+	local ok, root = pcall(function()
+		return ReplicatedStorage:FindFirstChild("VehicleMeshes")
 	end)
-	return if ok and typeof(found) == "Instance" then found else nil
+	if ok and typeof(root) == "Instance" then
+		local count = 0
+		for _, d in (root :: Instance):GetDescendants() do
+			if d:IsA("MeshPart") then
+				count += 1
+				-- the importer can append suffixes like ".001" or " (1)"; match on the base name
+				local base = string.match(d.Name, "^([%w_]+__[%w_]+__[%w_]+)") or d.Name
+				if not found[base] then
+					found[base] = d
+				end
+			end
+		end
+		if not reported then
+			reported = true
+			print(string.format("[MeshKit] VehicleMeshes found: %d MeshParts", count))
+			if count == 0 then
+				warn("[MeshKit] VehicleMeshes has no MeshParts in it. Re-import Vehicles.fbx with File > Import 3D.")
+			end
+		end
+	elseif not reported and ok then
+		reported = true
+		print("[MeshKit] no ReplicatedStorage.VehicleMeshes; using part-built vehicles")
+	end
+	index = found
+	return found
 end
 
 -- Same shape up to scale? (the importer may scale, but must not swap axes)
@@ -78,11 +110,11 @@ function MeshKit.Has(vehicleId: string): boolean
 		return cached
 	end
 	local entries = MeshManifest[vehicleId]
-	local folder = folderFor(vehicleId)
-	local ok = entries ~= nil and folder ~= nil
-	if ok and folder and entries then
+	local meshes = meshIndex()
+	local ok = entries ~= nil and next(meshes) ~= nil
+	if ok and entries then
 		for _, entry in entries do
-			local mesh = folder:FindFirstChild(entry.Name, true)
+			local mesh = meshes[entry.Name]
 			if not mesh or not mesh:IsA("MeshPart") then
 				ok = false
 				warn(string.format("[MeshKit] %s: mesh %s missing from VehicleMeshes; using the part-built model", vehicleId, entry.Name))
@@ -104,6 +136,7 @@ end
 -- Check a vehicle's import again next time (after re-importing)
 function MeshKit.Forget(vehicleId: string)
 	checked[vehicleId] = nil
+	index = nil
 end
 
 export type Placed = { Part: MeshPart, Group: string, Slot: string }
@@ -116,12 +149,12 @@ export type Placed = { Part: MeshPart, Group: string, Slot: string }
 function MeshKit.Place(model: Model, vehicleId: string, scale: number, colors: { [string]: Color3 }, materials: { [string]: Enum.Material? }?): { Placed }
 	local placed: { Placed } = {}
 	local entries = MeshManifest[vehicleId]
-	local folder = folderFor(vehicleId)
-	if not entries or not folder then
+	local meshes = meshIndex()
+	if not entries then
 		return placed
 	end
 	for _, entry in entries do
-		local source = folder:FindFirstChild(entry.Name, true)
+		local source = meshes[entry.Name]
 		if source and source:IsA("MeshPart") then
 			local part = source:Clone()
 			for _, child in part:GetChildren() do

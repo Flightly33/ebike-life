@@ -335,7 +335,7 @@ def build_objects(smooth_angle=35):
         center = (lo + hi) / 2
         bmesh.ops.translate(bm, vec=-center, verts=bm.verts)
         tris = sum(len(f.verts) - 2 for f in bm.faces)
-        name = f"{group}__{slot}"
+        name = f"{veh}__{group}__{slot}"
         me = bpy.data.meshes.new(name)
         bm.to_mesh(me)
         bm.free()

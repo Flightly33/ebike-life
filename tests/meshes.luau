@@ -36,17 +36,16 @@ local folder = Sim.New("Model")
 folder.Name = "VehicleMeshes"
 local count = 0
 for vehicleId, entries in Manifest do
-	local model = Sim.New("Model")
-	model.Name = vehicleId
+	-- Studio's importer flattens the file: every MeshPart straight inside one model
+	local _ = vehicleId
 	for _, entry in entries do
 		local part = Sim.Raw("MeshPart")
 		Sim.States[part].Name = entry.Name
 		-- the importer works in its own units: a uniform scale must not matter
 		Sim.States[part].Props.MeshSize = entry.Size * 2.5
-		part.Parent = model
+		part.Parent = folder
 		count += 1
 	end
-	model.Parent = folder
 end
 folder.Parent = RS
 print(string.format("faked %d meshes", count))
@@ -117,8 +116,10 @@ for _, kind in { "Police", "Sedan", "Hatch", "SUV", "Van", "Taxi" } do
 end
 
 -- A wrongly turned import falls back to parts
-local turned = folder:FindFirstChild("velo_s")
-for _, part in turned:GetChildren() do
+for _, part in folder:GetChildren() do
+	if string.sub(part.Name, 1, 8) ~= "velo_s__" then
+		continue
+	end
 	local size = Sim.States[part].Props.MeshSize
 	Sim.States[part].Props.MeshSize = Vector3.new(size.Z, size.Y, size.X)
 end
