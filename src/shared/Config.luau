@@ -1,16 +1,19 @@
 --[[
 	Config: every tuning number in one place.
 
-	Units: physics runs in SI (metres, m/s, kg, W, N); the world is in studs. The whole game shares
-	one scale, 1 m = 0.8 / 0.28 ≈ 2.86 studs (1 stud = 0.35 m): Roblox avatars are about 5.2 studs
-	tall, a 1.8 m person at that scale, so the bikes, cars and city all match the player. The city
-	is authored in Roblox's standard units (1 stud = 0.28 m) and shrunk by WORLD_SCALE.
+	Units: physics runs in SI (metres, m/s, kg, W, N); the world is in studs. Riders, bikes and cars
+	share one scale, 1 m ≈ 2.86 studs (1 stud = 0.35 m), which matches a Roblox avatar.
+
+	The city is authored in Roblox's standard units (1 stud = 0.28 m) and built at WORLD_SCALE times
+	that. It's built large on purpose (like most Roblox cities): at 1.25 a door is ~9 studs, a storey
+	~15 and a lane ~16, so the player reads as small next to the buildings. This is the one knob for
+	how big the city feels.
 ]]
 
 local Config = {}
 
-Config.WORLD_SCALE = 0.8
-Config.METERS_PER_STUD = 0.28 / Config.WORLD_SCALE
+Config.WORLD_SCALE = 1.25
+Config.METERS_PER_STUD = 0.35
 Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
 Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
 -- Bike and car models are built from real dimensions in metres at this scale (the same one)
@@ -124,7 +127,7 @@ Config.Economy = {
 }
 
 Config.Police = {
-	SightRange = 184, -- studs a cop notices you from
+	SightRange = 290, -- studs a cop notices you from
 	PatrolCount = 6,
 	MaxPursuers = 5,
 	PatrolSpeed = 13, -- m/s (~47 km/h)
@@ -147,7 +150,7 @@ Config.Police = {
 	StarEvery = 50, -- seconds of being seen in a chase that add a star
 	EvadeBase = 7, -- seconds out of sight to escape at one star...
 	EvadePerStar = 2.5, -- ...plus this per extra star
-	LoseRange = 336, -- studs: further than this always counts as out of sight
+	LoseRange = 525, -- studs: further than this always counts as out of sight
 	BustRange = 14, -- studs
 	BustKmh = 12, -- slower than this near a cop and the cuffs come out
 	BustTime = 2.6,
@@ -176,7 +179,7 @@ Config.Lights = {
 }
 
 Config.Bikes = {
-	DespawnDistance = 720, -- an empty bike this far from its owner goes back to the garage
+	DespawnDistance = 1100, -- an empty bike this far from its owner goes back to the garage
 	IdleDespawn = 300, -- seconds an empty bike may sit before it goes back
 	StateRate = 10, -- client state updates per second
 }

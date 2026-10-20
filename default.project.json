@@ -32,7 +32,7 @@
         "StreamingEnabled": true,
         "Gravity": 196.2,
         "StreamingMinRadius": 160,
-        "StreamingTargetRadius": 800,
+        "StreamingTargetRadius": 1024,
         "StreamOutBehavior": "Opportunistic"
       },
       "City": {

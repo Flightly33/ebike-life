@@ -32,6 +32,7 @@ class Buckets:
 
 
 BUCKETS = Buckets()
+STATS = {"flipped": 0, "pieces": 0}
 _current = {"vehicle": None}
 
 
@@ -324,6 +325,15 @@ def build_objects(smooth_angle=35):
         bm = bmesh.new()
         tmp = bpy.data.meshes.new("tmp")
         for piece in pieces:
+            # Roblox draws only front faces: make every closed piece face outward
+            bmesh.ops.recalc_face_normals(piece, faces=piece.faces)
+            try:
+                if piece.calc_volume(signed=True) < 0:
+                    bmesh.ops.reverse_faces(piece, faces=piece.faces)
+                    STATS["flipped"] += 1
+            except ValueError:
+                pass
+            STATS["pieces"] += 1
             piece.to_mesh(tmp)
             bm.from_mesh(tmp)
         bpy.data.meshes.remove(tmp)

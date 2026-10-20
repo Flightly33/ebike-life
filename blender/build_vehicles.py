@@ -1143,6 +1143,7 @@ def main():
         worst = max(items, key=lambda i: i["Tris"])
         print(f"{veh:14s} {len(items):3d} meshes {tris:7d} tris (largest {worst['Name']} {worst['Tris']})")
     print("total tris", total)
+    print("pieces", K.STATS["pieces"], "flipped outward", K.STATS["flipped"])
     write_manifest(manifest)
     bpy.ops.export_scene.fbx(filepath=os.path.join(HERE, "out", "Vehicles.fbx"), use_selection=False, object_types={"EMPTY", "MESH"}, apply_unit_scale=True, axis_forward="-Z", axis_up="Y", mesh_smooth_type="FACE", add_leaf_bones=False, bake_anim=False)
     print("wrote blender/out/Vehicles.fbx")
