@@ -19,6 +19,7 @@
 		OpenCrate(crateId)                also returns the paint won
 		BuyBoost(boostId)
 		GetProfile()                      the player's whole save
+		Admin(command, value)             admin commands (AdminService checks who may)
 
 	Server -> Client
 		Profile(profile)                  the save changed (bikes, upgrades, paints, settings)
@@ -50,7 +51,7 @@ local EVENTS = {
 	"Charge",
 }
 local UNRELIABLE = { "BikeState" }
-local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "OpenCrate", "BuyBoost", "GetProfile" }
+local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "OpenCrate", "BuyBoost", "GetProfile", "Admin" }
 
 local Remotes = {}
 

@@ -298,6 +298,25 @@ local function bust(player: Player, w: Watch, walkOut: boolean)
 	setAttributes(player, w)
 end
 
+-- Admin: set a player's wanted level directly (0 ends any chase)
+function PoliceService.SetWanted(player: Player, stars: number)
+	local w = watch(player)
+	Heat.Clear(w.Heat)
+	w.MaxStarsThisChase = 0
+	release(player)
+	if stars > 0 then
+		local heat = 0.01
+		for s = 0, stars - 1 do
+			heat += Heat.Needed(s)
+		end
+		w.SeenAt = os.clock()
+		onEvents(player, w, Heat.Offence(w.Heat, heat))
+	else
+		Remotes.Event("Police"):FireClient(player, "Wanted", { Stars = 0 })
+	end
+	setAttributes(player, w)
+end
+
 -- One-off offences (jumps, flips, hitting a cop) count only if a cop saw them
 local function oneOff(player: Player, amount: number)
 	local w = watch(player)

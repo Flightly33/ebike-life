@@ -217,7 +217,12 @@ local function step(dt: number)
 		warnedEmpty = false
 	end
 
-	BikeCamera.Update(dt, cf, BikePhysics.Kmh(s), not s.Grounded)
+	-- The camera sits behind the heading on the ground and the direction of travel in the air
+	local travelYaw: number? = s.Yaw
+	if not s.Grounded then
+		travelYaw = if s.AirVelocity.Magnitude > 2 then BikePhysics.YawOf(s.AirVelocity.Unit) else nil
+	end
+	BikeCamera.Update(dt, cf, travelYaw, BikePhysics.Kmh(s), not s.Grounded)
 
 	sendClock += dt
 	if sendClock >= 1 / Config.Bikes.StateRate then

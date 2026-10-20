@@ -22,6 +22,7 @@ local Sound = require(script.Parent.Sound)
 local State = require(script.Parent.State)
 local Hud = require(script.Hud)
 local MainMenu = require(script.MainMenu)
+local AdminPanel = require(script.AdminPanel)
 local Panel = require(script.Panel)
 local Rides = require(script.Rides)
 local Store = require(script.Store)
@@ -108,6 +109,9 @@ function UI.Init()
 	panels.Crates = Store.Crates(menus)
 	panels.Shop = Store.Shop(menus)
 	panels.Menus = MainMenu.new(menus, close)
+	panels.Admin = AdminPanel.new(menus, function()
+		UI.Open("Admin")
+	end)
 	for _, panel in panels do
 		panel.OnClose = close
 	end
@@ -117,6 +121,8 @@ function UI.Init()
 			close()
 		elseif not processed and input.KeyCode == Enum.KeyCode.B and not UserInputService:GetFocusedTextBox() then
 			UI.Open("MyRides")
+		elseif not processed and input.KeyCode == Enum.KeyCode.F2 and player:GetAttribute("Admin") == true then
+			UI.Open("Admin")
 		end
 	end)
 	GuiService.MenuOpened:Connect(close)
@@ -160,6 +166,9 @@ function UI.Init()
 		local info = if type(data) == "table" then data else {}
 		if kind == "Wanted" then
 			local stars = tonumber(info.Stars) or 1
+			if stars <= 0 then
+				return
+			end
 			Toasts.Banner(string.rep("★", stars), if stars == 1 then "The cops saw that! Lose them!" else "More cops are coming!", Color3.fromRGB(255, 255, 255), 2)
 		elseif kind == "Busted" then
 			Toasts.Banner("BUSTED!", "Fined " .. Economy.FormatCash(tonumber(info.Fine) or 0), Color3.fromRGB(255, 70, 60), 3.5)

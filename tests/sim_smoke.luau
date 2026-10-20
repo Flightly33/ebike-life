@@ -318,6 +318,33 @@ if bike then
 	check(BikeService.Get(player) ~= nil and BikeService.Get(player).Riding == false, "the bike stays parked")
 end
 
+--------------------------------------------------------------------------------
+print("== admin")
+check(player:GetAttribute("Admin") == true, "play-testing in Studio makes you an admin")
+local AdminRemote = ClientRemotes.Function("Admin")
+local before = data.Cash
+ok, message = invoke(AdminRemote, "cash", 5000)
+check(ok == true and data.Cash == before + 5000, "admin cash +5000 (" .. tostring(message) .. ")")
+ok, message = invoke(AdminRemote, "level", 42)
+check(ok == true and data.Level == 42, "admin level 42 (" .. tostring(message) .. ")")
+ok, message = invoke(AdminRemote, "allbikes")
+check(ok == true and data.Owned.halo_gt == true, "admin owns every bike (" .. tostring(message) .. ")")
+ok, message = invoke(AdminRemote, "wanted", 3)
+world:Run(0.5)
+check(ok == true and player:GetAttribute("Wanted") == 3, "admin sets 3 stars (" .. tostring(player:GetAttribute("Wanted")) .. ")")
+ok, message = invoke(AdminRemote, "wanted", 0)
+world:Run(0.5)
+check(ok == true and player:GetAttribute("Wanted") == 0, "admin clears the chase")
+ok, message = invoke(AdminRemote, "teleport", "JumpPark")
+check(ok == true, "admin teleport (" .. tostring(message) .. ")")
+ok, message = invoke(AdminRemote, "bike", "halo_gt")
+world:Run(1)
+check(ok == true and BikeService.Get(player) ~= nil and BikeService.Get(player).Bike.Id == "halo_gt", "admin spawns the Halo GT (" .. tostring(message) .. ")")
+ok, message = invoke(AdminRemote, "maxupgrades")
+check(ok == true, "admin max upgrades (" .. tostring(message) .. ")")
+ok, message = invoke(AdminRemote, "nonsense")
+check(ok ~= true, "unknown admin commands are refused")
+
 world:Run(2)
 
 print("")
