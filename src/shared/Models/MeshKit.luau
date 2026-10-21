@@ -10,6 +10,11 @@
 
 	Each mesh's proportions are checked against the manifest first: if the importer turned the file
 	(a swapped axis), that vehicle keeps its part-built model and a warning says so.
+
+	Studio's importer can also turn the file half a turn about the vertical (its forward axis is the
+	opposite of Blender's), which keeps every size the same but puts each piece back to front. The
+	import keeps the pieces laid out as a vehicle, so that turn is read from where they sit compared
+	with the manifest and undone. A "Turn" attribute (0 or 180) on VehicleMeshes overrides it.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -51,6 +56,8 @@ MeshKit.Slots = {
 MeshKit.Paintable = { Frame = true, Accent = true, Rims = true, Paint = true }
 
 local checked: { [string]: boolean } = {}
+local turns: { [string]: number } = {}
+local rootFolder: Instance? = nil
 
 local index: { [string]: MeshPart }? = nil
 local reported = false
@@ -67,6 +74,7 @@ local function meshIndex(): { [string]: MeshPart }
 		return ReplicatedStorage:FindFirstChild("VehicleMeshes")
 	end)
 	if ok and typeof(root) == "Instance" then
+		rootFolder = root
 		local count = 0
 		for _, d in (root :: Instance):GetDescendants() do
 			if d:IsA("MeshPart") then
@@ -103,6 +111,53 @@ local function sameShape(a: Vector3, b: Vector3): boolean
 	return (na - nb).Magnitude < 0.12
 end
 
+-- How far the importer turned this vehicle about the vertical (0 or 180 degrees): compare where its
+-- pieces sit (centred, any scale) with the manifest, as is and half a turn round
+local function readTurn(vehicleId: string, entries: { MeshManifest.Entry }, meshes: { [string]: MeshPart }): number
+	local forced = if rootFolder then rootFolder:GetAttribute("Turn") else nil
+	if type(forced) == "number" then
+		return if math.abs(forced - 180) < 1 then 180 else 0
+	end
+	local got: { Vector3 } = {}
+	local want: { Vector3 } = {}
+	local gotMean, wantMean = Vector3.zero, Vector3.zero
+	for _, entry in entries do
+		local mesh = meshes[entry.Name]
+		if mesh then
+			table.insert(got, mesh.Position)
+			table.insert(want, entry.Center)
+			gotMean += mesh.Position
+			wantMean += entry.Center
+		end
+	end
+	if #got < 3 then
+		return 0
+	end
+	gotMean /= #got
+	wantMean /= #want
+	local gotSpread, wantSpread = 0, 0
+	for i = 1, #got do
+		gotSpread += (got[i] - gotMean).Magnitude
+		wantSpread += (want[i] - wantMean).Magnitude
+	end
+	if gotSpread < 1e-3 or wantSpread < 1e-3 then
+		return 0 -- the pieces were all moved to one spot: nothing to read
+	end
+	local k = gotSpread / wantSpread
+	local asIs, turned = 0, 0
+	for i = 1, #got do
+		local g = (got[i] - gotMean) / k
+		local w = want[i] - wantMean
+		asIs += (g - w).Magnitude
+		turned += (g - Vector3.new(-w.X, w.Y, -w.Z)).Magnitude
+	end
+	if turned < asIs * 0.5 then
+		print(string.format("[MeshKit] %s: the import came in turned half round; turning it back", vehicleId))
+		return 180
+	end
+	return 0
+end
+
 -- Are this vehicle's meshes imported and the right way round?
 function MeshKit.Has(vehicleId: string): boolean
 	local cached = checked[vehicleId]
@@ -129,6 +184,9 @@ function MeshKit.Has(vehicleId: string): boolean
 			end
 		end
 	end
+	if ok and entries then
+		turns[vehicleId] = readTurn(vehicleId, entries, meshes)
+	end
 	checked[vehicleId] = ok
 	return ok
 end
@@ -136,6 +194,7 @@ end
 -- Check a vehicle's import again next time (after re-importing)
 function MeshKit.Forget(vehicleId: string)
 	checked[vehicleId] = nil
+	turns[vehicleId] = nil
 	index = nil
 end
 
@@ -164,7 +223,8 @@ function MeshKit.Place(model: Model, vehicleId: string, scale: number, colors: {
 			end
 			part.Name = entry.Name
 			part.Size = entry.Size * scale
-			part.CFrame = CFrame.new(entry.Center * scale)
+			-- undo a half-turned import: the geometry turned with it, about the piece's own centre
+			part.CFrame = CFrame.new(entry.Center * scale) * (if turns[vehicleId] == 180 then CFrame.Angles(0, math.pi, 0) else CFrame.identity)
 			part.Anchored = true
 			part.CanCollide = false
 			part.CanQuery = false

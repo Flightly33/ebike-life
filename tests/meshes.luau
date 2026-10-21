@@ -10,6 +10,7 @@ local process = require("@lune/process")
 local World = require("../tools/sim/World")
 local Sim = require("../tools/sim/Instance")
 local Vector3 = require("@lune/roblox").Vector3
+local CFrame = require("@lune/roblox").CFrame
 
 local root = process.cwd
 if string.sub(root, -1) ~= "/" then
@@ -43,6 +44,8 @@ for vehicleId, entries in Manifest do
 		Sim.States[part].Name = entry.Name
 		-- the importer works in its own units: a uniform scale must not matter
 		Sim.States[part].Props.MeshSize = entry.Size * 2.5
+		-- laid out as the vehicle, somewhere in the world
+		part.CFrame = CFrame.new(entry.Center * 2.5 + Vector3.new(40, 3, -12))
 		part.Parent = folder
 		count += 1
 	end
@@ -115,6 +118,30 @@ for _, kind in { "Police", "Sedan", "Hatch", "SUV", "Van", "Taxi" } do
 	end
 end
 
+-- An import turned half round (Studio's forward axis) is read from the layout and turned back
+local MeshKit = server.Require(Models:WaitForChild("MeshKit"))
+for _, part in folder:GetChildren() do
+	if string.sub(part.Name, 1, 9) == "metro_c1_" then
+		local p = part.Position
+		part.CFrame = CFrame.new(-p.X, p.Y, -p.Z)
+	end
+end
+MeshKit.Forget("metro_c1")
+local turnedBike = BikeModel.Build(Bikes.Get("metro_c1"), nil, { Static = true })
+local turnedOk, straightOk = 0, 0
+for _, part in meshes(turnedBike) do
+	if part.CFrame.LookVector:Dot(Vector3.new(0, 0, 1)) > 0.99 then
+		turnedOk += 1
+	end
+end
+for _, part in meshes(BikeModel.Build(Bikes.Get("storm_x"), nil, { Static = true })) do
+	if part.CFrame.LookVector:Dot(Vector3.new(0, 0, -1)) > 0.99 then
+		straightOk += 1
+	end
+end
+check(turnedOk > 0 and turnedOk == #meshes(turnedBike), string.format("a half-turned import is turned back (%d/%d)", turnedOk, #meshes(turnedBike)))
+check(straightOk > 0, "a straight import is left alone")
+
 -- A wrongly turned import falls back to parts
 for _, part in folder:GetChildren() do
 	if string.sub(part.Name, 1, 8) ~= "velo_s__" then
@@ -123,7 +150,6 @@ for _, part in folder:GetChildren() do
 	local size = Sim.States[part].Props.MeshSize
 	Sim.States[part].Props.MeshSize = Vector3.new(size.Z, size.Y, size.X)
 end
-local MeshKit = server.Require(Models:WaitForChild("MeshKit"))
 MeshKit.Forget("velo_s")
 local fallback = BikeModel.Build(Bikes.Get("velo_s"), nil)
 check(#meshes(fallback) == 0, "a turned import falls back to the part-built bike")
