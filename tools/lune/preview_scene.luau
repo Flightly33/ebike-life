@@ -68,6 +68,13 @@ spot("midtown", Vector3.new((mid.LotMinX + mid.LotMaxX) / 2 + 30, Layout.CURB_Y,
 local ind = Layout.BlockAt(5, 0)
 spot("industrial", Vector3.new(ind.MinX + 4, Layout.CURB_Y, (ind.LotMinZ + ind.LotMaxZ) / 2), math.rad(-110))
 
+-- the dealership and the loop park, from above the street
+for _, place in { { "dealership", Layout.Places.Dealership }, { "looppark", Layout.BlockAt(0, 3) } } do
+	local at: Vector3 = if typeof(place[2]) == "Vector3" then place[2] else Vector3.new((place[2].MinX + place[2].MaxX) / 2, Layout.CURB_Y, (place[2].MinZ + place[2].MaxZ) / 2)
+	table.insert(views, { name = place[1], pos = { at.X + 90, at.Y + 55, at.Z + 90 }, look = { at.X, at.Y + 8, at.Z }, fov = 60, width = 1280, height = 720 })
+	table.insert(views, { name = place[1] .. "_low", pos = { at.X - 60, at.Y + 14, at.Z + 40 }, look = { at.X, at.Y + 6, at.Z }, fov = 65, width = 1280, height = 720 })
+end
+
 fs.writeFile(process.args[1], serde.encode("json", Preview.Export(city)))
 fs.writeFile(process.args[2], serde.encode("json", views))
 print("wrote", process.args[1], #views, "views")

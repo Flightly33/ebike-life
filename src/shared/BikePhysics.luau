@@ -140,6 +140,7 @@ export type State = {
 	StoppieRate: number,
 	StoppieActive: boolean,
 	StoppieTime: number,
+	Flat: number, -- seconds of flat tyre left (police spike strip)
 	Loop: Loop?, -- riding a loop
 	LoopAngle: number, -- rad round it
 }
@@ -226,6 +227,7 @@ function BikePhysics.new(spec: Spec, ground: CFrame, battery: number?, seed: num
 		StoppieRate = 0,
 		StoppieActive = false,
 		StoppieTime = 0,
+		Flat = 0,
 		Loop = nil,
 		LoopAngle = 0,
 	}
@@ -742,8 +744,20 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		end
 		s.Surface = kind
 		s.Offroad = OFFROAD[kind] == true
+		if kind == "Spikes" and s.Flat <= 0 then
+			s.Flat = Config.Police.FlatTime
+			push(events, "Spiked")
+		end
 	end
 
+	-- a flat tyre (spike strip) drags the bike down to a crawl
+	if s.Flat > 0 then
+		s.Flat = math.max(0, s.Flat - dt)
+		local cap = Config.Police.FlatKmh / 3.6
+		if v > cap then
+			v = math.max(cap, v - 6 * dt)
+		end
+	end
 	s.Speed = v
 	s.Distance += math.abs(v) * dt
 	s.WheelAngle = (s.WheelAngle + v / spec.WheelRadiusM * dt) % TAU
@@ -978,6 +992,13 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	end
 	s.Velocity = s.AirVelocity + UP * (s.VerticalSpeed * STUDS)
 	s.WheelAngle = (s.WheelAngle + s.AirVelocity.Magnitude / STUDS / spec.WheelRadiusM * dt * 0.6) % TAU
+end
+
+-- Knocked off from outside (a police PIT): a bail with the given reason
+function BikePhysics.ForceCrash(s: State, reason: string): { Event }
+	local events: { Event } = {}
+	crash(s, events, reason)
+	return events
 end
 
 -- Advances the bike by dt seconds. Returns what happened (tricks, crashes, landings).

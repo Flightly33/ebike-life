@@ -114,7 +114,7 @@ function BikeStats.TopSpeedKmh(spec: Spec, maxPower: number, assist: number): nu
 	local g = Config.Physics.Gravity
 	local rho = Config.Physics.AirDensity
 	local best = 0
-	for kmh = 1, 160 do
+	for kmh = 1, 260 do
 		local v = kmh / 3.6
 		local rider = spec.RiderW
 		local motor = 0

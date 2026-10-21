@@ -86,7 +86,7 @@ for _, bike in Bikes.List do
 	check(wheel > 0 and steer > 0 and (crank > 0) == bike.Pedals, string.format("%s: wheels %d, steering %d, cranks %d", bike.Id, wheel, steer, crank))
 	local leftovers = 0
 	for _, d in model:GetDescendants() do
-		if d:IsA("Part") and d.Transparency < 1 and d.Name ~= "Underglow" then
+		if d:IsA("Part") and d.Transparency < 1 and d.Name ~= "Underglow" and d.Name ~= "ExhaustPipe" and d.Name ~= "ExhaustTip" then
 			leftovers += 1
 		end
 	end

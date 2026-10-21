@@ -12,7 +12,7 @@
 local Bikes = {}
 
 export type Style = "City" | "Folding" | "Cruiser" | "Cargo" | "Fat" | "Hardtail" | "Road" | "Enduro" | "Moped" | "Moto"
-export type Rarity = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic"
+export type Rarity = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Cursed"
 
 export type Geometry = {
 	Style: Style,
@@ -60,6 +60,7 @@ export type Bike = {
 	WheeliePop: number, -- 0..1+: how readily the front comes up
 	Geometry: Geometry,
 	Colors: { Frame: Color3, Accent: Color3, Rims: Color3 },
+	Effects: string?, -- "Hellfire": flaming exhaust and wheels, and the rider's skull burns
 }
 
 Bikes.RarityColors = {
@@ -68,6 +69,7 @@ Bikes.RarityColors = {
 	Epic = Color3.fromRGB(175, 90, 255),
 	Legendary = Color3.fromRGB(255, 190, 45),
 	Mythic = Color3.fromRGB(255, 70, 115),
+	Cursed = Color3.fromRGB(255, 96, 0),
 } :: { [Rarity]: Color3 }
 
 local list: { Bike } = {
@@ -502,6 +504,79 @@ local list: { Bike } = {
 		WheeliePop = 1.5,
 		Geometry = { Style = "Moto", WheelDiameter = 0.71, TireWidth = 0.09, Wheelbase = 1.33, SeatHeight = 0.9, BarHeight = 1.12, BarWidth = 0.82 },
 		Colors = { Frame = Color3.fromRGB(150, 15, 40), Accent = Color3.fromRGB(255, 215, 120), Rims = Color3.fromRGB(20, 20, 22) },
+	},
+	{
+		Id = "viper_sm",
+		Name = "Viper SM",
+		Type = "Supermoto E-Moto",
+		Blurb = "16 kW on 17-inch road slicks. Built for the street, sideways, at 130 km/h.",
+		Price = 140000,
+		Level = 36,
+		Rarity = "Mythic",
+		Class = "Off-road",
+		LegalKmh = 45,
+		MaxKmh = 130,
+		Drive = "Mid-mount PMSM",
+		NominalW = 8000,
+		PeakW = 16000,
+		TorqueNm = 90,
+		WheelTorqueNm = 480,
+		Volts = 96,
+		BatteryWh = 4300,
+		WeightKg = 88,
+		Throttle = true,
+		Pedals = false,
+		Brakes = "Radial 4-piston, 300 mm",
+		BrakeG = 1.1,
+		Suspension = "260 mm full, road valving",
+		Tires = "120/70-17 slick",
+		TireKind = "Road",
+		CdA = 0.48,
+		Crr = 0.012,
+		Regen = 0.18,
+		HopSpeed = 4.2,
+		Landing = 0.72,
+		AirControl = 1.1,
+		WheeliePop = 1.6,
+		Geometry = { Style = "Moto", WheelDiameter = 0.62, TireWidth = 0.11, Wheelbase = 1.36, SeatHeight = 0.88, BarHeight = 1.1, BarWidth = 0.8 },
+		Colors = { Frame = Color3.fromRGB(245, 245, 245), Accent = Color3.fromRGB(255, 40, 60), Rims = Color3.fromRGB(255, 40, 60) },
+	},
+	{
+		Id = "deathrider",
+		Name = "Deathrider",
+		Type = "Cursed Electric Cruiser",
+		Blurb = "60 kW, 190 Nm, a 15.6 kWh pack and 180 km/h. Hellfire from the pipes, fire on the wheels, and your skull burns while you ride it.",
+		Price = 500000,
+		Level = 50,
+		Rarity = "Cursed",
+		Class = "Off-road",
+		LegalKmh = 45,
+		MaxKmh = 180,
+		Drive = "Direct-drive PMSM",
+		NominalW = 30000,
+		PeakW = 60000,
+		TorqueNm = 190,
+		WheelTorqueNm = 900,
+		Volts = 102,
+		BatteryWh = 15600,
+		WeightKg = 220,
+		Throttle = true,
+		Pedals = false,
+		Brakes = "Dual radial, 320 mm",
+		BrakeG = 1.05,
+		Suspension = "Inverted fork, mono shock",
+		Tires = "120/70-17 / 180/55-17",
+		TireKind = "Road",
+		CdA = 0.58,
+		Crr = 0.014,
+		Regen = 0.2,
+		HopSpeed = 3.6,
+		Landing = 0.62,
+		AirControl = 0.9,
+		WheeliePop = 1.25,
+		Geometry = { Style = "Moto", WheelDiameter = 0.66, TireWidth = 0.13, Wheelbase = 1.52, SeatHeight = 0.8, BarHeight = 1.08, BarWidth = 0.86 },
+		Colors = { Frame = Color3.fromRGB(16, 16, 18), Accent = Color3.fromRGB(255, 96, 0), Rims = Color3.fromRGB(200, 202, 206) },
+		Effects = "Hellfire",
 	},
 }
 

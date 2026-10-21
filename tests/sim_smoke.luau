@@ -333,20 +333,24 @@ world.Keys.W = false
 world.Keys.LeftShift = false
 world.Keys.S = true
 -- keep a cop on the rider
-for _ = 1, 40 do
+local maxOfficers = 0
+for _ = 1, 60 do
 	for _, d in CarDriver.All do
 		if d.Model:GetAttribute("Pursuit") == true then
-			d.Position = bike.PrimaryPart.Position + Vector3.new(6, 0, 0)
+			d.Position = bike.PrimaryPart.Position + Vector3.new(14, 0, 0)
 			d.Speed = 0
 		end
 	end
 	world:Run(0.2)
+	local officersFolder = WS:FindFirstChild("Officers")
+	maxOfficers = math.max(maxOfficers, if officersFolder then #officersFolder:GetChildren() else 0)
 	if table.find(policeEvents, "Busted") then
 		break
 	end
 end
 world.Keys.S = false
-check(table.find(policeEvents, "Busted") ~= nil, "stopping next to the cops gets you busted")
+check(maxOfficers > 0, string.format("officers got out of the car (%d)", maxOfficers))
+check(table.find(policeEvents, "Busted") ~= nil, "stopping next to the cops: the officers run you down and cuff you")
 check(BikeService.Get(player) == nil, "busted: the bike went back to the garage")
 
 --------------------------------------------------------------------------------

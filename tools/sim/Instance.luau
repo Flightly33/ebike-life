@@ -655,7 +655,9 @@ Methods.Humanoid = {
 	TakeDamage = function(self, amount)
 		self.Health = self.Health - amount
 	end,
-	MoveTo = function() end,
+	MoveTo = function(self, target)
+		states[self].Extra.MoveTarget = target
+	end,
 	Move = function() end,
 	ApplyDescription = function() end,
 	GetAppliedDescription = function()

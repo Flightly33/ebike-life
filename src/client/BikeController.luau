@@ -146,6 +146,9 @@ local function onEvent(event: BikePhysics.Event)
 		sendTrick("WheelieEnd", event.Value, event.Extra)
 	elseif kind == "AirTrick" then
 		sendTrick("AirTrick", event.Value, event.Extra, event.Text)
+	elseif kind == "Spiked" then
+		Sound.Play("Crash", position, 1.6, 0.6)
+		BikeCamera.Shake(0.6)
 	elseif kind == "Loop" then
 		sendTrick("Loop", event.Value)
 	elseif kind == "StoppieEnd" then
@@ -405,6 +408,15 @@ function BikeController.Init()
 	if player.Character then
 		task.spawn(hookCharacter, player.Character)
 	end
+	-- a police car knocked us off (PIT)
+	Remotes.Event("Knocked").OnClientEvent:Connect(function()
+		local s = BikeController.Physics
+		if BikeController.Active and s and s.Crash <= 0 then
+			for _, event in BikePhysics.ForceCrash(s, "Knocked off") do
+				onEvent(event)
+			end
+		end
+	end)
 	Input.Action:Connect(function(action: string, index: number?)
 		if not BikeController.Active then
 			return

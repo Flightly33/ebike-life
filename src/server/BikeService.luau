@@ -26,6 +26,7 @@ local Upgrades = require(Shared.Upgrades)
 local BikeModel = require(Shared.Models.BikeModel)
 
 local DataService = require(script.Parent.DataService)
+local RiderLook = require(script.Parent.RiderLook)
 
 local BikeService = {}
 
@@ -177,6 +178,10 @@ local function mount(ride: Ride)
 	end)
 	ride.Model:SetAttribute("Rider", ride.Player.UserId)
 	ride.Player:SetAttribute("Riding", true)
+	local character = ride.Player.Character
+	if character then
+		RiderLook.Apply(character, ride.Bike.Effects)
+	end
 	ride.State = idleState(ride.State.Battery)
 	ride.WheelieSince = nil
 	BikeService.RideChanged:Fire(ride.Player, true)
@@ -196,6 +201,10 @@ local function dismount(ride: Ride)
 	ride.Model:SetAttribute("Hands", 0)
 	ride.Model:SetAttribute("Crash", false)
 	ride.Player:SetAttribute("Riding", false)
+	local character = ride.Player.Character
+	if character then
+		RiderLook.Clear(character)
+	end
 	park(ride)
 	if ride.Model.Parent then
 		ride.Prompt.Enabled = true

@@ -495,6 +495,16 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 	self.Root.AssemblyAngularVelocity = Vector3.zero
 end
 
+-- Stop and stay put (a roadblock, or officers getting out)
+function CarDriver.Hold(self: Driver)
+	self.Mode = "Idle"
+	self.Target = nil
+	self.Direct = false
+	table.clear(self.Waypoints)
+	table.clear(self.WaypointNodes)
+	self.WaypointIndex = 1
+end
+
 -- Put the car on a road edge (start of a cruise)
 function CarDriver.PlaceOnEdge(self: Driver, from: number, to: number)
 	local edge = Layout.EdgeBetween(from, to)

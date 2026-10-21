@@ -202,6 +202,21 @@ Config.Police = {
 	PursuitSpeed = { 24, 26, 28, 30, 33 }, -- m/s top speed per star (86 to 119 km/h)
 	PursuitAccel = { 5.5, 6, 6.5, 7, 7.5 }, -- m/s²
 	Units = { 1, 2, 3, 4, 5 }, -- cars chasing per star
+	-- Tactics
+	PITStars = 2, -- from this many stars the lead car will knock you off
+	PITRange = 10, -- studs between car and bike
+	PITCooldown = 7, -- seconds between knocks on the same rider
+	InterceptAhead = 6, -- seconds ahead an interceptor aims for
+	RoadblockStars = 3,
+	RoadblockAhead = 9, -- seconds ahead a roadblock goes
+	RoadblockTime = 45,
+	FlatTime = 18, -- seconds a spiked tyre stays flat
+	FlatKmh = 14,
+	-- Officers on foot
+	DeployRange = 45, -- studs: a car this close to a stopped (or knocked-off) rider sends officers out
+	DeployKmh = 10,
+	ArrestRange = 6,
+	OfficerGiveUp = 75, -- studs: further than this and they walk back to the car
 }
 
 Config.Traffic = {

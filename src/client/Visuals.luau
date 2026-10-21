@@ -317,10 +317,48 @@ local function updateSignals()
 	end
 end
 
+-- Police officers on foot: swing arms and legs with their running speed
+local officerPhase: { [Model]: number } = {}
+local function updateOfficers(dt: number)
+	local folder = Workspace:FindFirstChild("Officers")
+	if not folder then
+		return
+	end
+	for _, officer in folder:GetChildren() do
+		if not officer:IsA("Model") then
+			continue
+		end
+		local root = officer.PrimaryPart
+		local torso = officer:FindFirstChild("Torso")
+		if not root or not torso then
+			continue
+		end
+		local v = root.AssemblyLinearVelocity
+		local speed = Vector3.new(v.X, 0, v.Z).Magnitude
+		local phase = (officerPhase[officer] or 0) + dt * speed * 0.55
+		officerPhase[officer] = phase
+		local amp = math.clamp(speed / 16, 0, 1) * 0.9
+		local swing = math.sin(phase) * amp
+		local limbs: { [string]: number } = { ["Left Shoulder"] = 1, ["Right Shoulder"] = -1, ["Left Hip"] = -1, ["Right Hip"] = 1 }
+		for name, sign in limbs do
+			local joint = torso:FindFirstChild(name)
+			if joint and joint:IsA("Motor6D") then
+				joint.Transform = CFrame.Angles(0, 0, swing * sign)
+			end
+		end
+	end
+	for officer in officerPhase do
+		if not officer.Parent then
+			officerPhase[officer] = nil
+		end
+	end
+end
+
 function Visuals.Init()
 	RunService.Stepped:Connect(function(_time: number, dt: number)
 		updateBikes(dt)
 		updateCars(dt)
+		updateOfficers(dt)
 	end)
 	BikeController.Started:Connect(function()
 		if not wind then

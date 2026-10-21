@@ -190,7 +190,9 @@ function UI.Init()
 		Hud.SetRiding(false)
 	end)
 	BikeController.Event:Connect(function(event: any)
-		if event.Kind == "BatteryEmpty" then
+		if event.Kind == "Spiked" then
+			Toasts.Message("Police", "Spike strip! Your tyre's flat for a while.")
+		elseif event.Kind == "BatteryEmpty" then
 			Toasts.Message("Error", "Battery empty! Pedal on, or find a ⚡ charging station")
 		elseif event.Kind == "Flip" then
 			Toasts.Banner("BACKFLIP!", nil, Theme.Colors.Orange, 1.2)

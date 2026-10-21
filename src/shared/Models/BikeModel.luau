@@ -578,6 +578,68 @@ local function resolvePaints(bike: Bikes.Bike, choice: PaintChoice?): ({ Frame: 
 end
 
 -- Recolour an existing bike (a respray in the Tuning menu)
+local FIRE_TEXTURE = "rbxasset://textures/particles/fire_main.dds"
+
+local function flames(parent: BasePart, rate: number, speed: number)
+	local fire = Instance.new("Fire")
+	fire.Size = 3
+	fire.Heat = 9
+	fire.Color = Color3.fromRGB(255, 110, 20)
+	fire.SecondaryColor = Color3.fromRGB(255, 220, 80)
+	fire.Parent = parent
+	local e = Instance.new("ParticleEmitter")
+	e.Name = "Hellfire"
+	e.Texture = FIRE_TEXTURE
+	e.Rate = rate
+	e.Lifetime = NumberRange.new(0.25, 0.5)
+	e.Speed = NumberRange.new(speed * 0.7, speed)
+	e.SpreadAngle = Vector2.new(12, 12)
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0.1) })
+	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	e.Color = ColorSequence.new(Color3.fromRGB(255, 200, 60), Color3.fromRGB(255, 50, 0))
+	e.LightEmission = 1
+	e.LightInfluence = 0
+	e.EmissionDirection = Enum.NormalId.Front
+	e.Parent = parent
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 120, 30)
+	light.Range = 10
+	light.Brightness = 2
+	light.Shadows = false
+	light.Parent = parent
+end
+
+local function hellfire(b: Builder, bike: Bikes.Bike, g: Geo)
+	local chrome = Color3.fromRGB(215, 218, 224)
+	local pivotZ = g.RearAxle.Z - 0.58
+	for _, side in { -1, 1 } do
+		local a = Vector3.new(side * 0.13, 0.32, pivotZ - 0.1)
+		local m = Vector3.new(side * 0.16, 0.3, pivotZ + 0.25)
+		local c = Vector3.new(side * 0.17, 0.5, g.RearAxle.Z + 0.2)
+		tube(b, "Frame", "ExhaustPipe", scale(a), scale(m), 0.05, nil, chrome, METAL)
+		tube(b, "Frame", "ExhaustPipe", scale(m), scale(c), 0.055, nil, chrome, METAL)
+		-- the tip points back; flames come out of its front face
+		local tipCF = CFrame.lookAt(scale(c), scale(c + (c - m).Unit))
+		local tip = PartKit.Box(b.Model, "ExhaustTip", Vector3.new(0.07, 0.07, 0.04) * VIS, tipCF, chrome, METAL)
+		add(b, "Frame", tip, nil)
+		flames(tip, 45, 9)
+	end
+	-- burning wheels: fire on each hub (it turns with the wheel)
+	for _, groupName in { "Front", "Rear" } do
+		local group = b.Groups[groupName]
+		local hub = group and group.Pivot
+		if hub then
+			local fire = Instance.new("Fire")
+			fire.Size = 4
+			fire.Heat = 4
+			fire.Color = Color3.fromRGB(255, 90, 10)
+			fire.SecondaryColor = Color3.fromRGB(255, 200, 60)
+			fire.Parent = hub
+		end
+	end
+	local _ = bike
+end
+
 function BikeModel.ApplyPaint(model: Model, bike: Bikes.Bike, choice: PaintChoice?)
 	local colors, materials = resolvePaints(bike, choice)
 	for _, d in model:GetDescendants() do
@@ -708,6 +770,11 @@ function BikeModel.Build(bike: Bikes.Bike, choice: PaintChoice?, options: Option
 			end
 			table.insert(group.Parts, item.Part)
 		end
+	end
+
+	-- Hellfire (the Deathrider): chrome pipes breathing fire, and burning wheels
+	if bike.Effects == "Hellfire" then
+		hellfire(b, bike, g)
 	end
 
 	-- Seat: where the rider's hips go, tipped forward for the riding position

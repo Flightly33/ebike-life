@@ -7,9 +7,20 @@
 	hitting a cop car) fill a heat meter, and a full meter is a wanted star. Each star brings more
 	cars, faster ones, and a richer cash multiplier while the chase lasts.
 
-	Lose every pursuer's line of sight for long enough and you escape (and get paid); slow down next
-	to a cop, or get off the bike, and the cuffs come out (a fine, the bike goes back to the garage
-	and you're walked out of the station).
+	Lose every pursuer's line of sight for long enough and you escape (and get paid).
+
+	Pursuit tactics, like real units working a chase together:
+	  Lead        the nearest car: drives at where you're going to be, and from PITStars stars
+	              knocks you off (a PIT) when it gets alongside
+	  Flank       the second car: rides beside you to box you in
+	  Intercept   the rest: predict the crossing you'll reach a few seconds ahead, get there
+	              first and block it, then close in
+	  Roadblock   from RoadblockStars: a car parked across a crossing ahead with a spike strip in
+	              front of it (spikes give you a flat: a crawl for a while)
+	Getting caught: stop (or get knocked off, or bail) near a cruiser and the officers get out and
+	run you down on foot; if one reaches you while you're still slow or on the ground, the cuffs come
+	out (a fine, the bike goes back to the garage and you're walked out of the station). Ride off
+	fast enough and they give up, walk back and the chase goes on.
 
 	Player attributes for the HUD: Wanted (stars), Heat (0..1 to the next star), Evade (0..1),
 	Bust (0..1), Seen (a cop can see you right now).
@@ -31,6 +42,7 @@ local DataService = require(script.Parent.DataService)
 local BikeService = require(script.Parent.BikeService)
 local EconomyService = require(script.Parent.EconomyService)
 local CarDriver = require(script.Parent.CarDriver)
+local Officer = require(script.Parent.Officer)
 
 local PoliceService = {}
 
@@ -41,6 +53,12 @@ type Unit = {
 	Target: Player?,
 	Extra: boolean, -- brought in for a chase; leaves when it's over
 	ReleasedAt: number,
+	Role: string, -- "Lead" | "Flank" | "Intercept" | "Roadblock" | "Deployed"
+	InterceptNode: number?,
+	InterceptAt: number,
+	RoadblockAt: number,
+	Spikes: BasePart?,
+	Officers: { Model },
 }
 
 type Watch = {
@@ -50,6 +68,8 @@ type Watch = {
 	Spotted: boolean,
 	Inside: number?, -- intersection node the player is crossing
 	MaxStarsThisChase: number,
+	KnockedAt: number,
+	RoadblockAt: number,
 }
 
 local units: { Unit } = {}
@@ -63,7 +83,7 @@ losParams.RespectCanCollide = true
 local function watch(player: Player): Watch
 	local w = watches[player]
 	if not w then
-		w = { Heat = Heat.new(), SeenAt = -math.huge, Seen = false, Spotted = false, Inside = nil, MaxStarsThisChase = 0 }
+		w = { Heat = Heat.new(), SeenAt = -math.huge, Seen = false, Spotted = false, Inside = nil, MaxStarsThisChase = 0, KnockedAt = -math.huge, RoadblockAt = -math.huge }
 		watches[player] = w
 	end
 	return w
@@ -118,7 +138,7 @@ local function spawnUnit(start: CFrame, extra: boolean): Unit
 	driver.TopSpeed = C.PatrolSpeed
 	driver.Accel = 4
 	driver.ObeyLights = true
-	local unit: Unit = { Driver = driver, Target = nil, Extra = extra, ReleasedAt = 0 }
+	local unit: Unit = { Driver = driver, Target = nil, Extra = extra, ReleasedAt = 0, Role = "Patrol", InterceptNode = nil, InterceptAt = 0, RoadblockAt = 0, Spikes = nil, Officers = {} }
 	table.insert(units, unit)
 	return unit
 end
@@ -130,8 +150,23 @@ local function randomEdge(): (number, number)
 	return node, Layout.OtherEnd(edge, node)
 end
 
+local function clearTactics(unit: Unit)
+	for _, officer in unit.Officers do
+		officer:Destroy()
+	end
+	table.clear(unit.Officers)
+	local spikes = unit.Spikes
+	if spikes then
+		spikes:Destroy()
+		unit.Spikes = nil
+	end
+	unit.Role = "Patrol"
+	unit.InterceptNode = nil
+end
+
 local function patrol(unit: Unit)
 	local driver = unit.Driver
+	clearTactics(unit)
 	unit.Target = nil
 	driver.Model:SetAttribute("Pursuit", false)
 	driver.TopSpeed = C.PatrolSpeed
@@ -164,6 +199,9 @@ local function totalChasers(): number
 end
 
 local function assign(unit: Unit, player: Player, stars: number)
+	if unit.Target ~= player then
+		unit.Role = "Intercept"
+	end
 	unit.Target = player
 	local driver = unit.Driver
 	driver.Model:SetAttribute("Pursuit", true)
@@ -225,6 +263,110 @@ local function dispatch(player: Player, stars: number)
 	end
 end
 
+-- The grid crossing the rider will reach about `seconds` from now, if they keep going (nil when
+-- they're barely moving)
+local function predictNode(position: Vector3, velocity: Vector3, seconds: number): number?
+	local flat = Vector3.new(velocity.X, 0, velocity.Z)
+	if flat.Magnitude < 6 then
+		return nil
+	end
+	local ahead = position + flat * seconds
+	local nodeId = Layout.NearestNode(ahead, function(node)
+		return node.Grid and (node.Position - position):Dot(flat) > 0
+	end)
+	return nodeId
+end
+
+local propsFolder: Folder? = nil
+local function props(): Folder
+	local existing = propsFolder
+	if existing and existing.Parent then
+		return existing
+	end
+	local f = Instance.new("Folder")
+	f.Name = "PoliceProps"
+	f.Parent = Workspace
+	propsFolder = f
+	return f
+end
+
+-- A spike strip across the road at `position`, perpendicular to `approach`
+local function spikeStrip(position: Vector3, approach: Vector3, width: number): BasePart
+	local strip = Instance.new("Part")
+	strip.Name = "SpikeStrip"
+	strip.Anchored = true
+	strip.CanCollide = false
+	strip.CanTouch = false
+	strip.Size = Vector3.new(width, 0.15, 2.2)
+	strip.CFrame = CFrame.lookAt(position + Vector3.new(0, 0.08, 0), position + Vector3.new(0, 0.08, 0) + Vector3.new(approach.X, 0, approach.Z).Unit)
+	strip.Color = Color3.fromRGB(30, 30, 32)
+	strip.Material = Enum.Material.DiamondPlate
+	strip:SetAttribute("Surface", "Spikes")
+	strip.Parent = props()
+	for i = 0, math.floor(width / 1.5) do
+		local tooth = Instance.new("Part")
+		tooth.Name = "Spike"
+		tooth.Anchored = true
+		tooth.CanCollide = false
+		tooth.CanQuery = false
+		tooth.CanTouch = false
+		tooth.Size = Vector3.new(0.25, 0.5, 0.25)
+		tooth.CFrame = strip.CFrame * CFrame.new(-width / 2 + 0.75 + i * 1.5, 0.3, 0)
+		tooth.Color = Color3.fromRGB(200, 200, 205)
+		tooth.Material = Enum.Material.Metal
+		tooth.Parent = strip
+	end
+	return strip
+end
+
+-- From RoadblockStars: a cruiser across a crossing ahead, spikes on the rider's side of it
+local function placeRoadblock(player: Player, position: Vector3, velocity: Vector3)
+	for _, unit in units do
+		if unit.Target == player and unit.Role == "Roadblock" then
+			return
+		end
+	end
+	local nodeId = predictNode(position, velocity, C.RoadblockAhead)
+	if not nodeId then
+		return
+	end
+	local node = Layout.Nodes[nodeId]
+	local toNode = Vector3.new(node.Position.X - position.X, 0, node.Position.Z - position.Z)
+	if toNode.Magnitude < 160 then
+		return -- too close to set up
+	end
+	if lineOfSight(node.Position + Vector3.new(0, 6, 0), position + Vector3.new(0, 3, 0)) then
+		return -- they'd see it appear
+	end
+	local approach = toNode.Unit
+	local across = Vector3.new(-approach.Z, 0, approach.X)
+	local start = CFrame.lookAt(node.Position, node.Position + across)
+	local unit = spawnUnit(start, true)
+	assign(unit, player, C.RoadblockStars)
+	unit.Role = "Roadblock"
+	unit.RoadblockAt = os.clock()
+	CarDriver.Teleport(unit.Driver, nodeId, across)
+	CarDriver.Hold(unit.Driver)
+	local width = if node.I and node.J then math.max(Layout.LineWidth(node.I), Layout.LineWidth(node.J)) else 30
+	unit.Spikes = spikeStrip(node.Position - approach * (width / 2 + 14), approach, width * 0.9)
+end
+
+-- Officers out of the car, running at the rider
+local function deployOfficers(unit: Unit, position: Vector3)
+	if #unit.Officers > 0 then
+		return
+	end
+	local driver = unit.Driver
+	CarDriver.Hold(driver)
+	unit.Role = "Deployed"
+	local cf = CFrame.new(driver.Position) * CFrame.fromEulerAnglesYXZ(0, driver.Yaw, 0)
+	for i, side in { -1, 1 } do
+		local door = (cf * CFrame.new(side * (driver.HalfWidth + 2.5), 0, -1)).Position
+		local officer = Officer.new(door, position - door, i + #units)
+		table.insert(unit.Officers, officer)
+	end
+end
+
 local function release(player: Player)
 	for _, unit in units do
 		if unit.Target == player then
@@ -232,6 +374,7 @@ local function release(player: Player)
 			patrol(unit)
 		end
 	end
+	local _ = player
 end
 
 local function setAttributes(player: Player, w: Watch)
@@ -407,20 +550,163 @@ local function tick(dt: number)
 		if w.Heat.Stars > 0 and chasersOf(player) < math.min(C.Units[w.Heat.Stars], C.MaxPursuers) then
 			dispatch(player, w.Heat.Stars)
 		end
+		if w.Heat.Stars >= C.RoadblockStars and riding and os.clock() - w.RoadblockAt > 20 then
+			w.RoadblockAt = os.clock()
+			placeRoadblock(player, position, velocity)
+		end
 
-		-- Cornered?
+		-- Cornered: stopped (or knocked off, or on foot) near a cruiser sends the officers out; an
+		-- officer reaching you while you're slow or down fills the bust meter
 		local cornered = false
 		if w.Heat.Stars > 0 then
-			if riding then
-				cornered = nearestCop < C.BustRange and kmh < C.BustKmh
-			else
-				cornered = nearestCop < C.FootBustRange
+			local bailed = BikeService.Bailed(player)
+			local helpless = bailed or not riding or kmh < C.BustKmh
+			local stopped = bailed or not riding or kmh < C.DeployKmh
+			if stopped then
+				for _, unit in units do
+					if unit.Target == player and #unit.Officers == 0 and (unit.Driver.Position - position).Magnitude < C.DeployRange then
+						deployOfficers(unit, position)
+						break
+					end
+				end
+			end
+			for _, unit in units do
+				if unit.Target == player then
+					for _, officer in unit.Officers do
+						local root = officer.PrimaryPart
+						if root and (root.Position - position).Magnitude < C.ArrestRange and helpless then
+							cornered = true
+						end
+					end
+				end
 			end
 		end
 		if Heat.UpdateBust(w.Heat, dt, cornered) then
 			bust(player, w, true)
 		end
 		setAttributes(player, w)
+	end
+end
+
+-- Roles by distance: the nearest car leads, the next flanks, the rest intercept (a roadblock or a
+-- car whose officers are out keeps its job)
+local function assignRoles(now: number)
+	local byPlayer: { [Player]: { Unit } } = {}
+	for _, unit in units do
+		local target = unit.Target
+		if target and unit.Role ~= "Roadblock" and unit.Role ~= "Deployed" then
+			local list = byPlayer[target] or {}
+			table.insert(list, unit)
+			byPlayer[target] = list
+		end
+	end
+	for player, list in byPlayer do
+		local position = whereIs(player)
+		if position then
+			table.sort(list, function(a, b)
+				return (a.Driver.Position - position).Magnitude < (b.Driver.Position - position).Magnitude
+			end)
+			for i, unit in list do
+				unit.Role = if i == 1 then "Lead" elseif i == 2 then "Flank" else "Intercept"
+			end
+		end
+	end
+	local _ = now
+end
+
+local function driveTactics(unit: Unit, player: Player, position: Vector3, velocity: Vector3, now: number)
+	local driver = unit.Driver
+	local w = watch(player)
+	local distance = (position - driver.Position).Magnitude
+	local visible = distance < 260 and (distance < 40 or lineOfSight(driver.Position + Vector3.new(0, 5, 0), position + Vector3.new(0, 3, 0)))
+	local role = unit.Role
+
+	if role == "Deployed" then
+		-- officers out: send them at the rider, or back to the car when the rider's away
+		local gone = distance > C.OfficerGiveUp
+		local back = 0
+		for _, officer in unit.Officers do
+			local humanoid = officer:FindFirstChildOfClass("Humanoid")
+			local root = officer.PrimaryPart
+			if humanoid and root then
+				if gone then
+					humanoid:MoveTo(driver.Position)
+					if (root.Position - driver.Position).Magnitude < 9 then
+						back += 1
+					end
+				else
+					humanoid:MoveTo(position)
+				end
+			else
+				back += 1
+			end
+		end
+		if gone and back >= #unit.Officers then
+			for _, officer in unit.Officers do
+				officer:Destroy()
+			end
+			table.clear(unit.Officers)
+			unit.Role = "Intercept"
+		end
+		return
+	elseif role == "Roadblock" then
+		-- hold the crossing until the rider is past it or it times out
+		local node = unit.InterceptNode
+		if now - unit.RoadblockAt > C.RoadblockTime or (distance > 320 and not visible) then
+			local spikes = unit.Spikes
+			if spikes then
+				spikes:Destroy()
+				unit.Spikes = nil
+			end
+			unit.Role = "Intercept"
+		end
+		local _ = node
+		return
+	elseif role == "Intercept" and not (visible and distance < 70) then
+		-- get to the crossing they'll reach next, and block it
+		if not unit.InterceptNode or now - unit.InterceptAt > 3 then
+			unit.InterceptNode = predictNode(position, velocity, C.InterceptAhead)
+			unit.InterceptAt = now
+		end
+		local nodeId = unit.InterceptNode
+		if nodeId then
+			local spot = Layout.Nodes[nodeId].Position
+			if (spot - driver.Position).Magnitude < 22 then
+				CarDriver.Hold(driver)
+			else
+				CarDriver.Chase(driver, spot, Vector3.zero, false)
+			end
+			return
+		end
+	end
+
+	local aim = position
+	if role == "Flank" and visible and distance < 140 then
+		-- ride alongside, on the side the car is already on
+		local flat = Vector3.new(velocity.X, 0, velocity.Z)
+		if flat.Magnitude > 4 then
+			local dir = flat.Unit
+			local right = Vector3.new(-dir.Z, 0, dir.X)
+			local side = if (driver.Position - position):Dot(right) >= 0 then 1 else -1
+			aim = position + right * (side * 11) + flat * 0.5
+		end
+	end
+	CarDriver.Chase(driver, aim, velocity, visible)
+
+	-- PIT: alongside at speed, the lead or flank car knocks the rider off
+	if (role == "Lead" or role == "Flank") and w.Heat.Stars >= C.PITStars and now - w.KnockedAt > C.PITCooldown then
+		local ride = BikeService.Get(player)
+		if ride and ride.Riding and not BikeService.Bailed(player) and distance < C.PITRange and BikeService.Kmh(ride) > 15 and driver.Speed > 6 then
+			w.KnockedAt = now
+			Remotes.Event("Knocked"):FireClient(player, (position - driver.Position).Unit)
+		end
+	end
+
+	-- hopelessly stuck or left far behind: bring it back in closer
+	if driver.StuckCount >= 3 or distance > 1400 then
+		local nodeId = entryNode(position)
+		CarDriver.Teleport(driver, nodeId, position - Layout.Nodes[nodeId].Position)
+		CarDriver.Chase(driver, position, velocity, false)
 	end
 end
 
@@ -434,6 +720,7 @@ local function driveUnits(dt: number)
 		end
 	end
 	local now = os.clock()
+	assignRoles(now)
 	for index = #units, 1, -1 do
 		local unit = units[index]
 		local driver = unit.Driver
@@ -441,15 +728,7 @@ local function driveUnits(dt: number)
 		if target then
 			local position, velocity = whereIs(target)
 			if position and target.Parent then
-				local distance = (position - driver.Position).Magnitude
-				local direct = distance < 260 and (distance < 40 or lineOfSight(driver.Position + Vector3.new(0, 5, 0), position + Vector3.new(0, 3, 0)))
-				CarDriver.Chase(driver, position, velocity, direct)
-				-- hopelessly stuck or left far behind: bring it back in closer
-				if driver.StuckCount >= 3 or distance > 1400 then
-					local nodeId = entryNode(position)
-					CarDriver.Teleport(driver, nodeId, position - Layout.Nodes[nodeId].Position)
-					CarDriver.Chase(driver, position, velocity, false)
-				end
+				driveTactics(unit, target, position, velocity, now)
 			else
 				patrol(unit)
 			end
@@ -463,6 +742,7 @@ local function driveUnits(dt: number)
 				end
 			end
 			if not visible then
+				clearTactics(unit)
 				CarDriver.Destroy(driver)
 				table.remove(units, index)
 				continue

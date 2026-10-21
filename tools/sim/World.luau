@@ -1157,6 +1157,24 @@ function World:Physics(dt: number)
 			end
 		end
 	end
+	-- NPCs (police officers): walk toward their MoveTo target at WalkSpeed
+	local officers = self.Services.Workspace:FindFirstChild("Officers")
+	if officers then
+		for _, model in officers:GetChildren() do
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local root = model.PrimaryPart
+			local target = humanoid and Sim.States[humanoid].Extra.MoveTarget
+			if root and target then
+				local p = root.CFrame.Position
+				local flat = Vector3.new(target.X - p.X, 0, target.Z - p.Z)
+				local step = math.min(flat.Magnitude, humanoid.WalkSpeed * dt)
+				if step > 1e-3 then
+					local nextPos = p + flat.Unit * step
+					model:PivotTo(CFrame.lookAt(nextPos, nextPos + flat.Unit))
+				end
+			end
+		end
+	end
 	local _ = driven
 end
 
