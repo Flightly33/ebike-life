@@ -726,8 +726,18 @@ def moto_bike(k, P):
         F("Leather", K.loft(secs, 24, True, axis="Y"))
         F("Frame", K.loft([(seat_b - Z * 0.06 + Y * 0.06, 0.09, 0.035, 3), (seat_b - Z * 0.05 - Y * 0.15, 0.07, 0.03, 3), (seat_b - Z * 0.03 - Y * 0.32, 0.04, 0.02, 3)], 20, True, axis="Y"))
         F("NeonRed", K.rbox(seat_b - Z * 0.035 - Y * 0.322, (0.06, 0.006, 0.02), 0.003))
-        F("Black", K.sweep([seat_b - Z * 0.06 - Y * 0.25, seat_b - Z * 0.2 - Y * 0.34, seat_b - Z * 0.28 - Y * 0.36], 0, 10, profile=(0.07, 0.005)))
-        F("White", K.rbox(seat_b - Z * 0.25 - Y * 0.36, (0.14, 0.004, 0.09), 0.003))
+        kit = k.get("Kit", "Dirt")
+        if kit in ("Street", "Chopper"):
+            # tail tidy: a short hanger under the tail with the plate and its lamp
+            F("Black", K.sweep([seat_b - Z * 0.07 - Y * 0.28, seat_b - Z * 0.16 - Y * 0.42, seat_b - Z * 0.22 - Y * 0.46], 0, 10, profile=(0.06, 0.006)))
+            F("White", K.rbox(seat_b - Z * 0.26 - Y * 0.47, (0.17, 0.004, 0.12), 0.004))
+            F("NeonWhite", K.rbox(seat_b - Z * 0.19 - Y * 0.465, (0.04, 0.01, 0.01), 0.003))
+        else:
+            F("Black", K.sweep([seat_b - Z * 0.06 - Y * 0.25, seat_b - Z * 0.2 - Y * 0.34, seat_b - Z * 0.28 - Y * 0.36], 0, 10, profile=(0.07, 0.005)))
+            F("White", K.rbox(seat_b - Z * 0.25 - Y * 0.36, (0.14, 0.004, 0.09), 0.003))
+        if kit == "Supermoto":
+            for side in (-1, 1):
+                F("White", K.rbox(seat_b - Z * 0.1 - Y * 0.05 + X * side * 0.09, (0.008, 0.2, 0.12), 0.01))
         for side in (-1, 1):
             F("NeonAmber", K.rbox(seat_b - Z * 0.2 - Y * 0.35 + X * side * 0.09, (0.02, 0.02, 0.015), 0.004))
         # motor with fins, controller, skid plate
@@ -749,7 +759,7 @@ def moto_bike(k, P):
         F("Metal", K.cyl(shock_top, shock_bot, 0.013, 0.013, 16))
         F("Dark", K.cyl(shock_top, shock_top + d * 0.08, 0.025, 0.025, 20))
         for i in range(10):
-            F("Orange" if k["Id"] != "storm_x" else "Accent", K.torus(shock_top + d * (0.09 + i * 0.014), d, 0.028, 0.004, 20, 6))
+            F("Orange" if k["Id"] not in ("storm_x", "hornet_6") else "Accent", K.torus(shock_top + d * (0.09 + i * 0.014), d, 0.028, 0.004, 20, 6))
         F(alu, K.bar(pivot - Z * 0.06, shock_bot, 0.04, 0.03, 0.008))
         # chain on the left to the rear sprocket
         sp_front = m - X * 0.09
@@ -759,8 +769,9 @@ def moto_bike(k, P):
         F("Black", K.bar(sp_front - Z * 0.05 + Y * -0.02, sp_rear - Z * 0.115 + Y * 0.05, 0.012, 0.015, 0.004))
         # footpegs
         for side in (-1, 1):
-            peg = pivot + Vector((side * 0.17, -0.08, -0.12))
-            F(alu, K.bar(pivot + Vector((side * 0.09, -0.06, -0.08)), peg - X * side * 0.03, 0.03, 0.03, 0.006, up=Z))
+            # the game puts the rider's feet (PegL / PegR) 0.08 m ahead of the pivot (Blender +Y is forward)
+            peg = pivot + Vector((side * 0.17, 0.08, -0.05))
+            F(alu, K.bar(pivot + Vector((side * 0.09, 0.03, -0.03)), peg - X * side * 0.03, 0.03, 0.03, 0.006, up=Z))
             F("Metal", K.rbox(peg, (0.1, 0.05, 0.022), 0.004))
             for e in (-1, 1):
                 F("Dark", K.rbox(peg + Y * e * 0.024 + Z * 0.012, (0.1, 0.004, 0.008), 0.001))
@@ -801,16 +812,53 @@ def moto_bike(k, P):
             S("Chrome", K.lathe(head, -Y, [(-0.012, 0), (-0.012, 0.045), (0.004, 0.05), (0.004, 0)], 28))
             S("Glass", K.disc(head - Y * 0.005, Y, 0.042, 0.003, 28))
     else:
+        kit = k.get("Kit", "Dirt")
         plate_c = (HB + HT) / 2 + fwd_perp * 0.1 + AX * 0.02
         plate_rot = K.frame_rot(X, fwd_perp, AX)
-        S("Accent", K.rbox(plate_c, (0.26, 0.02, 0.26), 0.04, plate_rot))
-        S("Black", K.rbox(plate_c + fwd_perp * 0.012 - AX * 0.035, (0.17, 0.006, 0.07), 0.015, plate_rot))
-        S("NeonWhite", K.rbox(plate_c + fwd_perp * 0.016 - AX * 0.035, (0.15, 0.004, 0.022), 0.008, plate_rot))
-        S("NeonWhite", K.rbox(plate_c + fwd_perp * 0.016 - AX * 0.065, (0.08, 0.004, 0.012), 0.005, plate_rot))
-        # high fender
-        top = P["Rf"] + 0.13
-        S("Accent", K.sweep([FA + Y * -0.18 + Z * (top - 0.06), FA + Y * 0.02 + Z * (top + 0.01), FA + Y * 0.18 + Z * top, FA + Y * 0.28 + Z * (top - 0.03)], 0, 16, profile=(tw / 2 + 0.03, 0.006)))
-        S("Black", K.bar(HB - AX * 0.02, FA + Y * 0.02 + Z * (top + 0.01), 0.05, 0.02, 0.006))
+        if kit in ("Street", "Chopper"):
+            # round headlight in a bowl on brackets, mirrors on stalks
+            lamp = plate_c + fwd_perp * 0.02 + AX * 0.03
+            bowl = "Chrome" if kit == "Chopper" else "Black"
+            S(bowl, K.lathe(lamp, fwd_perp, [(-0.085, 0), (-0.085, 0.04), (-0.06, 0.08), (0.0, 0.095), (0.012, 0.09), (0.012, 0)], 36))
+            S("Chrome", K.torus(lamp + fwd_perp * 0.012, fwd_perp, 0.088, 0.007, 40, 8))
+            S("NeonWhite", K.lathe(lamp + fwd_perp * 0.013, fwd_perp, [(0, 0.082), (0.01, 0.05), (0.014, 0)], 32))
+            for side in (-1, 1):
+                S("Black", K.bar(HT + X * side * (tw / 2 + 0.04), lamp + X * side * 0.07 - fwd_perp * 0.03, 0.015, 0.03, 0.004))
+                base = P["Bars"] + X * side * (k["BarWidth"] / 2 - 0.12) + Z * 0.05
+                head = base + X * side * 0.08 + Z * 0.2 - Y * 0.02
+                S("Black", K.cyl(base, head - Z * 0.02, 0.006, 0.006, 8))
+                S("Black", K.rbox(head, (0.1, 0.012, 0.06), 0.02))
+                S("Glass", K.rbox(head - Y * 0.007, (0.09, 0.002, 0.05), 0.018))
+        else:
+            # number plate with an LED bar (white boards on the supermoto, twin lamps on the enduro)
+            plate_slot = "White" if kit == "Supermoto" else "Accent"
+            S(plate_slot, K.rbox(plate_c, (0.26, 0.02, 0.26), 0.04, plate_rot))
+            S("Black", K.rbox(plate_c + fwd_perp * 0.012 - AX * 0.035, (0.17, 0.006, 0.07), 0.015, plate_rot))
+            if kit == "Enduro":
+                for side in (-1, 1):
+                    S("NeonWhite", K.lathe(plate_c + fwd_perp * 0.018 - AX * 0.035 + X * side * 0.045, fwd_perp, [(0, 0.03), (0.006, 0.02), (0.008, 0)], 24))
+            else:
+                S("NeonWhite", K.rbox(plate_c + fwd_perp * 0.016 - AX * 0.035, (0.15, 0.004, 0.022), 0.008, plate_rot))
+                S("NeonWhite", K.rbox(plate_c + fwd_perp * 0.016 - AX * 0.065, (0.08, 0.004, 0.012), 0.005, plate_rot))
+        if kit == "Enduro":
+            # hand guards wrapping the grips
+            for side in (-1, 1):
+                g0 = P["Bars"] + X * side * (k["BarWidth"] / 2 - 0.14) + Z * 0.05
+                g1 = P["Bars"] + X * side * (k["BarWidth"] / 2 + 0.01) + Z * 0.06 + Y * 0.07
+                S("Accent", K.sweep([g0 + Y * 0.02, g0 + Y * 0.08 + X * side * 0.05 + Z * 0.02, g1], 0, 12, profile=(0.05, 0.006)))
+        if kit in ("Supermoto", "Street", "Chopper"):
+            # low fender hugging the tyre
+            r = P["Rf"] + 0.03
+            pts = []
+            for i in range(9):
+                a = math.radians(-35 + i * 14)
+                pts.append(FA + Y * (math.sin(a) * r) + Z * (math.cos(a) * r))
+            S("Frame" if kit == "Street" else "Accent", K.sweep(pts, 0, 16, profile=(tw / 2 + 0.025, 0.006)))
+        else:
+            # high fender
+            top = P["Rf"] + 0.13
+            S("Accent", K.sweep([FA + Y * -0.18 + Z * (top - 0.06), FA + Y * 0.02 + Z * (top + 0.01), FA + Y * 0.18 + Z * top, FA + Y * 0.28 + Z * (top - 0.03)], 0, 16, profile=(tw / 2 + 0.03, 0.006)))
+            S("Black", K.bar(HB - AX * 0.02, FA + Y * 0.02 + Z * (top + 0.01), 0.05, 0.02, 0.006))
         S("Dark", K.rbox(P["Bars"] + Y * 0.0 + Z * 0.04, (0.09, 0.05, 0.03), 0.01))
     grips = cockpit(k, style, True, P)
 

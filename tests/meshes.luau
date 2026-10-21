@@ -121,13 +121,13 @@ end
 -- An import turned half round (Studio's forward axis) is read from the layout and turned back
 local MeshKit = server.Require(Models:WaitForChild("MeshKit"))
 for _, part in folder:GetChildren() do
-	if string.sub(part.Name, 1, 9) == "metro_c1_" then
+	if string.sub(part.Name, 1, 11) == "flit_mini__" then
 		local p = part.Position
 		part.CFrame = CFrame.new(-p.X, p.Y, -p.Z)
 	end
 end
-MeshKit.Forget("metro_c1")
-local turnedBike = BikeModel.Build(Bikes.Get("metro_c1"), nil, { Static = true })
+MeshKit.Forget("flit_mini")
+local turnedBike = BikeModel.Build(Bikes.Get("flit_mini"), nil, { Static = true })
 local turnedOk, straightOk = 0, 0
 for _, part in meshes(turnedBike) do
 	if part.CFrame.LookVector:Dot(Vector3.new(0, 0, 1)) > 0.99 then
@@ -144,14 +144,14 @@ check(straightOk > 0, "a straight import is left alone")
 
 -- A wrongly turned import falls back to parts
 for _, part in folder:GetChildren() do
-	if string.sub(part.Name, 1, 8) ~= "velo_s__" then
+	if string.sub(part.Name, 1, 8) ~= "flit_s__" then
 		continue
 	end
 	local size = Sim.States[part].Props.MeshSize
 	Sim.States[part].Props.MeshSize = Vector3.new(size.Z, size.Y, size.X)
 end
-MeshKit.Forget("velo_s")
-local fallback = BikeModel.Build(Bikes.Get("velo_s"), nil)
+MeshKit.Forget("flit_s")
+local fallback = BikeModel.Build(Bikes.Get("flit_s"), nil)
 check(#meshes(fallback) == 0, "a turned import falls back to the part-built bike")
 
 for _, e in world.Errors do

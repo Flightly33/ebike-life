@@ -17,10 +17,11 @@ Config.METERS_PER_STUD = 0.35
 Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
 Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
 -- Bike and car models are built from real dimensions in metres at this scale (the same one)
--- Bikes are drawn this much bigger than life: a Roblox avatar's torso and head are much bigger than
--- a person's, so a true-size bike reads as a toy next to it. 1.8: the owner found 1.2 too small and 2.4 too big
--- (the camera and the collision box scale with it)
-Config.BIKE_SIZE = 1.8
+-- Bikes are drawn at this times life size. 1.0 is where a default avatar fits the whole line-up:
+-- seated, knees bent on the footpegs and hands on the bars (tools/lune/reach.luau prints each bike's
+-- fitting size, 0.89 for the biggest enduro to 1.29 for the youth pit bike). The owner tried 1.2,
+-- 2.4 and 1.8 when the rider pose was broken; bigger than ~1.0 and the feet can't reach the pegs.
+Config.BIKE_SIZE = 1.0
 Config.VISUAL_STUDS_PER_METER = Config.STUDS_PER_METER * Config.BIKE_SIZE
 
 Config.BRAND = "Flightly"
@@ -140,7 +141,7 @@ Config.Battery = {
 
 Config.Economy = {
 	StartCash = 150,
-	StarterBike = "metro_c1",
+	StarterBike = "flit_mini",
 	MinPaySpeed = 4, -- km/h before riding pays
 	BaseRate = 0.25, -- $/s once moving
 	RatePerKmh = 0.03, -- $/s per km/h

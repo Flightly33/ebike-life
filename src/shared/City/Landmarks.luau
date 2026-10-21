@@ -245,12 +245,12 @@ function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: 
 	PartKit.Sign(pylonSign, Enum.NormalId.Back, "FLIGHTY\nMECHANICS", FLIGHTY_ORANGE, nil, Enum.Font.FredokaOne, 8)
 	local rampBase = Vector3.new(scx + entrance / 2 + 24, floorY, front + 26)
 	PartKit.Ramp(model, "ShowRamp", rampBase + Vector3.new(0, 0, 10), rampBase + Vector3.new(0, 4, -4), 10, FLIGHTY_DARK, SMOOTH)
-	local poser = Bikes.Get("ridge_ht")
+	local poser = Bikes.Get("hornet_6")
 	if poser then
 		local wheelie = BikeModel.Build(poser, nil, { Static = true })
 		PartKit.Scale(wheelie, 1 / Config.WORLD_SCALE)
 		PartKit.PlaceStatic(wheelie, CFrame.new(rampBase + Vector3.new(0, 4.2, -6)) * CFrame.Angles(math.rad(28), 0, 0))
-		wheelie.Name = "Display_ridge_ht"
+		wheelie.Name = "Display_hornet_6"
 		wheelie.Parent = model
 	end
 	-- test-ride lane: dashed loop with cones on the west forecourt
@@ -277,7 +277,7 @@ function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: 
 	local tuneStand = PartKit.Box(model, "TuningStand", Vector3.new(4, 5, 4), CFrame.new(bayX - 36, floorY + 2.5, bayZ + 30), FLIGHTY_ORANGE, SMOOTH)
 	prompt(tuneStand, "TuningPrompt", "Tune your bike", "Service bay").MaxActivationDistance = 20
 	-- two lifts with bikes up on them
-	for k, id in { "summit_fs", "storm_x" } do
+	for k, id in { "trail_t", "storm_x" } do
 		local liftPos = Vector3.new(bayX - 44, floorY, bayZ - 22 + (k - 1) * 22)
 		PartKit.Box(model, "Lift", Vector3.new(10, 1, 16), CFrame.new(liftPos + Vector3.new(0, 3.5, 0)), Color3.fromRGB(200, 40, 40), Enum.Material.DiamondPlate)
 		PartKit.Box(model, "LiftColumn", Vector3.new(2, 3.5, 2), CFrame.new(liftPos + Vector3.new(0, 1.75, 0)), Color3.fromRGB(60, 60, 64), Enum.Material.Metal)

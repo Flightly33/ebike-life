@@ -100,7 +100,7 @@ end)
 
 --------------------------------------------------------------------------------
 print("== spawn the starter bike and get on")
-ClientRemotes.Event("SpawnBike"):FireServer("metro_c1")
+ClientRemotes.Event("SpawnBike"):FireServer("flit_mini")
 world:Run(1)
 local bikes = WS:FindFirstChild("Bikes")
 local bike = bikes and bikes:FindFirstChild("Bike_1")
@@ -364,7 +364,7 @@ check(BikeService.Get(player) == nil, "busted: the bike went back to the garage"
 
 --------------------------------------------------------------------------------
 print("== get off")
-ClientRemotes.Event("SpawnBike"):FireServer("metro_c1")
+ClientRemotes.Event("SpawnBike"):FireServer("flit_mini")
 world:Run(3)
 bike = bikes:FindFirstChild("Bike_1")
 if bike then

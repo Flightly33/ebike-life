@@ -124,6 +124,15 @@ end
 
 local flat = makeWorld({})
 
+-- a run-up callback that holds the bike at `limit` km/h (the e-motos would otherwise be flat out)
+local function atMost(limit: number)
+	return function(_t: number, s: any)
+		if BikePhysics.Kmh(s) > limit then
+			s.Speed = limit / 3.6
+		end
+	end
+end
+
 print("== top speeds (full throttle, TURBO, flat road)")
 for _, bike in Bikes.List do
 	local spec, state = spawn(bike.Id)
@@ -145,7 +154,7 @@ print("== modes change acceleration and drain")
 do
 	local results = {}
 	for _, name in { "ECO", "TOUR", "SPORT", "TURBO" } do
-		local spec, state = spawn("tundra_ft")
+		local spec, state = spawn("trail_t")
 		local t25: number? = nil
 		ride(spec, state, Modes.Defaults[name], flat, 30, input({ Throttle = 1 }), function(t, s)
 			if not t25 and kmh(s) >= 25 then
@@ -159,19 +168,19 @@ do
 	check(results.ECO.Used < results.TURBO.Used, "ECO uses less battery than TURBO")
 end
 
-print("== pedal assist needs pedalling; OFF is legs only")
+print("== OFF mode: no pedals, so no drive")
 do
-	local spec, state = spawn("ridge_ht")
-	ride(spec, state, Modes.Defaults.OFF, flat, 40, input({ Throttle = 1 }))
-	local legs = kmh(state)
-	print(string.format("  legs only: %.1f km/h", legs))
-	check(legs > 18 and legs < 32, "legs alone cruise between 18 and 32 km/h")
+	local spec, state = spawn("hornet_6")
+	ride(spec, state, Modes.Defaults.OFF, flat, 10, input({ Throttle = 1 }))
+	print(string.format("  throttle in OFF: %.1f km/h", kmh(state)))
+	check(kmh(state) < 1, "the throttle does nothing in OFF")
 	check(state.Battery == spec.BatteryWh, "OFF uses no battery")
+	check(not spec.Pedals, "every Flightly is an e-moto with no pedals")
 end
 
 print("== battery: full-throttle runtime and the empty-pack cut-out")
 do
-	for _, id in { "metro_c1", "storm_x" } do
+	for _, id in { "flit_mini", "storm_x" } do
 		local spec, state = spawn(id)
 		local t = 0
 		local emptyAt: number? = nil
@@ -203,7 +212,7 @@ end
 
 print("== braking")
 do
-	local spec, state = spawn("metro_c1")
+	local spec, state = spawn("flit_mini")
 	ride(spec, state, Modes.Defaults.TURBO, flat, 15, input({ Throttle = 1 }))
 	local startZ = state.Position.Z
 	local before = kmh(state)
@@ -219,7 +228,7 @@ end
 
 print("== steering and lean")
 do
-	local spec, state = spawn("velo_s")
+	local spec, state = spawn("flit_s")
 	ride(spec, state, Modes.Defaults.TURBO, flat, 12, input({ Throttle = 1 }))
 	local yaw0 = state.Yaw
 	local maxLean = 0
@@ -240,8 +249,8 @@ end
 
 print("== drift: lock the rear, swing the tail, pay on the way out")
 do
-	local spec, state = spawn("ridge_ht")
-	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }))
+	local spec, state = spawn("hornet_6")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }), atMost(33))
 	local before = kmh(state)
 	local maxSlip, started, ended = 0, false, nil
 	local yaw0, travel0 = state.Yaw, state.TravelYaw
@@ -270,7 +279,7 @@ do
 	check(ended ~= nil and (ended.Value or 0) > 0.3, "releasing ends the drift with its time")
 	check(math.abs(state.Slip) < 0.1, "the line snaps back to the heading")
 	-- holding it too long at full lock spins you out
-	spec, state = spawn("ridge_ht")
+	spec, state = spawn("hornet_6")
 	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }))
 	local crashed = false
 	ride(spec, state, Modes.Defaults.TURBO, flat, 4, input({ Drift = true, Steer = 1, Throttle = 1 }), function(_, s)
@@ -278,7 +287,7 @@ do
 	end)
 	check(crashed or state.Speed < 2, "holding full lock spins you out (or slides to a stop)")
 	-- too slow to drift
-	spec, state = spawn("ridge_ht")
+	spec, state = spawn("hornet_6")
 	ride(spec, state, Modes.Defaults.OFF, flat, 1, input({ Throttle = 0.3 }))
 	ride(spec, state, Modes.Defaults.OFF, flat, 1, input({ Drift = true, Steer = 1 }))
 	check(math.abs(state.Slip) < 0.05, "no drifting at walking pace")
@@ -286,7 +295,7 @@ end
 
 print("== wheelie: hold the key, stay up, loop out if ignored")
 do
-	for _, id in { "metro_c1", "ridge_ht", "storm_x", "haul_lt" } do
+	for _, id in { "flit_mini", "hornet_6", "storm_x", "scout_e" } do
 		local spec, state = spawn(id)
 		ride(spec, state, Modes.Defaults.SPORT, flat, 6, input({ Throttle = 1 }))
 		local startKmh = kmh(state)
@@ -304,7 +313,7 @@ do
 		check(loopedAt == nil or loopedAt > 4, id .. " holds a wheelie at least 4 s with the key alone")
 	end
 	-- With corrections (tap the brake when high, the throttle when low) it can go on and on
-	local spec, state = spawn("ridge_ht")
+	local spec, state = spawn("hornet_6")
 	ride(spec, state, Modes.Defaults.SPORT, flat, 6, input({ Throttle = 1 }))
 	local inp = input({ Throttle = 0.6, Wheelie = true })
 	local crashed = false
@@ -339,7 +348,7 @@ print("== jump off a kicker")
 do
 	-- 21 degree kicker, 5 studs (1.4 m) tall, starting 150 studs ahead
 	local world = makeWorld({ RampStart = -150, RampLength = 13, RampHeight = 5 })
-	local spec, state = spawn("ridge_ht")
+	local spec, state = spawn("hornet_6")
 	local land, takeoff = nil, nil
 	local inp = input({ Throttle = 1 })
 	ride(spec, state, Modes.Defaults.TURBO, world, 12, inp, function(_, s, events)
@@ -363,7 +372,7 @@ do
 
 	-- Backflip: drop in fast (like the jump park's mega ramp roll-in) and pull back off a steep kicker
 	local big = makeWorld({ RampStart = -60, RampLength = 12, RampHeight = 7 })
-	spec, state = spawn("summit_fs")
+	spec, state = spawn("storm_xr")
 	state.Speed = 15
 	local flips = 0
 	local crashedFlip = false
@@ -393,7 +402,7 @@ print("== air tricks, barspin, stoppie")
 do
 	local world = makeWorld({ RampStart = -150, RampLength = 13, RampHeight = 5 })
 	-- hold Z for the first 0.45 s of air, then tap Y for a barspin
-	local spec, state = spawn("ridge_ht")
+	local spec, state = spawn("hornet_6")
 	local tricks, landed = {}, nil
 	local airClock = 0
 	local inp = input({ Throttle = 1 })
@@ -420,7 +429,7 @@ do
 	check(landed ~= nil and landed.Text ~= "Crash", "tucked in time: clean landing")
 	-- every trick, held all the way to the ground: counted, and tucked in time to land
 	for _, name in { "Superman", "CanCan", "NacNac", "KneeKnocker", "NoFooter" } do
-		spec, state = spawn("ridge_ht")
+		spec, state = spawn("hornet_6")
 		local bailed, counted = false, false
 		local hold = input({ Throttle = 1 })
 		ride(spec, state, Modes.Defaults.TURBO, world, 12, hold, function(_, s, events)
@@ -436,8 +445,8 @@ do
 		check(counted and not bailed, name .. ": held to the ground, it counts and tucks in to land")
 	end
 	-- stoppie: brake + wheelie key at speed
-	spec, state = spawn("ridge_ht")
-	ride(spec, state, Modes.Defaults.TURBO, flat, 6, input({ Throttle = 1 }))
+	spec, state = spawn("hornet_6")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 6, input({ Throttle = 1 }), atMost(33))
 	local stoppie, maxLift = nil, 0
 	ride(spec, state, Modes.Defaults.TURBO, flat, 3, input({ Brake = 0.7, Wheelie = true }), function(_, s, events)
 		maxLift = math.max(maxLift, s.Stoppie)
@@ -481,7 +490,7 @@ do
 	check(loops == 1 and fails == 0, "a fast e-moto goes all the way round")
 	check(math.abs(state.Position.X - 10) < 0.5, "it comes out beside the entry")
 	-- too slow: falls off near the top
-	spec, state = spawn("metro_c1")
+	spec, state = spawn("flit_mini")
 	local slow = loopWorld(30)
 	fails = 0
 	events = ride(spec, state, Modes.Defaults.ECO, slow, 18, input({ Throttle = 0.4 }))
@@ -506,7 +515,7 @@ do
 		end
 		return hit
 	end
-	spec, state = spawn("ridge_ht")
+	spec, state = spawn("hornet_6")
 	local crashed, foamLanding = false, false
 	local inp = input({ Throttle = 1 })
 	ride(spec, state, Modes.Defaults.TURBO, foam, 12, inp, function(_, s, evs)
@@ -526,7 +535,7 @@ print("== quarter pipe: up the face, turn at the top, ride back down")
 do
 	-- the Loop Park halfpipe: radius 16 design studs (20 in game), 72 degrees
 	local world = makeWorld({ QuarterStart = -120, QuarterRadius = 20, QuarterAngle = math.rad(72) })
-	local spec, state = spawn("ridge_ht")
+	local spec, state = spawn("hornet_6")
 	local crashed, fakie, landed, peak = false, false, false, 0
 	local inp = input({ Throttle = 1 })
 	ride(spec, state, Modes.Defaults.TURBO, world, 9, inp, function(_, s, events)
@@ -565,7 +574,7 @@ do
 	check(crashed, "full speed into a wall bails")
 	check(state.Position.Z > -150, "doesn't go through the wall")
 
-	spec, state = spawn("metro_c1")
+	spec, state = spawn("flit_mini")
 	local slowEvents = ride(spec, state, Modes.Defaults.ECO, world, 6, input({ Throttle = 0.3 }))
 	ride(spec, state, Modes.Defaults.ECO, world, 30, input({ Throttle = 0.15 }))
 	crashed = false
@@ -590,11 +599,11 @@ do
 	end
 	-- rolling off a kerb mid-wheelie
 	local kerb = makeWorld({ DropZ = -120, DropHeight = 0.6 })
-	local spec, state = spawn("ridge_ht")
+	local spec, state = spawn("hornet_6")
 	local events = ride(spec, state, Modes.Defaults.TOUR, kerb, 9, input({ Throttle = 1, Wheelie = true }))
 	check(not crashes(events), "a wheelie off a kerb carries on")
 	-- off a kerb mid-drift
-	spec, state = spawn("ridge_ht")
+	spec, state = spawn("hornet_6")
 	local driftKerb = makeWorld({ DropZ = -60, DropHeight = 0.6 })
 	ride(spec, state, Modes.Defaults.TURBO, driftKerb, 4, input({ Throttle = 1 }))
 	events = ride(spec, state, Modes.Defaults.TURBO, driftKerb, 1.5, input({ Drift = true, Steer = 0.6 }))
@@ -608,7 +617,7 @@ end
 
 print("== bunny hop")
 do
-	local spec, state = spawn("ridge_ht")
+	local spec, state = spawn("hornet_6")
 	ride(spec, state, Modes.Defaults.TOUR, flat, 4, input({ Throttle = 1 }))
 	local inp = input({ Throttle = 1, Hop = true })
 	ride(spec, state, Modes.Defaults.TOUR, flat, 0.5, inp)
@@ -630,10 +639,10 @@ end
 print("== grass slows road tyres more than knobblies")
 do
 	local grass = makeWorld({ Grass = true })
-	local spec, state = spawn("velo_s")
+	local spec, state = spawn("flit_s")
 	ride(spec, state, Modes.Defaults.TURBO, grass, 30, input({ Throttle = 1 }))
 	local road = kmh(state)
-	spec, state = spawn("velo_s", { Tires = 2 })
+	spec, state = spawn("flit_s", { Tires = 2 })
 	ride(spec, state, Modes.Defaults.TURBO, grass, 30, input({ Throttle = 1 }))
 	local knobby = kmh(state)
 	print(string.format("  speed pedelec on grass: slicks %.1f, knobblies %.1f km/h", road, knobby))

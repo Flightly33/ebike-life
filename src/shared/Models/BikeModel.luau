@@ -282,11 +282,46 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 	-- headlight
 	local lampAt = if moto then g.HT + g.Axis * 0.02 + Vector3.new(0, -0.05, -0.12) else g.HT + Vector3.new(0, -0.02, -0.08)
 	if moto then
-		box(b, "Steer", "NumberPlate", Vector3.new(0.24 * VIS, 0.2 * VIS, 0.03 * VIS), CFrame.fromMatrix(scale(lampAt + Vector3.new(0, 0.02, -0.02)), Vector3.xAxis, g.Axis, Vector3.xAxis:Cross(g.Axis)), "Accent")
-		neon(b, "Steer", "Headlight", Vector3.new(0.12 * VIS, 0.06 * VIS, 0.02 * VIS), CFrame.new(scale(lampAt + Vector3.new(0, 0.0, -0.045))), Color3.fromRGB(255, 250, 230))
-		-- front fender
-		local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.06, 0)
-		bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.03, 0.18)), scale(fTop + Vector3.new(0, 0.0, -0.25)), geo.TireWidth + 0.05, 0.015, "Accent")
+		local kit = geo.Kit or "Dirt"
+		local plateFrame = CFrame.fromMatrix(scale(lampAt + Vector3.new(0, 0.02, -0.02)), Vector3.xAxis, g.Axis, Vector3.xAxis:Cross(g.Axis))
+		local lampColor = Color3.fromRGB(255, 250, 230)
+		if kit == "Street" or kit == "Chopper" then
+			-- round headlight in a chrome bowl, mirrors on stalks
+			local lamp = lampAt + Vector3.new(0, 0.03, -0.03)
+			cyl(b, "Steer", "LampBowl", 0.17, 0.1, CFrame.new(scale(lamp)) * CFrame.Angles(0, math.pi / 2, 0), nil, if kit == "Chopper" then SILVER else BLACK, METAL)
+			neon(b, "Steer", "Headlight", Vector3.new(0.12 * VIS, 0.12 * VIS, 0.01 * VIS), CFrame.new(scale(lamp + Vector3.new(0, 0, -0.052))), lampColor)
+			for _, side in { -1, 1 } do
+				local base = g.Bars + Vector3.new(side * (geo.BarWidth / 2 - 0.12), 0.05, 0)
+				local head = base + Vector3.new(side * 0.08, 0.2, 0.02)
+				tube(b, "Steer", "MirrorStalk", scale(base), scale(head), 0.012, nil, BLACK, METAL)
+				cyl(b, "Steer", "Mirror", 0.09, 0.02, CFrame.new(scale(head + Vector3.new(0, 0.03, 0))) * CFrame.Angles(0, math.pi / 2, 0), nil, BLACK)
+			end
+		else
+			-- number plate with an LED (bigger, twin lamps on the enduro), white boards on the supermoto
+			box(b, "Steer", "NumberPlate", Vector3.new(0.24 * VIS, 0.2 * VIS, 0.03 * VIS), plateFrame, if kit == "Supermoto" then nil else "Accent", if kit == "Supermoto" then Color3.fromRGB(240, 240, 240) else nil)
+			if kit == "Enduro" then
+				for _, side in { -1, 1 } do
+					neon(b, "Steer", "Headlight", Vector3.new(0.06 * VIS, 0.06 * VIS, 0.02 * VIS), CFrame.new(scale(lampAt + Vector3.new(side * 0.04, 0.0, -0.045))), lampColor)
+				end
+			else
+				neon(b, "Steer", "Headlight", Vector3.new(0.12 * VIS, 0.05 * VIS, 0.02 * VIS), CFrame.new(scale(lampAt + Vector3.new(0, 0.0, -0.045))), lampColor)
+			end
+		end
+		if kit == "Enduro" then
+			-- hand guards
+			for _, side in { -1, 1 } do
+				local gripAt = g.Bars + Vector3.new(side * (geo.BarWidth / 2 - 0.06), 0.05, 0)
+				bar(b, "Steer", "HandGuard", scale(gripAt + Vector3.new(-side * 0.09, 0.02, -0.03)), scale(gripAt + Vector3.new(side * 0.05, 0.01, -0.08)), 0.1, 0.012, "Accent")
+			end
+		end
+		-- front fender: high on the dirt bikes, hugging the tyre on the road ones
+		if kit == "Supermoto" or kit == "Street" or kit == "Chopper" then
+			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.025, 0)
+			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.05, 0.16)), scale(fTop + Vector3.new(0, -0.03, -0.2)), geo.TireWidth + 0.04, 0.012, if kit == "Street" then "Frame" else "Accent")
+		else
+			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.06, 0)
+			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.03, 0.18)), scale(fTop + Vector3.new(0, 0.0, -0.25)), geo.TireWidth + 0.05, 0.015, "Accent")
+		end
 	else
 		cyl(b, "Steer", "LampBody", 0.07, 0.07, CFrame.new(scale(lampAt)) * CFrame.Angles(0, math.pi / 2, 0), nil, BLACK)
 		neon(b, "Steer", "Headlight", Vector3.new(0.05 * VIS, 0.05 * VIS, 0.01 * VIS), CFrame.new(scale(lampAt + Vector3.new(0, 0, -0.04))), Color3.fromRGB(255, 250, 230))
@@ -528,6 +563,18 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	-- tail section
 	bar(b, frame, "Tail", scale(seatBack + Vector3.new(0, -0.07, -0.05)), scale(seatBack + Vector3.new(0, -0.02, 0.32)), 0.16, 0.05, frame)
 	neon(b, frame, "Taillight", Vector3.new(0.08 * VIS, 0.03 * VIS, 0.015 * VIS), CFrame.new(scale(seatBack + Vector3.new(0, -0.03, 0.33))), Color3.fromRGB(255, 30, 30))
+	local kit = bike.Geometry.Kit or "Dirt"
+	if kit == "Street" or kit == "Chopper" then
+		-- tail tidy with the plate
+		local plate = seatBack + Vector3.new(0, -0.2, 0.36)
+		box(b, frame, "PlateHanger", Vector3.new(0.05 * VIS, 0.16 * VIS, 0.02 * VIS), CFrame.new(scale(plate + Vector3.new(0, 0.1, -0.02))), nil, BLACK)
+		box(b, frame, "Plate", Vector3.new(0.16 * VIS, 0.11 * VIS, 0.008 * VIS), CFrame.new(scale(plate)), nil, Color3.fromRGB(240, 240, 240))
+	elseif kit == "Supermoto" then
+		-- side number boards
+		for _, side in { -1, 1 } do
+			box(b, frame, "SideBoard", Vector3.new(0.01 * VIS, 0.12 * VIS, 0.2 * VIS), CFrame.new(scale(seatBack + Vector3.new(side * 0.085, -0.1, -0.05))), nil, Color3.fromRGB(240, 240, 240))
+		end
+	end
 	-- motor and controller
 	cyl(b, frame, "Motor", 0.2, 0.16, CFrame.new(scale(pivot + Vector3.new(0, -0.02, -0.12))), nil, Color3.fromRGB(70, 72, 76), METAL)
 	cyl(b, frame, "MotorCap", 0.12, 0.17, CFrame.new(scale(pivot + Vector3.new(0, -0.02, -0.12))), "Accent")
@@ -544,7 +591,7 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	-- footpegs
 	local pegL, pegR
 	for _, side in { -1, 1 } do
-		local peg = box(b, frame, "Footpeg", Vector3.new(0.1 * VIS, 0.025 * VIS, 0.05 * VIS), CFrame.new(scale(pivot + Vector3.new(side * 0.17, -0.12, -0.08))), nil, SILVER, METAL)
+		local peg = box(b, frame, "Footpeg", Vector3.new(0.1 * VIS, 0.025 * VIS, 0.05 * VIS), CFrame.new(scale(pivot + Vector3.new(side * 0.17, -0.05, -0.08))), nil, SILVER, METAL)
 		if side < 0 then
 			pegL = peg
 		else
@@ -552,8 +599,9 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 		end
 	end
 	if pegL and pegR then
-		PartKit.Attach(pegL :: BasePart, "PegL", scale(pivot + Vector3.new(-0.17, -0.09, -0.08)))
-		PartKit.Attach(pegR :: BasePart, "PegR", scale(pivot + Vector3.new(0.17, -0.09, -0.08)))
+		-- pegs at a real light e-moto's height (~0.37 m)
+		PartKit.Attach(pegL :: BasePart, "PegL", scale(pivot + Vector3.new(-0.17, -0.02, -0.08)))
+		PartKit.Attach(pegR :: BasePart, "PegR", scale(pivot + Vector3.new(0.17, -0.02, -0.08)))
 	end
 	-- rear fender
 	local fTop = g.RearAxle + Vector3.new(0, g.Rr + 0.05, 0)

@@ -31,6 +31,7 @@ for _, bike in Bikes.List do
 		Pedals = bike.Pedals,
 		Throttle = bike.Throttle,
 		TireKind = bike.TireKind,
+		Kit = geo.Kit or "Dirt",
 		TireWidth = geo.TireWidth,
 		BarWidth = geo.BarWidth,
 		SeatHeight = geo.SeatHeight,

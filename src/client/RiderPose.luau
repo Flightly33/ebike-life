@@ -6,7 +6,7 @@
 	The hips sit on the seat (the seat weld is set from the avatar's own hip height), the torso
 	leans forward far enough for the hands to reach the grips, and arms and legs are two-bone IK to
 	the grips and the pedals (or footpegs). On top of that:
-		pedalling      lean in a little more, a slight side-to-side rock with effort
+		on the gas     weight forward over the bars, a little rock with the power
 		wheelie        pull back, arms straight
 		stoppie        weight forward over the bars
 		air tricks     a full-body pose per trick, blended in and out
@@ -40,7 +40,7 @@ type Rider = {
 	Ext: number, -- trick pose, smoothed 0..1
 	TrickName: string,
 	Hands: { L: number, R: number }, -- 0 on the grips .. 1 free, smoothed
-	Points: { [string]: Attachment }, -- GripL/R, PedalL/R (or PegL/R as PedalL/R)
+	Points: { [string]: Attachment }, -- GripL/R, and the feet's spots as PedalL/R (footpegs on e-motos)
 }
 
 -- Trick poses: where the feet go (seat-relative, in leg lengths; +X right, +Y up, +Z back) and how
@@ -129,7 +129,7 @@ local function teardown(rider: Rider)
 	end
 end
 
-type Read = { Crashed: boolean, Hands: number, Trick: string, Ext: number, Barspin: boolean, Wheelie: number, Stoppie: number, Pedal: number, Steer: number }
+type Read = { Crashed: boolean, Hands: number, Trick: string, Ext: number, Barspin: boolean, Wheelie: number, Stoppie: number, Throttle: number, Steer: number }
 
 local function read(bike: Model): Read
 	local physics = BikeController.Physics
@@ -142,7 +142,7 @@ local function read(bike: Model): Read
 			Barspin = physics.BarSpin > 0,
 			Wheelie = physics.Wheelie,
 			Stoppie = physics.Stoppie,
-			Pedal = math.clamp(physics.Cadence / 90, 0, 1),
+			Throttle = if BikeController.Spec and BikeController.Spec.MotorW > 0 then math.clamp(physics.MotorPower / BikeController.Spec.MotorW, 0, 1) else 0,
 			Steer = physics.Steer,
 		}
 	end
@@ -161,7 +161,7 @@ local function read(bike: Model): Read
 		Barspin = bike:GetAttribute("Barspin") == true,
 		Wheelie = if wheelie == true then 0.45 elseif type(wheelie) == "number" then wheelie else 0,
 		Stoppie = if bike:GetAttribute("Stoppie") == true then 0.3 else 0,
-		Pedal = math.clamp(number("Cadence") / 90, 0, 1),
+		Throttle = math.clamp(number("Power"), 0, 1),
 		Steer = number("Steer"),
 	}
 end
@@ -199,12 +199,12 @@ local function pose(rider: Rider, dt: number)
 
 	-- torso: the fitted lean, more when pushing hard, back on a wheelie, forward on a stoppie
 	local t = os.clock()
-	local lean = rider.Fit + state.Pedal * 0.12 + state.Stoppie * 0.8 - math.min(state.Wheelie, 1.1) * 0.75
+	local lean = rider.Fit + state.Throttle * 0.15 + state.Stoppie * 0.8 - math.min(state.Wheelie, 1.1) * 0.75
 	if trick then
 		lean += trick.Lean * ext
 	end
 	rider.Lean += (lean - rider.Lean) * k
-	local rock = math.sin(t * (2 + state.Pedal * 6)) * 0.05 * state.Pedal
+	local rock = math.sin(t * 3.1) * 0.02 * state.Throttle
 	rider.Roll += (rock - rider.Roll) * k
 
 	local hrp = hrpPart.CFrame
