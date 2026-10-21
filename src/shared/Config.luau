@@ -17,7 +17,10 @@ Config.METERS_PER_STUD = 0.35
 Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
 Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
 -- Bike and car models are built from real dimensions in metres at this scale (the same one)
-Config.VISUAL_STUDS_PER_METER = Config.STUDS_PER_METER
+-- Bikes are drawn this much bigger than life: a Roblox avatar's torso and head are much bigger than
+-- a person's, so a true-size bike reads as a toy next to it (any bigger and the legs can't reach)
+Config.BIKE_SIZE = 1.2
+Config.VISUAL_STUDS_PER_METER = Config.STUDS_PER_METER * Config.BIKE_SIZE
 
 Config.BRAND = "Flightly"
 Config.DEALERSHIP = "Flighty Mechanics"
@@ -30,6 +33,7 @@ Config.Physics = {
 	SnapDistance = 0.5, -- studs the ground may drop away before the bike counts as airborne
 	MaxSteer = 0.55, -- rad of handlebar at walking pace
 	MinSteer = 0.07, -- rad at full speed (bikes turn by leaning at speed)
+	MaxRidePitch = 1.0, -- rad: a surface steeper than this (a quarter pipe's top) launches you along it
 	SteerRate = 4.5, -- how fast the bars follow the input (1/s)
 	MaxLean = 0.85, -- rad
 	ReverseSpeed = 1.3, -- m/s when walking the bike backwards
@@ -60,6 +64,20 @@ Config.Wheelie = {
 	NoisePerKmh = 0.045, -- and the faster you go
 	SweetLow = 0.3, -- balance zone shown on the HUD
 	SweetHigh = 0.78,
+}
+
+-- Turning, tuned to the reference scooter game: above walking pace the bars set a turn rate (it
+-- carves ~85 degrees a second at 60 km/h, far tighter than real tyre grip), fading a little at very
+-- high speed; at walking pace it's the bicycle's steering geometry. The lean shows the turn.
+Config.Turning = {
+	Rate = 1.5, -- rad/s at full lock
+	FadeFrom = 17, -- m/s (~60 km/h): faster than this the rate fades...
+	FadeOver = 28, -- ...by half again over this many m/s more
+	SteerRate = 5.5, -- how fast the bars follow the input (1/s)
+	Scrub = 0.03, -- speed lost per m/s² of cornering (per second)
+	LeanScale = 0.5, -- of the physical lean for that turn
+	MaxLean = 0.6, -- rad (~34 degrees)
+	LeanRate = 4.5, -- rad/s the body leans in or out
 }
 
 Config.Drift = {

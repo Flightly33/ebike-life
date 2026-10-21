@@ -491,6 +491,21 @@ Methods.Instance = {
 		end)
 		return out
 	end,
+	-- joints touching this part (welds anywhere up to the DataModel that name it)
+	GetJoints = function(self)
+		local top = self
+		while states[top].Parent do
+			top = states[top].Parent
+		end
+		local out = {}
+		forEachDescendant(top, function(d)
+			local props = states[d].Props
+			if (props.Part0 == self or props.Part1 == self) and string.find(states[d].ClassName, "Weld") then
+				table.insert(out, d)
+			end
+		end)
+		return out
+	end,
 	IsDescendantOf = function(self, ancestor)
 		return isDescendantOf(self, ancestor)
 	end,

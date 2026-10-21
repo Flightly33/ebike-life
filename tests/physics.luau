@@ -32,11 +32,20 @@ end
 local DT = 1 / 60
 
 -- World: flat road at y = 0, optional kicker ramp (rising toward -Z), optional wall across -Z
-type Options = { RampStart: number?, RampLength: number?, RampHeight: number?, WallZ: number?, WallKind: string?, Grass: boolean?, DropZ: number?, DropHeight: number? }
+type Options = { RampStart: number?, RampLength: number?, RampHeight: number?, WallZ: number?, WallKind: string?, Grass: boolean?, DropZ: number?, DropHeight: number?, QuarterStart: number?, QuarterRadius: number?, QuarterAngle: number? }
 
 local function makeWorld(opt: Options)
 	local function height(x: number, z: number): (number, string, any)
 		local _ = x
+		-- a quarter pipe: a circular transition rising toward -Z, up to QuarterAngle
+		if opt.QuarterStart and opt.QuarterRadius and opt.QuarterAngle then
+			local r = opt.QuarterRadius
+			local d = opt.QuarterStart - z
+			if d >= 0 and d <= r * math.sin(opt.QuarterAngle) then
+				local h = r - math.sqrt(r * r - d * d)
+				return h, "Ramp", Vector3.new(0, r - h, d).Unit
+			end
+		end
 		if opt.RampStart and opt.RampLength and opt.RampHeight then
 			local start, length, h = opt.RampStart, opt.RampLength, opt.RampHeight
 			if z <= start and z >= start - length then
@@ -214,13 +223,17 @@ do
 	ride(spec, state, Modes.Defaults.TURBO, flat, 12, input({ Throttle = 1 }))
 	local yaw0 = state.Yaw
 	local maxLean = 0
-	ride(spec, state, Modes.Defaults.TURBO, flat, 3, input({ Throttle = 1, Steer = 1 }), function(_, s)
+	local before = kmh(state)
+	ride(spec, state, Modes.Defaults.TURBO, flat, 1, input({ Throttle = 1, Steer = 1 }), function(_, s)
 		maxLean = math.max(maxLean, math.abs(s.Lean))
 	end)
-	print(string.format("  turned %.0f deg in 3 s at %.0f km/h, max lean %.0f deg", math.deg(yaw0 - state.Yaw), kmh(state), math.deg(maxLean)))
+	print(string.format("  turned %.0f deg in 1 s from %.0f to %.0f km/h, max lean %.0f deg", math.deg(yaw0 - state.Yaw), before, kmh(state), math.deg(maxLean)))
 	check(yaw0 - state.Yaw > 0.5, "steering right turns right (yaw decreases)")
+	-- the reference game carves ~85 degrees in a second at speed and barely slows
+	check(yaw0 - state.Yaw > math.rad(65) and yaw0 - state.Yaw < math.rad(100), "carves 65-100 degrees in a second at speed (like the reference)")
+	check(kmh(state) > before - 6, "a hard carve only scrubs a little speed")
 	check(state.Lean < 0, "leans right into a right turn")
-	check(maxLean <= Config.Physics.MaxLean + 1e-3, "lean stays under the max")
+	check(maxLean <= Config.Turning.MaxLean + 1e-3 and maxLean > math.rad(20), "leans 20-34 degrees")
 	local look = BikePhysics.Heading(state.Yaw)
 	check(look.X > 0, "heading swung toward +X (right of -Z)")
 end
@@ -477,7 +490,8 @@ do
 			table.insert(kinds, e.Kind)
 		end
 	end
-	check(fails == 1, "too slow for a big loop: you roll back or drop off")
+	check(fails == 1, "too slow for a big loop: you slide back out")
+	check(table.find(kinds, "Crash") == nil, "stalling in a loop never crashes you")
 	-- foam pit: a flat-out bad landing is fine
 	local foam = makeWorld({ RampStart = -150, RampLength = 13, RampHeight = 5 })
 	local down = foam.Down
@@ -502,6 +516,35 @@ do
 		end
 	end)
 	check(foamLanding and not crashed, "the foam pit catches a landing you'd normally bail")
+end
+
+print("== quarter pipe: up the face, turn at the top, ride back down")
+do
+	-- the Loop Park halfpipe: radius 16 design studs (20 in game), 72 degrees
+	local world = makeWorld({ QuarterStart = -120, QuarterRadius = 20, QuarterAngle = math.rad(72) })
+	local spec, state = spawn("ridge_ht")
+	local crashed, fakie, landed, peak = false, false, false, 0
+	local inp = input({ Throttle = 1 })
+	ride(spec, state, Modes.Defaults.TURBO, world, 9, inp, function(_, s, events)
+		if s.Position.Z < -110 then
+			inp.Throttle = 0
+		end
+		peak = math.max(peak, s.Position.Y)
+		for _, e in events do
+			if e.Kind == "Crash" then
+				crashed = true
+			elseif e.Kind == "Fakie" then
+				fakie = true
+			elseif e.Kind == "Land" and fakie then
+				landed = true
+			end
+		end
+	end)
+	print(string.format("  peak %.1f studs, fakie %s, landed %s, crashed %s, now %.0f km/h heading %s", peak, tostring(fakie), tostring(landed), tostring(crashed), kmh(state), if BikePhysics.Heading(state.Yaw).Z > 0 then "back out" else "in"))
+	check(peak > 20 * (1 - math.cos(Config.Physics.MaxRidePitch)), "rides up the face past where it gets too steep")
+	check(peak < 60, "isn't fired into the sky")
+	check(fakie and landed and not crashed, "turns at the top and lands back on the face without a bail")
+	check(BikePhysics.Heading(state.Yaw).Z > 0.5, "rides back out facing the way it came")
 end
 
 print("== walls")

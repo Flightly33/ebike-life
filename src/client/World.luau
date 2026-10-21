@@ -115,7 +115,7 @@ World.Physics = {
 			local cf = plate.CFrame
 			local localPos = cf:PointToObjectSpace(position)
 			local half = plate.Size / 2
-			if math.abs(localPos.X) < half.X and math.abs(localPos.Z) < half.Z and math.abs(localPos.Y - half.Y) < 2 and dir:Dot(cf.LookVector) > 0.8 then
+			if math.abs(localPos.X) < half.X and math.abs(localPos.Z) < half.Z and math.abs(localPos.Y - half.Y) < 2 and dir:Dot(cf.LookVector) > 0.6 then
 				local radius = plate:GetAttribute("LoopRadius")
 				local shift = plate:GetAttribute("LoopShift")
 				if type(radius) == "number" and type(shift) == "number" then

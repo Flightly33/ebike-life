@@ -21,7 +21,7 @@ Everything below passes the simulator, but nothing has been played in Studio yet
 4. Audio search needs "Allow HTTP / Studio API access" and may return nothing in an unpublished place; the game falls back to `rbxasset://` sounds.
 5. DataStores need Studio API access; without it DataService runs from an in-memory profile.
 6. Game pass IDs in `AssetIds.GamePasses` are 0 (passes disabled).
-7. Bails ragdoll the rider on the client (`src/client/Ragdoll.luau`: BallSocketConstraints over Motor6D or AnimationConstraint joints, capped launch velocity), then the Remount remote puts them back; the server keeps the ride for `BAIL_GRACE`. Unverified in Studio.
+7. Bails ragdoll the rider on the client (`src/client/Ragdoll.luau`: BallSocketConstraints over Motor6D or AnimationConstraint joints, the bike's exact velocity, only body parts collide, NoCollisionConstraints across each joint, the SeatWeld cut locally), then the Remount remote puts them back; the server keeps the ride for `BAIL_GRACE`. Unverified in Studio.
 8. On-foot officers (`src/server/Officer.luau`, part-built R6 rigs in `Workspace.Officers`) walk with `Humanoid:MoveTo`; check they path around cars and kerbs.
 If any of these fail in Studio, ask the user for the Output window's errors and warnings.
 
@@ -34,6 +34,7 @@ If any of these fail in Studio, ask the user for the Output window's errors and 
 - `tools/preview`: offline three.js renders of the map and models (`node render.mjs`, Playwright Chromium).
 - `blender/`: `build_vehicles.py` (with `meshkit.py`) models every bike and car in Blender and writes `blender/out/Vehicles.fbx` and `src/shared/Models/MeshManifest.luau`. Run `lune run tools/lune/export_vehicles.luau` first (rig points from BikeModel.Geometry, car dims), then `/root/tools/blendenv/bin/python blender/build_vehicles.py [--render all|id,id] [--only id,id]`. bpy 5.2 (pip, Python 3.13 venv at /root/tools/blendenv), Cycles on CPU. Meshes are split as `<Group>__<Slot>` (group = the joint it rides on, slot = colour/material, MeshKit.Slots).
 - The owner imports Vehicles.fbx in Studio (File > Import 3D) into ReplicatedStorage as `VehicleMeshes`. MeshKit swaps those in for the part-built visuals (joints, seat, attachments, lamps, signs stay) and falls back to parts when they're missing or imported rotated. The rbxl built here does not contain them (they need uploading from Studio).
+- Turning (`Config.Turning`) copies the owner's reference scooter game: above walking pace the bars set a turn rate (~85 degrees a second at 60 km/h), not tyre grip; the lean is half the physical lean, capped at 34 degrees. Surfaces steeper than `Physics.MaxRidePitch` launch you along them, and a quarter-pipe launch turns you round at the top (`Fakie`). Ramp faces (hit normal Y > 0.3) never count as walls.
 - Tricks: air tricks (Z Superman, X Can-Can, T Nac-Nac, G Knee Knocker, N No-Footer; Y barspin), stoppie (brake+Shift), drift (R), loops (`LoopEntry` plates with `LoopRadius`/`LoopShift`, path-followed by `BikePhysics` via `World.Loop`), foam pits always land. Paid by EconomyService (air-validated, whitelisted, capped per jump). Jump park block (0,3) is the Loop Park (`Landmarks.LoopPark`).
 - Admin: `src/server/AdminService.luau` (Studio, place/group owner, `Admin.UserIds`, or the chat code `ender=cool`, which is server-only and hidden from chat). Panel: ADMIN button or F2.
 
@@ -47,7 +48,7 @@ If any of these fail in Studio, ask the user for the Output window's errors and 
 - The simulator only approximates Roblox. A passing sim doesn't prove the game works in Studio.
 
 ## Conventions
-- Scale: one scale for everything, 1 m = 2.86 studs (`Config.STUDS_PER_METER`, 1 stud = 0.35 m), matched to Roblox avatars (~5.2 studs tall). Physics runs in SI and converts at the edges. The city is authored in Roblox's standard units (1 stud = 0.28 m, real sizes) via `Layout.Design`, and `Builder` shrinks it by `Config.WORLD_SCALE` (0.8); the runtime `Layout` is already shrunk. Anything true-size placed inside the city build (showroom bikes, parked cars) is pre-scaled by 1/WORLD_SCALE.
+- Scale: one scale for everything, 1 m = 2.86 studs (`Config.STUDS_PER_METER`, 1 stud = 0.35 m), matched to Roblox avatars (~5.2 studs tall). Physics runs in SI and converts at the edges. The city is authored in Roblox's standard units (1 stud = 0.28 m, real sizes) via `Layout.Design`, and `Builder` scales it by `Config.WORLD_SCALE` (1.25); the runtime `Layout` is already scaled. Bikes are drawn `Config.BIKE_SIZE` (1.2) times life size (`VISUAL_STUDS_PER_METER`) so they don't look like toys next to blocky avatars; physics speeds stay in real units. Anything true-size placed inside the city build (showroom bikes, parked cars) is pre-scaled by 1/WORLD_SCALE.
 - Server time (`workspace:GetServerTimeNow()`) for traffic lights and anything shared; `os.clock()` for local timing.
 - The server never trusts client money: the client reports events (land, flip, wheelie end), the server checks them against the bike's state and pays.
 - UI is built from Instances only (no image IDs): ViewportFrames for 3D icons, emoji glyphs, Frames for the 7-segment digits.

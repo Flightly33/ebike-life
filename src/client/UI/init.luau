@@ -70,7 +70,7 @@ end
 local function screenScale(scale: UIScale)
 	local function update()
 		local size = Workspace.CurrentCamera.ViewportSize
-		scale.Scale = math.clamp(math.min(size.Y / 900, size.X / 1500), 0.55, 1.25)
+		scale.Scale = math.clamp(math.min(size.Y / 750, size.X / 1250), 0.65, 1.5)
 	end
 	update()
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(update)

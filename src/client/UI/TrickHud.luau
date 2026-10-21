@@ -85,7 +85,8 @@ function TrickHud.Update(_dt: number)
 	local bestText = ""
 	local data = State.Get()
 	if s.Crash > 0 then
-		name = "Bail!"
+		holder.Visible = false -- a bail is shown by the ragdoll, not a banner
+		return
 	elseif s.WheelieActive then
 		name = "Wheelie"
 		clock = s.WheelieTime
@@ -108,7 +109,7 @@ function TrickHud.Update(_dt: number)
 	end
 	holder.Visible = true
 	title.Text = name
-	title.TextColor3 = if name == "Bail!" then C.Red elseif name == "Chase Bonus" then Color3.fromRGB(110, 160, 255) else C.Orange
+	title.TextColor3 = if name == "Chase Bonus" then Color3.fromRGB(110, 160, 255) else C.Orange
 	timer.Visible = clock > 0
 	timer.Text = string.format("%.1fs", clock)
 	best.Visible = bestText ~= ""

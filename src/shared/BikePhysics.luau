@@ -35,6 +35,7 @@ local DR = Config.Drift
 local ST = Config.Stoppie
 local AT = Config.AirTricks
 local LP = Config.Loop
+local TU = Config.Turning
 local STUDS = Config.STUDS_PER_METER
 local UP = Vector3.yAxis
 local TAU = math.pi * 2
@@ -107,6 +108,8 @@ export type State = {
 	AirPitchRate: number,
 	AirYawRate: number,
 	AirHands: boolean, -- let go in the air
+	VertLaunch: number?, -- pitch of the quarter pipe face we left (turned round at the top)
+	FakieHold: boolean?, -- coming back down the face: hold the pitch
 	Crash: number, -- seconds of bail left
 	CrashReason: string,
 	CrashSide: number,
@@ -328,6 +331,10 @@ local function sweepMove(s: State, spec: Spec, world: World, delta: Vector3): (V
 	end
 	local travel = math.max(0, distance - 0.05)
 	local moved = delta.Unit * travel
+	if normal.Y > 0.3 then
+		-- a face you can ride up (a ramp, a quarter pipe): the wheels' ground probes deal with it
+		return moved, nil, 0, "Slope"
+	end
 	local flat = Vector3.new(normal.X, 0, normal.Z)
 	if flat.Magnitude < 0.2 then
 		return moved, nil, 0, ""
@@ -366,33 +373,18 @@ local function loopStep(s: State, spec: Spec, input: Input, dt: number, events: 
 	local up = loop.Entry.UpVector
 	local right = loop.Entry.RightVector
 	local tangent = (fwd * math.cos(theta) + up * math.sin(theta)).Unit
-	-- out of speed low on the curve: roll back down and out the way you came
-	if v < LP.RollBack and theta < math.pi / 2 then
+	-- out of speed, or too slow to stay on near the top: slide back down and out the way you came
+	-- (dropping off upside down was a guaranteed crash inside the loop)
+	local away = -math.cos(theta) -- 1 at the top
+	if v < LP.RollBack or v * v / r < g * away * LP.Stick then
 		s.Loop = nil
 		s.LoopAngle = 0
 		s.Position = loop.Entry.Position - fwd * 1.5
 		s.RearY = s.Position.Y
 		s.RearVy = 0
 		s.Pitch = 0
-		s.Speed = -math.max(1, math.sqrt(2 * g * r * (1 - math.cos(theta))))
+		s.Speed = -math.clamp(math.sqrt(2 * g * r * (1 - math.cos(theta))), 1, 8)
 		s.Velocity = fwd * (s.Speed * STUDS)
-		push(events, "LoopFail")
-		return
-	end
-	-- holding on: the centripetal pull has to beat the part of gravity pulling off the track
-	local away = -math.cos(theta) -- 1 at the top
-	if v <= 0.5 or v * v / r < g * away * LP.Stick then
-		s.Loop = nil
-		s.Grounded = false
-		s.Pitch = wrap(theta)
-		s.AirVelocity = Vector3.new(tangent.X, 0, tangent.Z) * (v * STUDS)
-		s.VerticalSpeed = tangent.Y * v
-		s.AirTime = 0
-		s.AirPitch = 0
-		s.AirYaw = 0
-		s.AirPitchRate = 0
-		s.AirYawRate = 0
-		s.AirTricks = 0
 		push(events, "LoopFail")
 		return
 	end
@@ -518,18 +510,20 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	-- Steering
 	local handsFactor = if input.NoHands then 0.45 elseif input.OneHand then 0.8 else 1
 	local steerTarget = if riding then input.Steer * handsFactor else 0
-	s.Steer = approach(s.Steer, steerTarget, P.SteerRate * dt)
+	s.Steer = approach(s.Steer, steerTarget, TU.SteerRate * dt)
 	local steerMax = P.MaxSteer + (P.MinSteer - P.MaxSteer) * math.clamp(math.abs(v) / 22, 0, 1)
-	if s.Wheelie > 0.08 then
-		steerMax *= 0.55
-	end
 	s.SteerAngle = s.Steer * steerMax
+	-- Walking pace: the bicycle's geometry (yaw = v·tanδ / wheelbase). Riding: the bars set a turn
+	-- rate (carving, like the reference game), a little less on loose ground and at very high speed.
 	local wheelbaseM = spec.Wheelbase / Config.VISUAL_STUDS_PER_METER
-	local yawRate = v * math.tan(s.SteerAngle) / wheelbaseM
-	local lateralMax = grip * g * 0.95
-	if math.abs(v * yawRate) > lateralMax then
-		yawRate = math.sign(yawRate) * lateralMax / math.max(math.abs(v), 0.1)
+	local geometric = v * math.tan(s.Steer * P.MaxSteer) / wheelbaseM
+	local gripScale = math.clamp(grip / 0.9, 0.55, 1.05)
+	local carve = math.abs(s.Steer) * TU.Rate * gripScale / (1 + math.max(0, math.abs(v) - TU.FadeFrom) / TU.FadeOver)
+	local yawRate = math.sign(geometric) * math.min(math.abs(geometric), carve)
+	if s.Wheelie > 0.08 or s.Stoppie > 0.05 then
+		yawRate *= 0.55
 	end
+	local lateralMax = grip * g * 0.95
 	-- Drift: the rear brake is locked, so the tail is free to swing out. The steering throws the
 	-- heading round faster than grip allows, while the direction of travel catches up only as fast
 	-- as the tyres can bend it (lateral grip / speed). The gap is the slip angle; sliding scrubs speed.
@@ -546,6 +540,10 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	else
 		s.Yaw -= yawRate * dt
 		s.TravelYaw += wrap(s.Yaw - s.TravelYaw) * math.min(1, DR.Recover * dt)
+		-- carving scrubs a little speed off
+		if v > 0 then
+			v = math.max(0, v - TU.Scrub * math.abs(v * yawRate) * dt)
+		end
 		s.Slip = wrap(s.Yaw - s.TravelYaw)
 	end
 	if s.DriftActive then
@@ -562,7 +560,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		push(events, "DriftStart")
 	end
 
-	local leanTarget = -math.atan(v * yawRate / g)
+	local leanTarget = -math.atan(v * yawRate / g) * TU.LeanScale
 	if drifting then
 		-- lean into the slide, opposite the tail
 		leanTarget = math.clamp(s.Slip * 0.6, -0.5, 0.5)
@@ -575,9 +573,9 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	end
 	leanTarget = math.clamp(leanTarget, -1.4, 1.4)
 	if riding then
-		leanTarget = math.clamp(leanTarget, -P.MaxLean, P.MaxLean)
+		leanTarget = math.clamp(leanTarget, -TU.MaxLean, TU.MaxLean)
 	end
-	s.Lean = approach(s.Lean, leanTarget, (if riding then 2.8 else 4) * dt)
+	s.Lean = approach(s.Lean, leanTarget, (if riding then TU.LeanRate else 4) * dt)
 
 	-- Stoppie: brake hard with the wheelie key held at speed and balance on the front wheel. The
 	-- rear rises toward a balance angle; more brake pushes it further; too far and you go over.
@@ -665,6 +663,9 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	local horizontal = v * math.cos(s.Pitch) * STUDS * dt
 	local delta = moveDir * horizontal
 	local moved, normal, into, hitKind = sweepMove(s, spec, world, delta)
+	if hitKind == "Slope" then
+		moved = delta
+	end
 	if normal then
 		impact(s, events, math.abs(v), into, hitKind)
 		v *= (1 - into) * 0.92
@@ -698,12 +699,30 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	local predicted = s.RearY + s.RearVy * STUDS * dt - 0.5 * g * STUDS * dt * dt
 	local tolerance = if s.RearVy > 0.5 then 0.03 else P.SnapDistance
 
-	if not rearSupport or rearSupport.Position.Y < predicted - tolerance then
+	-- Too steep to keep riding (a quarter pipe's top): you leave it along the surface, like a lip
+	local steepPitch: number? = nil
+	if rearSupport and v > 0 then
+		local n = rearSupport.Normal
+		local surfacePitch = math.atan(-n:Dot(dir) / math.max(n.Y, 0.05))
+		if surfacePitch > P.MaxRidePitch then
+			steepPitch = math.min(surfacePitch, 1.45)
+		end
+	end
+
+	if not rearSupport or steepPitch or rearSupport.Position.Y < predicted - tolerance then
 		-- Off the lip: keep the momentum the rear tyre had up the slope
 		local vy = math.max(s.RearVy, -1)
+		local along = horizontalSpeed
+		if steepPitch then
+			vy = v * math.sin(steepPitch)
+			along = v * math.cos(steepPitch)
+			s.Pitch = steepPitch
+			predicted = math.max(predicted, (rearSupport :: Hit).Position.Y)
+		end
+		s.VertLaunch = steepPitch
 		s.Grounded = false
 		s.VerticalSpeed = vy - g * dt
-		s.AirVelocity = moveDir * (horizontalSpeed * STUDS)
+		s.AirVelocity = moveDir * (along * STUDS)
 		s.Position = Vector3.new(target.X, predicted + half * math.sin(s.Pitch), target.Z)
 		s.Pitch += s.Wheelie
 		s.Wheelie = 0
@@ -723,8 +742,11 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		local yr = rearSupport.Position.Y
 		local surfaceNormal = rearSupport.Normal
 		local slopeTan = -surfaceNormal:Dot(dir) / math.max(surfaceNormal.Y, 0.25)
+		local surfacePitch = math.atan(slopeTan)
 		s.RearY = yr
-		s.RearVy = horizontalSpeed * slopeTan
+		-- rising along the surface at the bike's speed (not v·tan: that fired steep ramps out twice
+		-- as fast as you rode up them)
+		s.RearVy = v * math.sin(surfacePitch)
 		-- The front follows its own ground unless it's hanging over a lip (then the bike holds its pitch)
 		local pitchTarget = math.atan(slopeTan)
 		if frontHit and rearHit then
@@ -779,6 +801,8 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 	end
 	local backwards = headingError > math.pi / 2
 	local airTime = s.AirTime
+	s.VertLaunch = nil
+	s.FakieHold = nil
 	s.Grounded = true
 	s.Position = Vector3.new(s.Position.X, groundY, s.Position.Z)
 	s.RearY = groundY - spec.Wheelbase / 2 * math.sin(groundPitch)
@@ -824,7 +848,7 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 		push(events, "Land", airTime, flips, "Crash")
 		return
 	end
-	local tolerance = spec.Landing * (if short then 2.6 elseif airTime < 0.8 then 1.5 else 1)
+	local tolerance = spec.Landing * (if short then 2.6 elseif airTime < 0.8 then 1.5 else 1) + math.abs(groundPitch) * 0.4
 	local headingTolerance = P.LandingHeading * (if short then 1.8 else 1)
 	if input.Wheelie and pitchError > 0 and pitchError < WH.LoopOut then
 		tolerance = math.max(tolerance, WH.LoopOut)
@@ -876,11 +900,28 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	end
 	local riding = s.Crash <= 0
 
+	-- Out of a quarter pipe: at the top, turn round to face back down the face you came up
+	local vert = s.VertLaunch
+	if vert and s.VerticalSpeed <= 0 then
+		s.VertLaunch = nil
+		s.Yaw = wrap(s.Yaw + math.pi)
+		s.TravelYaw = s.Yaw
+		s.Pitch = -vert * 0.85
+		s.AirPitchRate = 0
+		s.AirYawRate = 0
+		s.AirVelocity = heading(s.Yaw) * 2
+		s.FakieHold = true
+		push(events, "Fakie")
+	end
+
 	-- Pitch: pull back to rotate (backflip), brake to push the nose down, otherwise ease toward a
-	-- landing attitude that follows the trajectory
+	-- landing attitude that follows the trajectory (held still on the way up a quarter pipe and
+	-- back down it)
 	local control = spec.AirControl
 	local pitchRateTarget: number
-	if riding and input.Wheelie then
+	if s.VertLaunch or s.FakieHold then
+		pitchRateTarget = 0
+	elseif riding and input.Wheelie then
 		pitchRateTarget = P.AirPitchRate * control
 	elseif riding and input.Brake > 0 then
 		pitchRateTarget = -P.AirPitchRate * 0.6 * control
@@ -967,6 +1008,10 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	-- Horizontal move with collisions
 	local delta = s.AirVelocity * dt
 	local moved, normal, into, hitKind = sweepMove(s, spec, world, delta)
+	if hitKind == "Slope" then
+		-- up against a ramp face: stop going into it (no bail), gravity brings you down onto it
+		s.AirVelocity *= 0.5
+	end
 	if normal then
 		impact(s, events, s.AirVelocity.Magnitude / STUDS, into, hitKind)
 		s.AirVelocity = (s.AirVelocity - normal * s.AirVelocity:Dot(normal)) * 0.85
