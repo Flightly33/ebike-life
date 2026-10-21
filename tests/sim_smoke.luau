@@ -314,6 +314,9 @@ world:Run(0.2)
 
 --------------------------------------------------------------------------------
 print("== busted")
+-- the e-moto run above may have earned a speeding star; start the bust from a clean slate
+PoliceService.SetWanted(player, 0)
+world:Run(1)
 local w = PoliceService.Stars(player)
 check(w == 0, "not wanted before the bust test")
 -- make the player wanted, stop next to a cop
