@@ -217,7 +217,9 @@ local function entryNode(position: Vector3): number
 		local node = Layout.Nodes[rng:NextInteger(1, #Layout.Nodes)]
 		local distance = (node.Position - position).Magnitude
 		if distance > 350 and distance < 700 then
-			best = node.Id
+			if distance > C.LoseRange then
+				best = node.Id
+			end
 			if not lineOfSight(node.Position + Vector3.new(0, 5, 0), position + Vector3.new(0, 3, 0)) then
 				return node.Id
 			end
@@ -546,11 +548,12 @@ local function tick(dt: number)
 			w.Spotted = false
 		end
 
-		-- Keep the chasers coming if some were lost
-		if w.Heat.Stars > 0 and chasersOf(player) < math.min(C.Units[w.Heat.Stars], C.MaxPursuers) then
+		-- Keep the chasers coming if some were lost, but only while someone can see them: dispatch
+		-- doesn't know where a rider who's broken line of sight has gone
+		if w.Heat.Stars > 0 and os.clock() - w.SeenAt < 3 and chasersOf(player) < math.min(C.Units[w.Heat.Stars], C.MaxPursuers) then
 			dispatch(player, w.Heat.Stars)
 		end
-		if w.Heat.Stars >= C.RoadblockStars and riding and os.clock() - w.RoadblockAt > 20 then
+		if w.Heat.Stars >= C.RoadblockStars and riding and w.Seen and os.clock() - w.RoadblockAt > 20 then
 			w.RoadblockAt = os.clock()
 			placeRoadblock(player, position, velocity)
 		end

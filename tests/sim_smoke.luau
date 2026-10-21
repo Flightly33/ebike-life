@@ -175,6 +175,12 @@ for _, d in CarDriver.All do
 end
 BikeController.Physics.Position = Vector3.new(-1500, 0.2, -1500)
 world:Run(25)
+if table.find(policeEvents, "Escaped") == nil then
+	for _, d in CarDriver.All do
+		print(string.format("[test]   car %s pursuit=%s at %.0f studs", d.Model.Name, tostring(d.Model:GetAttribute("Pursuit")), (d.Position - BikeController.Physics.Position).Magnitude))
+	end
+	print(string.format("[test]   wanted %s", tostring(player:GetAttribute("Wanted"))))
+end
 check(table.find(policeEvents, "Escaped") ~= nil, "escaping the cops pays out")
 check((player:GetAttribute("Wanted") or 0) == 0, "wanted level cleared after the escape")
 
