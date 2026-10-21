@@ -34,8 +34,9 @@ Config.Physics = {
 	MaxLean = 0.85, -- rad
 	ReverseSpeed = 1.3, -- m/s when walking the bike backwards
 	RiderEfficiency = 0.82, -- motor + controller efficiency for battery drain
-	CrashImpact = 8.5, -- m/s of head-on speed into a wall that bails the rider (~30 km/h)
-	CrashTime = 2.2, -- seconds on the floor after a bail
+	CrashImpact = 9.5, -- m/s of head-on speed into a wall that bails the rider (~34 km/h)
+	CrashSquareness = 0.55, -- hits more glancing than this (0 = scrape, 1 = head-on) never bail
+	CrashTime = 3.0, -- seconds on the floor after a bail (ragdoll, then back on)
 	AirPitchRate = 5.2, -- rad/s of rotation when pulling back in the air (scaled by AirControl)
 	AirSpinRate = 6.5, -- rad/s of spin when steering in the air (scaled by AirControl)
 	LandingHeading = 0.75, -- rad between facing and travel a landing tolerates
@@ -74,6 +75,35 @@ Config.Drift = {
 	Recover = 5, -- how fast the line snaps back to the heading after a drift (1/s)
 }
 
+Config.Stoppie = {
+	MinSpeed = 3.5, -- m/s (~13 km/h) to pop one
+	Target = 0.32, -- rad the rear settles at
+	BrakeTrim = 0.35, -- more front brake lifts it further
+	Stiffness = 22,
+	Noise = 1.2,
+	NoisePerSecond = 0.25,
+	DropAccel = 9,
+	Over = 0.95, -- rad: past this you go over the bars
+	Counted = 0.12,
+}
+
+-- Held in the air (keys Z, X, T, G, N; tap Y for a barspin)
+Config.AirTricks = {
+	OutTime = 0.22, -- seconds to throw the body fully out
+	InTime = 0.16, -- to tuck back in
+	HoldTime = 0.2, -- held fully out this long before it counts
+	LandOut = 0.35, -- still this far out at touchdown: you bail
+	BarspinTime = 0.45,
+	Names = { "Superman", "CanCan", "NacNac", "KneeKnocker", "NoFooter", "Barspin" },
+}
+
+Config.Loop = {
+	Gravity = 0.55, -- loops are a little forgiving: gravity counts this much on the way round
+	Drive = 2.5, -- m/s² the motor adds with the throttle held
+	RollBack = 1.6, -- m/s: slower than this on the lower half and you roll back out
+	Stick = 0.6, -- fraction of the real "stay on at the top" speed needed
+}
+
 Config.Hop = {
 	ChargeTime = 0.45, -- seconds to fully preload
 	MinFraction = 0.55, -- of the bike's hop speed on a tap
@@ -106,6 +136,15 @@ Config.Economy = {
 	WheelieLumpMin = 2, -- seconds before a wheelie pays a lump sum when it ends
 	WheelieLump = 2.2, -- $ * seconds^1.2
 	AirLump = 16, -- $ per second of air
+	-- air tricks: $ each, x(1 + Stack per extra trick in the same jump)
+	TrickLumps = { Superman = 45, CanCan = 40, NacNac = 40, KneeKnocker = 55, NoFooter = 35, Barspin = 60 } :: { [string]: number },
+	TrickStack = 0.5,
+	TricksPerJump = 6,
+	ComboTrick = 0.05,
+	StoppieLumpMin = 1, -- seconds
+	StoppieLump = 4, -- $ * seconds^1.2
+	LoopLump = 6, -- $ per stud of loop radius
+	ComboLoop = 0.15,
 	DriftLumpMin = 0.8, -- seconds before a drift pays
 	DriftLump = 6, -- $ * seconds^1.15 * (1 + degrees/60)
 	ComboDrift = 0.05, -- per drift
@@ -169,7 +208,7 @@ Config.Traffic = {
 	CarCount = 14,
 	Speed = 11, -- m/s (~40 km/h)
 	SpeedVariance = 2.5,
-	HitKmh = 22, -- hitting a car faster than this bails you
+	HitKmh = 26, -- hitting a car faster than this bails you
 }
 
 Config.Lights = {

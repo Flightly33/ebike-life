@@ -21,6 +21,19 @@ type Rider = {
 	Bike: Model,
 	Controls: { [string]: IKControl },
 	Targets: { [string]: Attachment },
+	SeatY: number,
+	Ext: number, -- how far out the current trick pose is (smoothed)
+	TrickName: string,
+}
+
+-- Where the feet go for each air trick, in the bike's frame (+X right, -Z forward), relative to
+-- the seat height
+local TRICK_FEET: { [string]: { L: Vector3?, R: Vector3? } } = {
+	Superman = { L = Vector3.new(-0.5, 0.9, 3.4), R = Vector3.new(0.5, 0.9, 3.4) },
+	CanCan = { L = Vector3.new(1.5, -0.3, -0.6) },
+	NacNac = { L = Vector3.new(-1.9, 0.3, 2.1) },
+	KneeKnocker = { L = Vector3.new(-0.45, 0.7, -1.7), R = Vector3.new(0.45, 0.7, -1.7) },
+	NoFooter = { L = Vector3.new(-2.3, -0.5, 0.2), R = Vector3.new(2.3, -0.5, 0.2) },
 }
 
 local riders: { [Model]: Rider } = {}
@@ -71,9 +84,12 @@ local function setup(bike: Model, humanoid: Humanoid): Rider?
 	if not character or not character:IsA("Model") or not root or humanoid.RigType ~= Enum.HumanoidRigType.R15 then
 		return nil
 	end
-	local rider: Rider = { Character = character, Humanoid = humanoid, Bike = bike, Controls = {}, Targets = {} }
+	local rider: Rider = { Character = character, Humanoid = humanoid, Bike = bike, Controls = {}, Targets = {}, SeatY = 2.6, Ext = 0, TrickName = "" }
 	local seat = bike:FindFirstChildOfClass("Seat")
 	local seatY = if seat and seat:IsA("BasePart") then root.CFrame:PointToObjectSpace(seat.Position).Y else 2.6
+	rider.SeatY = seatY
+	rider.Targets.TrickL = attachment(root, "EB_TrickL", Vector3.new(0, seatY, 0))
+	rider.Targets.TrickR = attachment(root, "EB_TrickR", Vector3.new(0, seatY, 0))
 	-- Free-hand targets and elbow / knee poles, in the bike's frame
 	rider.Targets.FreeL = attachment(root, "EB_FreeL", Vector3.new(-2.1, seatY + 2.4, 0.3))
 	rider.Targets.FreeR = attachment(root, "EB_FreeR", Vector3.new(2.1, seatY + 2.6, 0.3))
@@ -91,6 +107,8 @@ local function setup(bike: Model, humanoid: Humanoid): Rider?
 	control(rider, "FootR", "RightUpperLeg", "RightFoot", footR, kneeR)
 	rider.Targets.GripL = gripL :: Attachment
 	rider.Targets.GripR = gripR :: Attachment
+	rider.Targets.FootL = footL :: Attachment
+	rider.Targets.FootR = footR :: Attachment
 	return rider
 end
 
@@ -135,14 +153,49 @@ local function update()
 				seen[bike] = true
 				-- hands and crashes (the local rider's from physics, others' from attributes)
 				local hands: number, crashed: boolean
+				local trick, ext, barspin = "", 0, false
 				local physics = BikeController.Physics
 				if bike == BikeController.Model and physics then
 					hands = physics.Hands
 					crashed = physics.Crash > 0
+					trick, ext = physics.TrickName, physics.TrickExt
+					barspin = physics.BarSpin > 0
 				else
 					local h = bike:GetAttribute("Hands")
 					hands = if type(h) == "number" then h else 0
 					crashed = bike:GetAttribute("Crash") == true
+					local t = bike:GetAttribute("Trick")
+					trick = if type(t) == "string" then t else ""
+					ext = if trick ~= "" then 1 else 0
+					barspin = bike:GetAttribute("Barspin") == true
+				end
+				-- trick pose: blend the feet from the pedals toward the trick's spots
+				if trick ~= "" then
+					rider.TrickName = trick
+				end
+				rider.Ext += (ext - rider.Ext) * 0.5
+				local feet = TRICK_FEET[rider.TrickName]
+				local targets0 = rider.Targets
+				local feetSides: { [string]: string } = { L = "FootL", R = "FootR" }
+				for side, name in feetSides do
+					local ik = rider.Controls[name]
+					local pedal = targets0[name]
+					local spot = feet and (feet :: any)[side]
+					local trickTarget = targets0["Trick" .. side]
+					if ik and pedal and trickTarget then
+						if spot and rider.Ext > 0.05 then
+							local root = bike.PrimaryPart
+							local from = if root then root.CFrame:PointToObjectSpace(pedal.WorldPosition) else Vector3.zero
+							local to = spot + Vector3.new(0, rider.SeatY, 0)
+							trickTarget.Position = from:Lerp(to, rider.Ext)
+							ik.Target = trickTarget
+						else
+							ik.Target = pedal
+						end
+					end
+				end
+				if barspin then
+					hands = math.max(hands, 2) -- hands off while the bars spin
 				end
 				local left, right = rider.Controls.HandL, rider.Controls.HandR
 				local targets = rider.Targets
@@ -175,7 +228,7 @@ function RiderPose.Init()
 	local clock = 0
 	RunService.Heartbeat:Connect(function(dt)
 		clock += dt
-		if clock >= 0.1 then
+		if clock >= 1 / 30 then
 			clock = 0
 			update()
 		end

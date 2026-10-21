@@ -55,6 +55,22 @@ function Economy.Multiplier(bonus: Bonus): number
 end
 
 -- Lump sums for finished tricks (before the combo bonus)
+-- An air trick's lump: its base, more for each extra trick stacked into the same jump
+function Economy.TrickLump(name: string, index: number): number
+	local base = E.TrickLumps[name]
+	if not base then
+		return 0
+	end
+	return math.floor(base * (1 + E.TrickStack * math.max(0, index - 1)))
+end
+
+function Economy.StoppieLump(seconds: number): number
+	if seconds < E.StoppieLumpMin then
+		return 0
+	end
+	return math.floor(E.StoppieLump * seconds ^ 1.2)
+end
+
 -- A drift's lump: longer and deeper pays more
 function Economy.DriftLump(seconds: number, degrees: number): number
 	if seconds < E.DriftLumpMin then

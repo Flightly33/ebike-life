@@ -385,7 +385,7 @@ local function tick(dt: number)
 		if ride and riding then
 			local state = ride.State
 			local moving = kmh > 6
-			offences.Wheelie = state.Wheelie and moving
+			offences.Wheelie = (state.Wheelie or state.Stoppie) and moving
 			offences.NoHands = state.Hands == 2 and moving
 			offences.Drift = state.Drift and moving
 			if state.Surface == "Road" then

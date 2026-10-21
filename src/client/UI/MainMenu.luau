@@ -27,6 +27,7 @@ local HELP = {
 	"Wheelie: hold Shift (or Ctrl). Throttle lifts the front, the brake (S) brings it down. Stay in the green.",
 	"C = one hand, V = no hands. Q = bunny hop. In the air, hold Shift to backflip and steer to spin.",
 	"R + steer = drift (locks the rear brake; let go to straighten up). F = first person.",
+	"Air tricks (hold, let go before you land): Z superman, X can-can, T nac-nac, G knee knocker, N no-footer. Tap Y for a barspin. Brake + Shift on the ground = stoppie.",
 	"Wheelies and no-hands near cops fill their heat meter. A full meter is a wanted star and a chase.",
 	"Lose the cops (get out of sight) to escape and get paid. Stop next to them and you're busted.",
 	"Assist modes (M or 1-5): ECO goes far, TURBO goes hard. Customise them in Tuning → Ride Modes.",

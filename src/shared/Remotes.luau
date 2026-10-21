@@ -11,6 +11,8 @@
 		SaveSettings(settings)
 		Teleport(destination)
 		ClientReady()
+		Bail()                            the rider fell off: unseat, keep the ride
+		Remount()                         back on after the ragdoll
 
 	Client -> Server (RemoteFunction; returns ok, message, ...)
 		BuyBike(bikeId)
@@ -49,6 +51,8 @@ local EVENTS = {
 	"Payout",
 	"Police",
 	"Charge",
+	"Bail",
+	"Remount",
 }
 local UNRELIABLE = { "BikeState" }
 local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "OpenCrate", "BuyBoost", "GetProfile", "Admin" }

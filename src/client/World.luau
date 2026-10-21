@@ -12,6 +12,9 @@ local BikePhysics = require(Shared.BikePhysics)
 
 local World = {}
 
+local Config = require(Shared.Config)
+local loopPlates: { [BasePart]: boolean } = {}
+
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 params.RespectCanCollide = true
@@ -47,6 +50,14 @@ World.SurfaceOf = surfaceOf
 
 -- What a sweep hit: "Cop" / "Car" for vehicles, "Wall" for everything else
 local function kindOf(part: BasePart): string
+	-- small loose street furniture (bins, bollards, benches, signs, meters) is a "Prop"
+	local size = part.Size
+	if math.max(size.X, size.Y, size.Z) < 7 and part:GetAttribute("Surface") == nil and not part:FindFirstAncestor("Vehicles") then
+		local owner = part:FindFirstAncestorWhichIsA("Model")
+		if not (owner and owner:GetAttribute("Kind")) then
+			return "Prop"
+		end
+	end
 	local model = part:FindFirstAncestorWhichIsA("Model")
 	while model do
 		local kind = model:GetAttribute("Kind")
@@ -93,6 +104,28 @@ World.Physics = {
 		local part = hit.Instance
 		return hit.Distance, hit.Normal, if part:IsA("BasePart") then kindOf(part) else "Wall"
 	end,
+	-- Loop entries are plates named "LoopEntry" (LookVector along the loop, top face on the riding
+	-- surface) with LoopRadius / LoopShift attributes in the city's design units
+	Loop = function(position: Vector3, dir: Vector3): BikePhysics.Loop?
+		for plate in loopPlates do
+			if not plate.Parent then
+				loopPlates[plate] = nil
+				continue
+			end
+			local cf = plate.CFrame
+			local localPos = cf:PointToObjectSpace(position)
+			local half = plate.Size / 2
+			if math.abs(localPos.X) < half.X and math.abs(localPos.Z) < half.Z and math.abs(localPos.Y - half.Y) < 2 and dir:Dot(cf.LookVector) > 0.8 then
+				local radius = plate:GetAttribute("LoopRadius")
+				local shift = plate:GetAttribute("LoopShift")
+				if type(radius) == "number" and type(shift) == "number" then
+					local entry = cf * CFrame.new(localPos.X, half.Y, localPos.Z)
+					return { Entry = entry, Radius = radius * Config.WORLD_SCALE, Shift = shift * Config.WORLD_SCALE }
+				end
+			end
+		end
+		return nil
+	end,
 } :: BikePhysics.World
 
 function World.Params(): RaycastParams
@@ -101,6 +134,16 @@ end
 
 function World.Init()
 	World.Refresh()
+	-- loop entry plates (they stream in and out with the city)
+	local function watchPlate(d: Instance)
+		if d:IsA("BasePart") and d.Name == "LoopEntry" then
+			loopPlates[d] = true
+		end
+	end
+	for _, d in Workspace:GetDescendants() do
+		watchPlate(d)
+	end
+	Workspace.DescendantAdded:Connect(watchPlate)
 	local function hook(player: Player)
 		player.CharacterAdded:Connect(function()
 			task.defer(World.Refresh)

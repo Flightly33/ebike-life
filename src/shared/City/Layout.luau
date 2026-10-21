@@ -14,14 +14,14 @@
 	   z  -360  +------+------+------+------+------+------+
 	            |Suburb| Park | Down | Down | Down | Mid  |
 	   z     0  +------+------+------+------+------+------+
-	            |Suburb| Jump | Fly. |Plaza | Mid  | Mid  |
+	            | Loop | Jump | Fly. |Plaza | Mid  | Mid  |
 	   z   360  +------+------+------+------+------+------+
 	            |Suburb|Suburb| Mid  | Mid  |Police| Mid  |
 	   z   720  +------+------+------+------+------+------+
 	            |Suburb|Suburb|Suburb|Suburb|Suburb|Suburb|
 	   z  1080  +------+------+------+------+------+------+
 
-	Fly. = Flighty Mechanics (dealership, spawn). Heights: grass at 0, road surface at ROAD_Y, curbs,
+	Fly. = Flighty Mechanics (dealership, spawn). Loop = the jump park's loop block. Heights: grass at 0, road surface at ROAD_Y, curbs,
 	pavements and blocks at CURB_Y.
 
 	Everything is authored in Roblox's standard units (1 stud = 0.28 m, real-world sizes) and built at
@@ -95,7 +95,7 @@ local function make(K: number)
 		{ "Suburb", "Suburb", "Midtown", "Midtown", "Industrial", "Industrial" },
 		{ "Suburb", "Park", "Downtown", "Downtown", "Downtown", "Industrial" },
 		{ "Suburb", "Park", "Downtown", "Downtown", "Downtown", "Midtown" },
-		{ "Suburb", "Jump", "Dealership", "Plaza", "Midtown", "Midtown" },
+		{ "Jump", "Jump", "Dealership", "Plaza", "Midtown", "Midtown" },
 		{ "Suburb", "Suburb", "Midtown", "Midtown", "Police", "Midtown" },
 		{ "Suburb", "Suburb", "Suburb", "Suburb", "Suburb", "Suburb" },
 	}

@@ -29,6 +29,8 @@ local DataService = require(script.Parent.DataService)
 
 local BikeService = {}
 
+local BAIL_GRACE = 9 -- seconds a bailed rider has to get back on
+
 export type ClientState = {
 	Wheelie: boolean,
 	WheelieTime: number,
@@ -44,6 +46,9 @@ export type ClientState = {
 	Kmh: number,
 	Drift: boolean,
 	Slip: number,
+	Trick: string,
+	Barspin: boolean,
+	Stoppie: boolean,
 }
 
 export type Ride = {
@@ -59,6 +64,9 @@ export type Ride = {
 	StateAt: number,
 	WheelieSince: number?,
 	DriftSince: number?,
+	BailedAt: number?,
+	AirSince: number?, -- the client's been airborne since (server clock)
+	LastAirAt: number?, -- the rider fell off and is getting back on
 	ParkedAt: number,
 	Connections: { RBXScriptConnection },
 }
@@ -86,6 +94,9 @@ local function idleState(battery: number): ClientState
 		Kmh = 0,
 		Drift = false,
 		Slip = 0,
+		Trick = "",
+		Barspin = false,
+		Stoppie = false,
 	}
 end
 
@@ -286,6 +297,9 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 		StateAt = 0,
 		WheelieSince = nil,
 		DriftSince = nil,
+		BailedAt = nil,
+		AirSince = nil,
+		LastAirAt = nil,
 		ParkedAt = os.clock(),
 		Connections = {},
 	}
@@ -316,7 +330,10 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 				end
 				return
 			end
+			ride.BailedAt = nil
 			mount(ride)
+		elseif ride.BailedAt and os.clock() - ride.BailedAt < BAIL_GRACE then
+			-- fell off: the ride stays theirs while they ragdoll and climb back on
 		else
 			dismount(ride)
 		end
@@ -361,6 +378,46 @@ function BikeService.Charge(player: Player, position: Vector3): boolean
 	return true
 end
 
+-- The rider fell off: take them out of the seat but keep the ride (bike, battery, ownership)
+local function bail(player: Player)
+	local ride = rides[player]
+	if not ride or not ride.Riding or ride.BailedAt then
+		return
+	end
+	ride.BailedAt = os.clock()
+	local weld = ride.Seat:FindFirstChild("SeatWeld")
+	if weld then
+		weld:Destroy()
+	end
+	task.delay(BAIL_GRACE, function()
+		if ride.BailedAt and rides[player] == ride and not ride.Seat.Occupant then
+			ride.BailedAt = nil
+			dismount(ride)
+		end
+	end)
+end
+
+-- Back on after the ragdoll (only your own bike, only close to it)
+local function remount(player: Player)
+	local ride = rides[player]
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if not ride or not ride.BailedAt or not humanoid or humanoid.Health <= 0 or not hrp or not hrp:IsA("BasePart") then
+		return
+	end
+	if (hrp.Position - ride.Root.Position).Magnitude > 60 then
+		return
+	end
+	(character :: Model):PivotTo(ride.Seat.CFrame + Vector3.new(0, 2, 0))
+	ride.Seat:Sit(humanoid)
+end
+
+function BikeService.Bailed(player: Player): boolean
+	local ride = rides[player]
+	return ride ~= nil and ride.BailedAt ~= nil
+end
+
 local function readState(raw: any): ClientState?
 	if type(raw) ~= "table" then
 		return nil
@@ -386,6 +443,9 @@ local function readState(raw: any): ClientState?
 		Crash = raw.Cr == true,
 		Kmh = n(raw.K, 0, 200),
 		Drift = raw.D == true,
+		Trick = if type(raw.Tr) == "string" and #raw.Tr < 16 then raw.Tr else "",
+		Barspin = raw.Bs == true,
+		Stoppie = raw.St == true,
 		Slip = n(raw.Sl, -1.6, 1.6),
 	}
 end
@@ -405,6 +465,8 @@ function BikeService.Init()
 	Remotes.Event("DespawnBike").OnServerEvent:Connect(function(player: Player)
 		BikeService.Despawn(player)
 	end)
+	Remotes.Event("Bail").OnServerEvent:Connect(bail)
+	Remotes.Event("Remount").OnServerEvent:Connect(remount)
 	Remotes.Unreliable("BikeState").OnServerEvent:Connect(function(player: Player, raw: any)
 		local ride = rides[player]
 		if not ride or not ride.Riding then
@@ -432,6 +494,15 @@ function BikeService.Init()
 		setAttribute(model, "Crash", state.Crash)
 		setAttribute(model, "Power", math.floor(state.Power * 10 + 0.5) / 10)
 		setAttribute(model, "Wheelie", state.Wheelie)
+		setAttribute(model, "Trick", state.Trick)
+		setAttribute(model, "Barspin", state.Barspin)
+		setAttribute(model, "Stoppie", state.Stoppie)
+		if state.Air then
+			ride.AirSince = ride.AirSince or now
+			ride.LastAirAt = now
+		else
+			ride.AirSince = nil
+		end
 		setAttribute(model, "Drift", if state.Drift then math.floor(state.Slip * 10 + 0.5) / 10 else 0)
 		if state.Drift and not ride.DriftSince then
 			ride.DriftSince = now

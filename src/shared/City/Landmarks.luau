@@ -11,6 +11,7 @@ local LayoutModule = require(script.Parent.Layout)
 local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local PartKit = require(script.Parent.Parent.PartKit)
+local Detail = require(script.Parent.Detail)
 local Bikes = require(script.Parent.Parent.Bikes)
 local Config = require(script.Parent.Parent.Config)
 local BikeModel = require(script.Parent.Parent.Models.BikeModel)
@@ -352,6 +353,151 @@ function Landmarks.JumpPark(parent: Instance, block: LayoutModule.Block, rng: Ra
 	PartKit.Sign(arch, Enum.NormalId.Front, "JUMP PARK", Color3.fromRGB(255, 255, 255), nil, Enum.Font.FredokaOne, 12)
 	for _ = 1, 6 do
 		Props.Tree(model, Vector3.new(x0 + rng:NextNumber(60, 110), gy, z0 + rng:NextNumber(10, 40)), rng, 0.9)
+	end
+	return model
+end
+
+--------------------------------------------------------------------------------
+-- Loop Park (the jump park's second block): two loop-the-loops, a halfpipe, a fun box and a
+-- kicker into a foam landing mat
+--------------------------------------------------------------------------------
+local RAMP_WOOD = Color3.fromRGB(176, 136, 90)
+local STEEL = Color3.fromRGB(70, 74, 80)
+
+-- A loop-the-loop: the riding surface is the inside of a circle of radius `r` standing on
+-- `entry` (on the ground, LookVector along the loop), shifted `shift` studs sideways over the turn.
+-- The plate at the bottom ("LoopEntry") is what the bike's physics looks for.
+local function loopTheLoop(parent: Instance, entry: CFrame, r: number, shift: number, width: number, color: Color3)
+	local model = PartKit.Model(parent, "Loop")
+	local up, fwd, right = entry.UpVector, entry.LookVector, entry.RightVector
+	local t = 0.8
+	local center = entry.Position + up * r
+	local n = 44
+	for i = 0, n - 1 do
+		local theta = (i + 0.5) / n * math.pi * 2
+		local radial = -up * math.cos(theta) + fwd * math.sin(theta)
+		local tangent = fwd * math.cos(theta) + up * math.sin(theta)
+		local p = center + radial * (r + t / 2) + right * (shift * theta / (math.pi * 2))
+		local seg = PartKit.Box(model, "Track", Vector3.new(width, t, 2 * math.pi * (r + t) / n * 1.12), CFrame.lookAt(p, p + tangent, -radial), color, Enum.Material.SmoothPlastic)
+		seg.CanQuery = false -- the physics rides the loop as a path; keep it out of ground rays
+		seg:SetAttribute("Surface", "Ramp")
+		-- side rails
+		for _, side in { -0.5, 0.5 } do
+			local rail = PartKit.Box(model, "Rail", Vector3.new(0.5, 1.6, 2 * math.pi * (r + t) / n * 1.12), CFrame.lookAt(p + right * (side * width) - radial * 0.4, p + right * (side * width) - radial * 0.4 + tangent, -radial), STEEL, Enum.Material.Metal, NO_COLLIDE)
+			rail.CanQuery = false
+		end
+	end
+	-- support towers on both sides of the loop
+	for _, side in { -1, 1 } do
+		local base = center + right * (shift / 2 + side * (width / 2 + shift / 2 + 3)) - up * r
+		PartKit.Post(model, "Support", 2, r * 1.6, base, STEEL, Enum.Material.Metal, NO_COLLIDE)
+		PartKit.Box(model, "SupportArm", Vector3.new(math.abs(shift) + width + 8, 1.2, 1.2), CFrame.new(center + right * (shift / 2) + up * (r * 0.55)), STEEL, Enum.Material.Metal, NO_COLLIDE)
+	end
+	local plate = PartKit.Box(model, "LoopEntry", Vector3.new(width, 0.4, 12), entry * CFrame.new(0, -0.2, -2), Color3.fromRGB(255, 200, 40), Enum.Material.DiamondPlate)
+	plate:SetAttribute("LoopRadius", r)
+	plate:SetAttribute("LoopShift", shift)
+	plate:SetAttribute("Surface", "Ramp")
+	-- arrows painted on the run-in
+	for k = 1, 3 do
+		Detail.Arrow(model, entry.Position + fwd * (-6 - k * 8) + Vector3.new(0, 0.05, 0), fwd, 0, Color3.fromRGB(255, 255, 255))
+	end
+	return model
+end
+
+-- A quarter pipe: a curved transition of radius `r` up to `angle` degrees, rising along `dir`
+local function quarterPipe(parent: Instance, base: Vector3, dir: Vector3, r: number, angle: number, width: number)
+	local model = PartKit.Model(parent, "QuarterPipe")
+	local up = Vector3.yAxis
+	local right = dir:Cross(up).Unit
+	local center = base + up * r
+	local steps = 10
+	local t = 0.8
+	local topAlpha = math.rad(angle)
+	for i = 0, steps - 1 do
+		local a = (i + 0.5) / steps * topAlpha
+		local radial = -up * math.cos(a) + dir * math.sin(a)
+		local tangent = dir * math.cos(a) + up * math.sin(a)
+		local p = center + radial * (r + t / 2)
+		local seg = PartKit.Box(model, "Transition", Vector3.new(width, t, r * topAlpha / steps * 1.15), CFrame.lookAt(p, p + tangent, -radial), RAMP_WOOD, Enum.Material.WoodPlanks)
+		seg:SetAttribute("Surface", "Ramp")
+	end
+	local lipH = r * (1 - math.cos(topAlpha))
+	local lipRun = r * math.sin(topAlpha)
+	-- coping, deck and the solid back
+	PartKit.Cylinder(model, "Coping", 0.9, width, CFrame.new(base + dir * lipRun + up * lipH) * CFrame.fromMatrix(Vector3.zero, right, up, -dir), Color3.fromRGB(200, 200, 205), Enum.Material.Metal)
+	local deck = base + dir * (lipRun + 6) + up * (lipH - 0.3)
+	PartKit.Box(model, "Deck", Vector3.new(width, 0.6, 12), CFrame.lookAt(deck, deck + dir), RAMP_WOOD, Enum.Material.WoodPlanks):SetAttribute("Surface", "Ramp")
+	-- the solid body under the deck, behind the lip (the curve stays open in front)
+	local back = base + dir * (lipRun + 6) + up * (lipH / 2 - 0.3)
+	PartKit.Box(model, "Back", Vector3.new(width, lipH - 0.6, 12), CFrame.lookAt(back, back + dir), Color3.fromRGB(140, 104, 66), Enum.Material.Wood, { Query = false })
+	-- framing under the curve
+	for k = 1, 3 do
+		local a = topAlpha * k / 4
+		local px = r * math.sin(a)
+		local h = r * (1 - math.cos(a))
+		for _, side in { -0.5, 0.5 } do
+			local post = base + dir * px + right * (side * (width - 1))
+			PartKit.Box(model, "Frame", Vector3.new(0.8, h, 0.8), CFrame.new(post + up * (h / 2)), Color3.fromRGB(120, 88, 56), Enum.Material.Wood, NO_COLLIDE)
+		end
+	end
+	return model
+end
+
+function Landmarks.LoopPark(parent: Instance, block: LayoutModule.Block, rng: Random)
+	local model = PartKit.Model(parent, "LoopPark")
+	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
+	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+	local gy = Y + 0.3
+	local pad = PartKit.Box(model, "Concrete", Vector3.new(x1 - x0, 0.3, z1 - z0), CFrame.new(cx, Y + 0.15, cz), Color3.fromRGB(176, 176, 172), Enum.Material.Concrete)
+	pad:SetAttribute("Surface", "Ramp")
+	local north = Vector3.new(0, 0, -1)
+
+	-- Big loop (west lane) and small loop (next lane), long run-ins from the south
+	local bigEntry = CFrame.lookAt(Vector3.new(x0 + 24, gy, z1 - 150), Vector3.new(x0 + 24, gy, z1 - 151))
+	loopTheLoop(model, bigEntry, 24, 22, 16, Color3.fromRGB(255, 122, 24))
+	local smallEntry = CFrame.lookAt(Vector3.new(x0 + 84, gy, z1 - 120), Vector3.new(x0 + 84, gy, z1 - 121))
+	loopTheLoop(model, smallEntry, 14, 18, 14, Color3.fromRGB(40, 150, 255))
+	local loopSigns: { { X: number, Text: string } } = { { X = x0 + 24, Text = "BIG LOOP" }, { X = x0 + 84, Text = "LOOP" } }
+	for _, spec in loopSigns do
+		local sign = PartKit.Box(model, "LoopSign", Vector3.new(18, 4, 0.6), CFrame.new(spec.X, gy + 6, z1 - 12), Color3.fromRGB(26, 28, 34), SMOOTH, NO_COLLIDE)
+		PartKit.Sign(sign, Enum.NormalId.Back, spec.Text, Color3.fromRGB(255, 200, 40), nil, Enum.Font.FredokaOne, 10)
+		PartKit.Post(model, "SignPost", 0.6, 4, Vector3.new(spec.X, gy, z1 - 12), STEEL, Enum.Material.Metal, NO_COLLIDE)
+	end
+
+	-- Halfpipe in the middle: two quarters facing each other across a flat bottom (along X)
+	local hpZ = cz - 20
+	local hpX = cx + 30
+	quarterPipe(model, Vector3.new(hpX - 18, gy, hpZ), Vector3.new(-1, 0, 0), 16, 72, 40)
+	quarterPipe(model, Vector3.new(hpX + 18, gy, hpZ), Vector3.new(1, 0, 0), 16, 72, 40)
+
+	-- Fun box near the south: ramps up both ends and a flat top
+	local fb = Vector3.new(cx + 30, gy, z1 - 50)
+	local fbH, fbLen = 5, 14
+	PartKit.Ramp(model, "FunUp", fb + Vector3.new(0, 0, fbLen + 10), fb + Vector3.new(0, fbH, 10), 24, RAMP_WOOD, Enum.Material.WoodPlanks):SetAttribute("Surface", "Ramp")
+	PartKit.Box(model, "FunTop", Vector3.new(24, fbH, 20), CFrame.new(fb + Vector3.new(0, fbH / 2, 0)), RAMP_WOOD, Enum.Material.WoodPlanks):SetAttribute("Surface", "Ramp")
+	PartKit.Ramp(model, "FunDown", fb - Vector3.new(0, 0, fbLen + 10), fb + Vector3.new(0, fbH, -10), 24, RAMP_WOOD, Enum.Material.WoodPlanks):SetAttribute("Surface", "Ramp")
+	PartKit.Box(model, "FunRail", Vector3.new(0.8, 0.8, 20), CFrame.new(fb + Vector3.new(9, fbH + 2.2, 0)), Color3.fromRGB(220, 60, 60), Enum.Material.Metal, NO_COLLIDE)
+
+	-- Foam mat (east lane): a big kicker launches you onto a soft landing mat
+	local fx = x1 - 40
+	local kickStart = Vector3.new(fx, gy, z1 - 30)
+	Landmarks.Kicker(model, kickStart, north, 9, 15, 18)
+	local matCenter = Vector3.new(fx, gy, z1 - 120)
+	local mat = PartKit.Box(model, "FoamMat", Vector3.new(54, 1, 70), CFrame.new(matCenter + Vector3.new(0, 0.5, 0)), Color3.fromRGB(70, 140, 230), Enum.Material.Fabric)
+	mat:SetAttribute("Surface", "Foam")
+	local foamColors = { Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 210, 60), Color3.fromRGB(90, 200, 255), Color3.fromRGB(120, 230, 120), Color3.fromRGB(230, 130, 255) }
+	for _ = 1, 70 do
+		local p = matCenter + Vector3.new(rng:NextNumber(-25, 25), 1.6, rng:NextNumber(-33, 33))
+		local cube = PartKit.Box(model, "FoamCube", Vector3.new(2.2, 2.2, 2.2), CFrame.new(p) * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 3), rng:NextNumber(0, 1)), foamColors[rng:NextInteger(1, #foamColors)], Enum.Material.Fabric, { Collide = false, Query = false, Touch = false, Shadow = false })
+		local _ = cube
+	end
+	local foamSign = PartKit.Box(model, "FoamSign", Vector3.new(20, 4, 0.6), CFrame.new(fx, gy + 6, z1 - 10), Color3.fromRGB(26, 28, 34), SMOOTH, NO_COLLIDE)
+	PartKit.Sign(foamSign, Enum.NormalId.Back, "FOAM PIT", Color3.fromRGB(90, 200, 255), nil, Enum.Font.FredokaOne, 10)
+
+	-- floodlights at the corners
+	for _, corner in { Vector3.new(x0 + 6, gy, z0 + 6), Vector3.new(x1 - 6, gy, z0 + 6), Vector3.new(x0 + 6, gy, z1 - 6), Vector3.new(x1 - 6, gy, z1 - 6) } do
+		PartKit.Post(model, "FloodPole", 1.4, 40, corner, STEEL, Enum.Material.Metal)
+		PartKit.Box(model, "Flood", Vector3.new(6, 3, 2), CFrame.lookAt(corner + Vector3.new(0, 41, 0), Vector3.new(cx, gy, cz)), Color3.fromRGB(255, 250, 230), Enum.Material.Neon, NO_COLLIDE)
 	end
 	return model
 end

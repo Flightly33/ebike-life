@@ -32,6 +32,9 @@ local BikePhysics = {}
 local P = Config.Physics
 local WH = Config.Wheelie
 local DR = Config.Drift
+local ST = Config.Stoppie
+local AT = Config.AirTricks
+local LP = Config.Loop
 local STUDS = Config.STUDS_PER_METER
 local UP = Vector3.yAxis
 local TAU = math.pi * 2
@@ -48,6 +51,8 @@ export type Input = {
 	OneHand: boolean,
 	NoHands: boolean,
 	Drift: boolean, -- rear brake locked to slide the tail out
+	Trick: string?, -- air trick held: "Superman", "CanCan", "NacNac", "KneeKnocker", "NoFooter"
+	Barspin: boolean, -- held key; a press starts a barspin
 }
 
 export type Hit = {
@@ -56,12 +61,19 @@ export type Hit = {
 	Kind: string, -- "Road", "Sidewalk", "Grass", "Dirt", "Ramp", "Car", ...
 }
 
+-- A loop-the-loop: Entry is on the riding surface at the bottom, LookVector along the loop;
+-- Radius in studs; Shift is how far sideways the track moves over one turn (so you exit beside
+-- where you came in)
+export type Loop = { Entry: CFrame, Radius: number, Shift: number }
+
 export type World = {
 	-- First solid surface below `origin` within `length` studs
 	Down: (origin: Vector3, length: number) -> Hit?,
 	-- Sweeps a box (centre frame, size) along `delta`; distance travelled before contact, the contact
 	-- normal and what was hit ("Wall", "Car", "Cop")
 	Sweep: (frame: CFrame, size: Vector3, delta: Vector3) -> (number?, Vector3?, string?),
+	-- A loop whose entry the bike is rolling onto (optional)
+	Loop: ((position: Vector3, heading: Vector3) -> Loop?)?,
 }
 
 export type Event = {
@@ -117,9 +129,22 @@ export type State = {
 	DriftActive: boolean,
 	DriftTime: number,
 	DriftAngle: number, -- biggest slip of this drift, rad
+	TrickName: string, -- the air trick being thrown ("" none)
+	TrickExt: number, -- 0 tucked .. 1 fully out
+	TrickHold: number, -- seconds held fully out
+	TrickCounted: boolean,
+	AirTricks: number, -- tricks landed this jump
+	BarSpin: number, -- 0 none, else progress 0..1 of a barspin
+	BarspinHeld: boolean,
+	Stoppie: number, -- rad the rear is lifted (front-wheel balance)
+	StoppieRate: number,
+	StoppieActive: boolean,
+	StoppieTime: number,
+	Loop: Loop?, -- riding a loop
+	LoopAngle: number, -- rad round it
 }
 
-local OFFROAD = { Grass = true, Dirt = true, Sand = true, Mud = true }
+local OFFROAD = { Grass = true, Dirt = true, Sand = true, Mud = true, Foam = true }
 BikePhysics.Offroad = OFFROAD
 
 local function approach(current: number, target: number, step: number): number
@@ -190,11 +215,24 @@ function BikePhysics.new(spec: Spec, ground: CFrame, battery: number?, seed: num
 		DriftActive = false,
 		DriftTime = 0,
 		DriftAngle = 0,
+		TrickName = "",
+		TrickExt = 0,
+		TrickHold = 0,
+		TrickCounted = false,
+		AirTricks = 0,
+		BarSpin = 0,
+		BarspinHeld = false,
+		Stoppie = 0,
+		StoppieRate = 0,
+		StoppieActive = false,
+		StoppieTime = 0,
+		Loop = nil,
+		LoopAngle = 0,
 	}
 end
 
 function BikePhysics.Idle(): Input
-	return { Throttle = 0, Brake = 0, Steer = 0, Wheelie = false, Hop = false, OneHand = false, NoHands = false, Drift = false }
+	return { Throttle = 0, Brake = 0, Steer = 0, Wheelie = false, Hop = false, OneHand = false, NoHands = false, Drift = false, Trick = nil, Barspin = false }
 end
 
 -- km/h along the heading
@@ -210,7 +248,9 @@ function BikePhysics.GetCFrame(s: State, spec: Spec): CFrame
 	local base = CFrame.new(s.Position) * CFrame.fromEulerAnglesYXZ(0, s.Yaw, 0)
 	local pivot = Vector3.new(0, 0, spec.Wheelbase / 2) -- rear tyre contact
 	local wheelie = CFrame.new(pivot) * CFrame.Angles(s.Wheelie, 0, 0) * CFrame.new(-pivot)
-	return base * CFrame.Angles(s.Pitch, 0, 0) * CFrame.Angles(0, 0, s.Lean) * wheelie
+	local front = Vector3.new(0, 0, -spec.Wheelbase / 2)
+	local stoppie = CFrame.new(front) * CFrame.Angles(-s.Stoppie, 0, 0) * CFrame.new(-front)
+	return base * CFrame.Angles(s.Pitch, 0, 0) * CFrame.Angles(0, 0, s.Lean) * wheelie * stoppie
 end
 
 -- The box swept for collisions: the body above step height, aligned with the heading
@@ -301,10 +341,82 @@ local function impact(s: State, events: { Event }, speed: number, into: number, 
 	if hit > 1 then
 		push(events, "Impact", hit, nil, kind)
 	end
+	-- Small street props (bins, bollards, signs) slow you but never bail you; glancing blows never do
+	if kind == "Prop" or into < P.CrashSquareness then
+		return
+	end
 	local limit = if kind == "Car" or kind == "Cop" then Config.Traffic.HitKmh / 3.6 else P.CrashImpact
 	if hit > limit then
 		crash(s, events, if kind == "Wall" then "Wall" else "Hit a car")
 	end
+end
+
+-- Riding a loop: the bike follows the circle. Gravity takes speed on the way up (softened, with a
+-- little motor help); too slow near the top and it falls off.
+local function loopStep(s: State, spec: Spec, input: Input, dt: number, events: { Event })
+	local loop = s.Loop :: Loop
+	local radiusStuds = loop.Radius
+	local r = radiusStuds / STUDS
+	local g = P.Gravity * LP.Gravity
+	local theta = s.LoopAngle
+	local v = s.Speed + (-g * math.sin(theta) + input.Throttle * LP.Drive) * dt
+	local fwd = loop.Entry.LookVector
+	local up = loop.Entry.UpVector
+	local right = loop.Entry.RightVector
+	local tangent = (fwd * math.cos(theta) + up * math.sin(theta)).Unit
+	-- out of speed low on the curve: roll back down and out the way you came
+	if v < LP.RollBack and theta < math.pi / 2 then
+		s.Loop = nil
+		s.LoopAngle = 0
+		s.Position = loop.Entry.Position - fwd * 1.5
+		s.RearY = s.Position.Y
+		s.RearVy = 0
+		s.Pitch = 0
+		s.Speed = -math.max(1, math.sqrt(2 * g * r * (1 - math.cos(theta))))
+		s.Velocity = fwd * (s.Speed * STUDS)
+		push(events, "LoopFail")
+		return
+	end
+	-- holding on: the centripetal pull has to beat the part of gravity pulling off the track
+	local away = -math.cos(theta) -- 1 at the top
+	if v <= 0.5 or v * v / r < g * away * LP.Stick then
+		s.Loop = nil
+		s.Grounded = false
+		s.Pitch = wrap(theta)
+		s.AirVelocity = Vector3.new(tangent.X, 0, tangent.Z) * (v * STUDS)
+		s.VerticalSpeed = tangent.Y * v
+		s.AirTime = 0
+		s.AirPitch = 0
+		s.AirYaw = 0
+		s.AirPitchRate = 0
+		s.AirYawRate = 0
+		s.AirTricks = 0
+		push(events, "LoopFail")
+		return
+	end
+	theta += v / r * dt
+	if theta >= TAU then
+		-- out the bottom, beside where we came in
+		s.Loop = nil
+		s.LoopAngle = 0
+		local exit = loop.Entry.Position + fwd * 0.5 + right * loop.Shift
+		s.Position = exit
+		s.RearY = exit.Y
+		s.RearVy = 0
+		s.Pitch = 0
+		s.Speed = v
+		s.Velocity = fwd * (v * STUDS)
+		push(events, "Loop", radiusStuds)
+		return
+	end
+	s.LoopAngle = theta
+	local center = loop.Entry.Position + up * radiusStuds
+	s.Position = center + (-up * math.cos(theta) + fwd * math.sin(theta)) * radiusStuds + right * (loop.Shift * theta / TAU)
+	s.Pitch = theta
+	s.Speed = v
+	s.Lean = 0
+	s.Velocity = (tangent + right * (loop.Shift / (TAU * radiusStuds))) * (v * STUDS)
+	s.WheelAngle = (s.WheelAngle + v / spec.WheelRadiusM * dt) % TAU
 end
 
 local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world: World, dt: number, events: { Event })
@@ -465,8 +577,44 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	end
 	s.Lean = approach(s.Lean, leanTarget, (if riding then 2.8 else 4) * dt)
 
+	-- Stoppie: brake hard with the wheelie key held at speed and balance on the front wheel. The
+	-- rear rises toward a balance angle; more brake pushes it further; too far and you go over.
+	local stoppieWanted = riding and input.Wheelie and brake > 0.5 and s.Wheelie <= 0.02 and (v > ST.MinSpeed or (s.Stoppie > 0.05 and v > 0.5))
+	if stoppieWanted then
+		local target = ST.Target + ST.BrakeTrim * (brake - 0.5)
+		local stiffness = ST.Stiffness
+		local alpha = stiffness * (target - s.Stoppie) - 2 * math.sqrt(stiffness) * 0.6 * s.StoppieRate + (ST.Noise + ST.NoisePerSecond * s.StoppieTime) * noise(s)
+		s.StoppieRate += alpha * dt
+	elseif s.Stoppie > 0 then
+		s.StoppieRate -= ST.DropAccel * dt
+	else
+		s.StoppieRate = 0
+	end
+	s.Stoppie += s.StoppieRate * dt
+	if s.Stoppie <= 0 then
+		s.Stoppie = 0
+		s.StoppieRate = math.max(0, s.StoppieRate)
+	end
+	if s.Stoppie > ST.Over then
+		crash(s, events, "Over the bars")
+		s.Stoppie = 0
+		s.StoppieRate = 0
+	end
+	if s.Stoppie > ST.Counted and not s.StoppieActive and riding then
+		s.StoppieActive = true
+		s.StoppieTime = 0
+		push(events, "StoppieStart")
+	end
+	if s.StoppieActive then
+		s.StoppieTime += dt
+		if s.Stoppie <= 0.03 or not riding then
+			s.StoppieActive = false
+			push(events, "StoppieEnd", s.StoppieTime, if riding then 0 else 1)
+		end
+	end
+
 	-- Wheelie
-	if riding then
+	if riding and not stoppieWanted then
 		local canLift = v > WH.MinSpeed
 		local stillUp = v > WH.DropSpeed
 		local alpha: number
@@ -565,6 +713,9 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		s.AirPitchRate = 0
 		s.AirYawRate = 0
 		s.AirHands = false
+		s.AirTricks = 0
+		s.Stoppie = 0
+		s.StoppieRate = 0
 		push(events, "Takeoff", math.max(0, vy))
 	else
 		local yr = rearSupport.Position.Y
@@ -628,8 +779,43 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 		return
 	end
 
-	local tolerance = spec.Landing
-	if math.abs(pitchError) > tolerance or (headingError > P.LandingHeading and not backwards) or (backwards and headingError < math.pi - P.LandingHeading) then
+	-- Short drops (kerbs, bumps) are forgiving: only real jumps are judged strictly. Landing on the
+	-- back wheel with the wheelie key held just carries on the wheelie.
+	local short = airTime < 0.45
+	-- the foam pit catches anything
+	if kind == "Foam" then
+		s.TrickExt = 0
+		s.TrickName = ""
+		s.BarSpin = 0
+		s.Pitch = 0
+		s.Speed = horizontal.Magnitude / STUDS * 0.25
+		push(events, "Land", airTime, flips, "Foam")
+		if flips > 0 then
+			push(events, "Flip", flips)
+		end
+		if spins > 0 then
+			push(events, "Spin", spins)
+		end
+		return
+	end
+	-- still stretched out in a trick, or the bars still spinning: you land on your face
+	local tucked = s.TrickExt < AT.LandOut and (s.BarSpin <= 0 or s.BarSpin > 0.8)
+	s.TrickExt = 0
+	s.TrickName = ""
+	s.BarSpin = 0
+	if not tucked then
+		s.Pitch = groundPitch
+		s.Speed = horizontal.Magnitude / STUDS * 0.5
+		crash(s, events, "Didn't pull it back")
+		push(events, "Land", airTime, flips, "Crash")
+		return
+	end
+	local tolerance = spec.Landing * (if short then 2.6 elseif airTime < 0.8 then 1.5 else 1)
+	local headingTolerance = P.LandingHeading * (if short then 1.8 else 1)
+	if input.Wheelie and pitchError > 0 and pitchError < WH.LoopOut then
+		tolerance = math.max(tolerance, WH.LoopOut)
+	end
+	if math.abs(pitchError) > tolerance or (headingError > headingTolerance and not backwards) or (backwards and headingError < math.pi - headingTolerance) then
 		s.Pitch = groundPitch
 		s.Speed = horizontal.Magnitude / STUDS * 0.5
 		crash(s, events, if math.abs(pitchError) > tolerance then "Bad landing" else "Sideways landing")
@@ -723,6 +909,44 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	end
 	s.Hands = if not riding then 0 elseif input.NoHands then 2 elseif input.OneHand then 1 else 0
 	s.Lean = approach(s.Lean, if riding then 0 else s.CrashSide * 1.0, 2 * dt)
+
+	-- Air tricks: hold a trick key to throw the body out (it counts after a moment fully out), let
+	-- go to tuck back in. One at a time; switching means tucking first.
+	local want = if riding then input.Trick else nil
+	if want and (s.TrickName == "" or s.TrickName == want) then
+		if s.TrickName ~= want then
+			s.TrickName = want
+			s.TrickHold = 0
+			s.TrickCounted = false
+		end
+		s.TrickExt = math.min(1, s.TrickExt + dt / AT.OutTime)
+		if s.TrickExt >= 1 then
+			s.TrickHold += dt
+			if s.TrickHold >= AT.HoldTime and not s.TrickCounted then
+				s.TrickCounted = true
+				s.AirTricks += 1
+				push(events, "AirTrick", s.TrickHold, s.AirTricks, s.TrickName)
+			end
+		end
+	else
+		s.TrickExt = math.max(0, s.TrickExt - dt / AT.InTime)
+		if s.TrickExt <= 0 then
+			s.TrickName = ""
+		end
+	end
+	-- Barspin: a press flicks the bars round once
+	if riding and input.Barspin and not s.BarspinHeld and s.BarSpin <= 0 then
+		s.BarSpin = 0.001
+	end
+	s.BarspinHeld = input.Barspin
+	if s.BarSpin > 0 then
+		s.BarSpin += dt / AT.BarspinTime
+		if s.BarSpin >= 1 then
+			s.BarSpin = 0
+			s.AirTricks += 1
+			push(events, "AirTrick", AT.BarspinTime, s.AirTricks, "Barspin")
+		end
+	end
 	s.MotorPower = approach(s.MotorPower, 0, spec.MotorW * 6 * dt)
 	s.Cadence = approach(s.Cadence, 0, 200 * dt)
 
@@ -796,12 +1020,27 @@ function BikePhysics.Step(s: State, spec: Spec, mode: Mode, input: Input, world:
 			s.AirPitchRate = 0.6 -- a hop lifts the front first
 			s.AirYawRate = 0
 			s.AirHands = false
+			s.AirTricks = 0
 			push(events, "Hop", charge)
 		end
 		s.HopCharge = 0
 	end
 
-	if s.Grounded then
+	-- rolling onto a loop's entry?
+	local findLoop = world.Loop
+	if s.Grounded and not s.Loop and findLoop and s.Speed > 2 and s.Crash <= 0 and s.Wheelie < 0.1 then
+		local loop = findLoop(s.Position, heading(s.Yaw))
+		if loop then
+			s.Loop = loop
+			s.LoopAngle = 0
+			s.Yaw = BikePhysics.YawOf(loop.Entry.LookVector)
+			s.TravelYaw = s.Yaw
+			push(events, "LoopStart")
+		end
+	end
+	if s.Loop then
+		loopStep(s, spec, input, dt, events)
+	elseif s.Grounded then
 		groundStep(s, spec, mode, input, world, dt, events)
 	else
 		airStep(s, spec, input, world, dt, events)

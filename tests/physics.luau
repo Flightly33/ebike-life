@@ -32,7 +32,7 @@ end
 local DT = 1 / 60
 
 -- World: flat road at y = 0, optional kicker ramp (rising toward -Z), optional wall across -Z
-type Options = { RampStart: number?, RampLength: number?, RampHeight: number?, WallZ: number?, Grass: boolean? }
+type Options = { RampStart: number?, RampLength: number?, RampHeight: number?, WallZ: number?, WallKind: string?, Grass: boolean?, DropZ: number?, DropHeight: number? }
 
 local function makeWorld(opt: Options)
 	local function height(x: number, z: number): (number, string, any)
@@ -42,6 +42,9 @@ local function makeWorld(opt: Options)
 			if z <= start and z >= start - length then
 				return h * (start - z) / length, "Ramp", Vector3.new(0, 1, h / length).Unit
 			end
+		end
+		if opt.DropZ and opt.DropHeight and z < opt.DropZ then
+			return -opt.DropHeight, "Road", Vector3.new(0, 1, 0)
 		end
 		return 0, if opt.Grass then "Grass" else "Road", Vector3.new(0, 1, 0)
 	end
@@ -65,7 +68,7 @@ local function makeWorld(opt: Options)
 		local after = front + delta.Z
 		if front >= opt.WallZ and after < opt.WallZ then
 			local distance = (front - opt.WallZ) / math.abs(delta.Z) * delta.Magnitude
-			return distance, Vector3.new(0, 0, 1), "Wall"
+			return distance, Vector3.new(0, 0, 1), opt.WallKind or "Wall"
 		end
 		return nil
 	end
@@ -373,6 +376,134 @@ do
 	check(flips == 1 and not crashedFlip, "a full suspension bike lands a backflip off the big kicker")
 end
 
+print("== air tricks, barspin, stoppie")
+do
+	local world = makeWorld({ RampStart = -150, RampLength = 13, RampHeight = 5 })
+	-- hold Z for the first 0.45 s of air, then tap Y for a barspin
+	local spec, state = spawn("ridge_ht")
+	local tricks, landed = {}, nil
+	local airClock = 0
+	local inp = input({ Throttle = 1 })
+	ride(spec, state, Modes.Defaults.TURBO, world, 12, inp, function(_, s, events)
+		if not s.Grounded then
+			airClock += 1 / 60
+			inp.Trick = if airClock < 0.45 then "Superman" else nil
+			inp.Barspin = airClock > 0.46 and airClock < 0.52
+		else
+			inp.Trick = nil
+			inp.Barspin = false
+		end
+		for _, e in events do
+			if e.Kind == "AirTrick" then
+				table.insert(tricks, e.Text)
+			elseif e.Kind == "Land" and not landed and airClock > 0 then
+				landed = e
+			end
+		end
+	end)
+	print(string.format("  tricks: %s, landed %s", table.concat(tricks, ", "), if landed then tostring(landed.Text) else "?"))
+	check(table.find(tricks, "Superman") ~= nil, "holding Z in the air lands a superman")
+	check(table.find(tricks, "Barspin") ~= nil, "tapping Y spins the bars")
+	check(landed ~= nil and landed.Text ~= "Crash", "tucked in time: clean landing")
+	-- holding a trick all the way to the ground bails
+	spec, state = spawn("ridge_ht")
+	local bailed = false
+	local hold = input({ Throttle = 1 })
+	ride(spec, state, Modes.Defaults.TURBO, world, 12, hold, function(_, s, events)
+		hold.Trick = if s.Grounded then nil else "CanCan"
+		for _, e in events do
+			if e.Kind == "Crash" then
+				bailed = true
+			end
+		end
+	end)
+	check(bailed, "still stretched out at touchdown: bail")
+	-- stoppie: brake + wheelie key at speed
+	spec, state = spawn("ridge_ht")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 6, input({ Throttle = 1 }))
+	local stoppie, maxLift = nil, 0
+	ride(spec, state, Modes.Defaults.TURBO, flat, 3, input({ Brake = 0.7, Wheelie = true }), function(_, s, events)
+		maxLift = math.max(maxLift, s.Stoppie)
+		for _, e in events do
+			if e.Kind == "StoppieEnd" then
+				stoppie = e
+			end
+		end
+	end)
+	print(string.format("  stoppie lifted %.0f deg, held %.1f s", math.deg(maxLift), if stoppie then stoppie.Value or 0 else 0))
+	check(maxLift > 0.2, "brake + wheelie key lifts the rear")
+	check(stoppie ~= nil, "the stoppie ends with its time")
+end
+
+print("== loops and the foam pit")
+do
+	local function loopWorld(radius: number)
+		local world = makeWorld({})
+		local entry = CFrame.lookAt(Vector3.new(0, 0, -80), Vector3.new(0, 0, -81))
+		local used = false
+		world.Loop = function(position, dir)
+			if not used and math.abs(position.Z + 80) < 2 and dir:Dot(entry.LookVector) > 0.8 then
+				used = true
+				return { Entry = entry, Radius = radius, Shift = 10 }
+			end
+			return nil
+		end
+		return world
+	end
+	local spec, state = spawn("storm_x")
+	local loops, fails = 0, 0
+	local events = ride(spec, state, Modes.Defaults.TURBO, loopWorld(16), 10, input({ Throttle = 1 }))
+	for _, e in events do
+		if e.Kind == "Loop" then
+			loops += 1
+		elseif e.Kind == "LoopFail" then
+			fails += 1
+		end
+	end
+	print(string.format("  e-moto: %d loop(s), %d fall(s), now at x=%.1f", loops, fails, state.Position.X))
+	check(loops == 1 and fails == 0, "a fast e-moto goes all the way round")
+	check(math.abs(state.Position.X - 10) < 0.5, "it comes out beside the entry")
+	-- too slow: falls off near the top
+	spec, state = spawn("metro_c1")
+	local slow = loopWorld(30)
+	fails = 0
+	events = ride(spec, state, Modes.Defaults.ECO, slow, 18, input({ Throttle = 0.4 }))
+	local kinds = {}
+	for _, e in events do
+		if e.Kind == "LoopFail" then
+			fails += 1
+		end
+		if e.Kind ~= "Impact" then
+			table.insert(kinds, e.Kind)
+		end
+	end
+	check(fails == 1, "too slow for a big loop: you roll back or drop off")
+	-- foam pit: a flat-out bad landing is fine
+	local foam = makeWorld({ RampStart = -150, RampLength = 13, RampHeight = 5 })
+	local down = foam.Down
+	foam.Down = function(origin, length)
+		local hit = down(origin, length)
+		if hit and origin.Z < -170 then
+			hit.Kind = "Foam"
+		end
+		return hit
+	end
+	spec, state = spawn("ridge_ht")
+	local crashed, foamLanding = false, false
+	local inp = input({ Throttle = 1 })
+	ride(spec, state, Modes.Defaults.TURBO, foam, 12, inp, function(_, s, evs)
+		inp.Trick = if s.Grounded then nil else "Superman"
+		for _, e in evs do
+			if e.Kind == "Crash" then
+				crashed = true
+			elseif e.Kind == "Land" and e.Text == "Foam" then
+				foamLanding = true
+			end
+		end
+	end)
+	check(foamLanding and not crashed, "the foam pit catches a landing you'd normally bail")
+end
+
 print("== walls")
 do
 	local world = makeWorld({ WallZ = -150 })
@@ -398,6 +529,34 @@ do
 	end
 	print(string.format("  slow roll ends at z=%.2f, speed %.1f km/h", state.Position.Z, kmh(state)))
 	check(state.Position.Z > -150, "a slow bump stops at the wall")
+end
+
+print("== little bumps don't bail")
+do
+	local function crashes(events): boolean
+		for _, e in events do
+			if e.Kind == "Crash" then
+				return true
+			end
+		end
+		return false
+	end
+	-- rolling off a kerb mid-wheelie
+	local kerb = makeWorld({ DropZ = -120, DropHeight = 0.6 })
+	local spec, state = spawn("ridge_ht")
+	local events = ride(spec, state, Modes.Defaults.TOUR, kerb, 9, input({ Throttle = 1, Wheelie = true }))
+	check(not crashes(events), "a wheelie off a kerb carries on")
+	-- off a kerb mid-drift
+	spec, state = spawn("ridge_ht")
+	local driftKerb = makeWorld({ DropZ = -60, DropHeight = 0.6 })
+	ride(spec, state, Modes.Defaults.TURBO, driftKerb, 4, input({ Throttle = 1 }))
+	events = ride(spec, state, Modes.Defaults.TURBO, driftKerb, 1.5, input({ Drift = true, Steer = 0.6 }))
+	check(not crashes(events), "drifting off a kerb doesn't bail")
+	-- a bin at full speed
+	local bin = makeWorld({ WallZ = -150, WallKind = "Prop" })
+	spec, state = spawn("storm_x")
+	events = ride(spec, state, Modes.Defaults.TURBO, bin, 8, input({ Throttle = 1 }))
+	check(not crashes(events), "hitting a bin or bollard slows you but doesn't bail")
 end
 
 print("== bunny hop")

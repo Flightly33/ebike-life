@@ -222,7 +222,11 @@ function Builder.Build(): Model
 		elseif district == "Plaza" then
 			Landmarks.Plaza(blocks, block, rng)
 		elseif district == "Jump" then
-			Landmarks.JumpPark(blocks, block, rng)
+			if block.Bx == 0 then
+				Landmarks.LoopPark(blocks, block, rng)
+			else
+				Landmarks.JumpPark(blocks, block, rng)
+			end
 		else
 			Buildings.Fill(blocks, block, rng)
 		end

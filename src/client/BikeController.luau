@@ -27,6 +27,7 @@ local Signal = require(Shared.Signal)
 local Upgrades = require(Shared.Upgrades)
 
 local BikeCamera = require(script.Parent.BikeCamera)
+local Ragdoll = require(script.Parent.Ragdoll)
 local Input = require(script.Parent.Input)
 local Sound = require(script.Parent.Sound)
 local State = require(script.Parent.State)
@@ -53,6 +54,8 @@ local antiGravity: VectorForce? = nil
 local batteries: { [Model]: number } = {}
 local sendClock = 0
 local lastImpact = 0
+local bailing = false
+local bailedAt = 0
 local chargeLeft = 0
 local warnedEmpty = false
 local restoreCollide: { [BasePart]: boolean } = {}
@@ -141,12 +144,32 @@ local function onEvent(event: BikePhysics.Event)
 		sendTrick(kind, event.Value)
 	elseif kind == "WheelieEnd" then
 		sendTrick("WheelieEnd", event.Value, event.Extra)
+	elseif kind == "AirTrick" then
+		sendTrick("AirTrick", event.Value, event.Extra, event.Text)
+	elseif kind == "Loop" then
+		sendTrick("Loop", event.Value)
+	elseif kind == "StoppieEnd" then
+		sendTrick("StoppieEnd", event.Value, event.Extra)
 	elseif kind == "DriftEnd" then
 		sendTrick("DriftEnd", event.Value, event.Extra, event.Text)
 	elseif kind == "Crash" then
 		sendTrick("Crash", 0, 0, event.Text)
 		BikeCamera.Shake(2)
 		Sound.Play("Crash", position)
+		-- off the bike: ragdoll, the server unseats us but keeps the ride
+		local character = player.Character
+		if character and root and not bailing then
+			bailing = true
+			bailedAt = os.clock()
+			Remotes.Event("Bail"):FireServer()
+			local s = BikeController.Physics
+			Ragdoll.Start(character, if s then s.Velocity else root.AssemblyLinearVelocity)
+		end
+	elseif kind == "Recover" then
+		if bailing then
+			Ragdoll.Stop(player.Character)
+			Remotes.Event("Remount"):FireServer()
+		end
 	elseif kind == "Impact" then
 		local now = os.clock()
 		if (event.Text == "Cop" or event.Text == "Car") and now - lastImpact > 1 then
@@ -179,6 +202,9 @@ local function sendState(s: BikePhysics.State, spec: BikeStats.Spec)
 		Cr = s.Crash > 0,
 		K = math.floor(BikePhysics.Kmh(s)),
 		D = s.DriftActive,
+		Tr = if s.TrickExt > 0.2 then s.TrickName else "",
+		Bs = s.BarSpin > 0,
+		St = s.StoppieActive,
 		Sl = math.floor(s.Slip * 100) / 100,
 	})
 end
@@ -225,6 +251,18 @@ local function step(dt: number)
 	local travelYaw: number? = s.Yaw
 	if not s.Grounded then
 		travelYaw = if s.AirVelocity.Magnitude > 2 then BikePhysics.YawOf(s.AirVelocity.Unit) else nil
+	end
+	-- while limp the camera watches the body, not the bike
+	local body = Ragdoll.Focus()
+	if body then
+		cf = CFrame.new(body) * (cf - cf.Position)
+	end
+	if bailing and os.clock() - bailedAt > 9 then
+		-- never got back on (bike gone, too far): end the ride
+		bailing = false
+		Ragdoll.Stop(player.Character)
+		BikeController.Stop()
+		return
 	end
 	BikeCamera.Rough = if s.Offroad then 1 elseif s.Surface == "Sidewalk" then 0.45 else 0.15
 	BikeCamera.Update(dt, cf, travelYaw, BikePhysics.Kmh(s), not s.Grounded)
@@ -344,17 +382,22 @@ local function hookCharacter(character: Model)
 	end
 	humanoid.Seated:Connect(function(active: boolean, seat: BasePart?)
 		if active and seat and seat.Name == "Seat" then
+			bailing = false
 			local model = seat.Parent
 			if model and model:IsA("Model") and model:GetAttribute("Owner") == player.UserId then
 				BikeController.Start(model)
 				return
 			end
 		end
-		if not active then
+		if not active and not bailing then
 			BikeController.Stop()
 		end
 	end)
-	humanoid.Died:Connect(BikeController.Stop)
+	humanoid.Died:Connect(function()
+		bailing = false
+		Ragdoll.Stop(character)
+		BikeController.Stop()
+	end)
 end
 
 function BikeController.Init()

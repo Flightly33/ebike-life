@@ -4,6 +4,8 @@
 	Keyboard (as on the reference HUD): W gas, S brake, A/D steer, Shift or Ctrl wheelie, C one hand,
 	V no hands, Space get off (Roblox's own jump does that), plus Q bunny hop (hold to preload),
 	M ride mode, 1-5 pick a mode, H bell, R drift (locks the rear brake), F first person.
+	In the air: Z superman, X can-can, T nac-nac, G knee knocker, N no-footer (hold), Y barspin (tap).
+	On the ground: brake + Shift = stoppie.
 	Gamepad: RT gas, LT brake, left stick steer, X wheelie, Y hop, B drift, d-pad left/right one/no
 	hands, RB/LB mode, R3 first person, A get off. Touch: the on-screen riding buttons (UI/TouchControls) and the thumbstick.
 ]]
@@ -28,6 +30,8 @@ Input.Touch = {
 	Wheelie = false,
 	Hop = false,
 	Drift = false,
+	Trick = false,
+	Barspin = false,
 	OneHand = false,
 	NoHands = false,
 }
@@ -119,6 +123,23 @@ function Input.Read(): BikePhysics.Input
 	input.OneHand = down(Enum.KeyCode.C) or gpOne or t.OneHand
 	input.NoHands = down(Enum.KeyCode.V) or gpNo or t.NoHands
 	input.Drift = down(Enum.KeyCode.R) or gamepadDrift() or t.Drift
+	-- air tricks (the physics only uses them in the air)
+	local pad = UserInputService:GetGamepadConnected(Enum.UserInputType.Gamepad1)
+	local function button(key: Enum.KeyCode): boolean
+		return pad and UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, key)
+	end
+	if down(Enum.KeyCode.Z) or button(Enum.KeyCode.DPadUp) or t.Trick then
+		input.Trick = "Superman"
+	elseif down(Enum.KeyCode.X) or button(Enum.KeyCode.ButtonB) then
+		input.Trick = "CanCan"
+	elseif down(Enum.KeyCode.T) then
+		input.Trick = "NacNac"
+	elseif down(Enum.KeyCode.G) or button(Enum.KeyCode.DPadDown) then
+		input.Trick = "KneeKnocker"
+	elseif down(Enum.KeyCode.N) then
+		input.Trick = "NoFooter"
+	end
+	input.Barspin = down(Enum.KeyCode.Y) or button(Enum.KeyCode.ButtonY) or t.Barspin
 	return input
 end
 

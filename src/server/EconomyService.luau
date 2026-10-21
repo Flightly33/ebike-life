@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Remotes = require(Shared.Remotes)
+local Layout = require(Shared.City.Layout)
 local Signal = require(Shared.Signal)
 
 local DataService = require(script.Parent.DataService)
@@ -32,6 +33,9 @@ type Tracker = {
 	LastLand: number,
 	LastWheelieEnd: number,
 	LastDriftEnd: number?,
+	TrickJump: number?,
+	LastLoop: number?,
+	TrickJumpAt: number?,
 	WheelieComboStep: number,
 	Popups: number, -- whole dollars paid since the last "+$" popup
 }
@@ -195,6 +199,53 @@ local function onTrick(player: Player, kind: any, value: any, extra: any, text: 
 			if seconds >= 3 then
 				notify(player, "Info", string.format("New best wheelie: %.1fs", seconds))
 			end
+		end
+	elseif kind == "AirTrick" then
+		-- only while the server has seen the bike in the air, a whitelist, and a cap per jump
+		local name = if type(text) == "string" then text else ""
+		local lastAir = ride.LastAirAt or 0
+		if not (ride.AirSince or now - lastAir < 1.5) or not E.TrickLumps[name] then
+			return
+		end
+		if now - (t.TrickJumpAt or 0) > 2.5 then
+			t.TrickJump = 0
+		end
+		t.TrickJumpAt = now
+		local index = (t.TrickJump or 0) + 1
+		t.TrickJump = index
+		if index > E.TricksPerJump then
+			return
+		end
+		local labels = { Superman = "Superman!", CanCan = "Can-Can!", NacNac = "Nac-Nac!", KneeKnocker = "Knee Knocker!", NoFooter = "No-Footer!", Barspin = "Barspin!" }
+		payTrick(player, Economy.TrickLump(name, index), labels[name] .. (if index > 1 then string.format(" x%d", index) else ""))
+		bumpCombo(player, E.ComboTrick)
+		EconomyService.Trick:Fire(player, "AirTrick", index)
+	elseif kind == "Loop" then
+		-- only in the jump park, at most one every 1.5 s
+		local p = ride.Root.Position
+		local inPark = false
+		for _, block in Layout.Blocks do
+			if block.District == "Jump" and p.X > block.MinX and p.X < block.MaxX and p.Z > block.MinZ and p.Z < block.MaxZ then
+				inPark = true
+			end
+		end
+		if not inPark or now - (t.LastLoop or 0) < 1.5 then
+			return
+		end
+		t.LastLoop = now
+		local radius = math.clamp(v, 0, 60)
+		payTrick(player, math.floor(E.LoopLump * radius), "LOOP!")
+		bumpCombo(player, E.ComboLoop)
+		EconomyService.Trick:Fire(player, "Loop", radius)
+	elseif kind == "StoppieEnd" then
+		if x == 1 then
+			return
+		end
+		local seconds = math.clamp(v, 0, 20)
+		local lump = Economy.StoppieLump(seconds)
+		if lump > 0 then
+			payTrick(player, lump, string.format("Stoppie %.1fs", seconds))
+			bumpCombo(player, E.ComboTrick)
 		end
 	elseif kind == "DriftEnd" then
 		-- trust the server's clock over the client's; one drift per 0.3 s

@@ -33,6 +33,7 @@ type BikeRig = {
 	Rear: Motor6D?,
 	Front: Motor6D?,
 	Steer: Motor6D?,
+	Barspin: number, -- 0..1 of a barspin (other riders' from the Barspin attribute)
 	Crank: Motor6D?,
 	WheelAngle: number,
 	CrankAngle: number,
@@ -78,6 +79,7 @@ local function bikeRig(model: Model): BikeRig?
 		Rear = findMotor(model, "RearSpin"),
 		Front = findMotor(model, "FrontSpin"),
 		Steer = findMotor(model, "SteerJoint"),
+		Barspin = 0,
 		Crank = findMotor(model, "CrankSpin"),
 		WheelAngle = 0,
 		CrankAngle = 0,
@@ -175,6 +177,7 @@ local function updateBikes(dt: number)
 			rig.WheelAngle = physics.WheelAngle
 			rig.CrankAngle = physics.CrankAngle
 			steer = physics.SteerAngle
+			rig.Barspin = physics.BarSpin
 			local spec = BikeController.Spec
 			power = if spec and spec.MotorW > 0 then physics.MotorPower / spec.MotorW else 0
 		else
@@ -184,6 +187,12 @@ local function updateBikes(dt: number)
 			rig.CrankAngle = (rig.CrankAngle + (if type(cadence) == "number" then cadence else 0) / 60 * TAU * dt) % TAU
 			local s = model:GetAttribute("Steer")
 			steer = (if type(s) == "number" then s else 0) * 0.35
+			if model:GetAttribute("Barspin") == true or rig.Barspin > 0 then
+				rig.Barspin += dt / 0.45
+				if rig.Barspin >= 1 then
+					rig.Barspin = 0
+				end
+			end
 			local p = model:GetAttribute("Power")
 			power = if type(p) == "number" then p else 0
 		end
@@ -195,7 +204,7 @@ local function updateBikes(dt: number)
 			rig.Front.Transform = spin
 		end
 		if rig.Steer then
-			rig.Steer.Transform = CFrame.Angles(0, -steer, 0)
+			rig.Steer.Transform = CFrame.Angles(0, -steer - rig.Barspin * math.pi * 2, 0)
 		end
 		if rig.Crank then
 			rig.Crank.Transform = CFrame.Angles(-rig.CrankAngle, 0, 0)
