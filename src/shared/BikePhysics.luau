@@ -261,8 +261,9 @@ end
 -- The box swept for collisions: the body above step height, aligned with the heading
 function BikePhysics.Body(s: State, spec: Spec): (CFrame, Vector3)
 	local length = spec.Wheelbase + spec.WheelRadius + spec.RearWheelRadius
-	local height = 3.4
-	local size = Vector3.new(1.3, height, length)
+	local k = Config.BIKE_SIZE / 1.2 -- the box was sized for bikes drawn 1.2x life size
+	local height = 3.4 * k
+	local size = Vector3.new(1.3 * k, height, length)
 	local center = s.Position + UP * (P.StepHeight + 0.1 + height / 2)
 	return CFrame.new(center) * CFrame.fromEulerAnglesYXZ(0, s.Yaw, 0), size
 end
@@ -801,6 +802,8 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 	end
 	local backwards = headingError > math.pi / 2
 	local airTime = s.AirTime
+	-- back down a quarter pipe after the automatic turn: always rides away
+	local fakie = s.FakieHold == true
 	s.VertLaunch = nil
 	s.FakieHold = nil
 	s.Grounded = true
@@ -849,6 +852,11 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 		return
 	end
 	local tolerance = spec.Landing * (if short then 2.6 elseif airTime < 0.8 then 1.5 else 1) + math.abs(groundPitch) * 0.4
+	if fakie then
+		pitchError = 0
+		headingError = 0
+		backwards = false
+	end
 	local headingTolerance = P.LandingHeading * (if short then 1.8 else 1)
 	if input.Wheelie and pitchError > 0 and pitchError < WH.LoopOut then
 		tolerance = math.max(tolerance, WH.LoopOut)

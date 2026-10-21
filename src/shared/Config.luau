@@ -18,8 +18,9 @@ Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
 Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
 -- Bike and car models are built from real dimensions in metres at this scale (the same one)
 -- Bikes are drawn this much bigger than life: a Roblox avatar's torso and head are much bigger than
--- a person's, so a true-size bike reads as a toy next to it (any bigger and the legs can't reach)
-Config.BIKE_SIZE = 1.2
+-- a person's, so a true-size bike reads as a toy next to it. 2.4 at the owner's request (the legs no
+-- longer reach the pedals; the camera and collision box scale with it)
+Config.BIKE_SIZE = 2.4
 Config.VISUAL_STUDS_PER_METER = Config.STUDS_PER_METER * Config.BIKE_SIZE
 
 Config.BRAND = "Flightly"

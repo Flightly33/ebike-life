@@ -20,10 +20,13 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 
 local BikeCamera = {}
 
 local BASE_PITCH = 0.2 -- radians above horizontal
+-- the camera was framed for bikes drawn 1.2x life size; bigger bikes pull it up and back
+local SIZE = Config.BIKE_SIZE / 1.2
 local MIN_PITCH, MAX_PITCH = -0.25, 1.1
 local MOUSE_RATE = 0.006 -- radians per pixel
 local TOUCH_RATE = 0.008
@@ -285,7 +288,7 @@ function BikeCamera.Update(dt: number, bike: CFrame, travelYaw: number?, kmh: nu
 	end
 
 	-- Focus: exactly on the bike sideways, a little softened up and down (bumps, landings)
-	local target = bike.Position + Vector3.new(0, 3.4, 0)
+	local target = bike.Position + Vector3.new(0, 3.4 * SIZE, 0)
 	local y = focusY or target.Y
 	y += (target.Y - y) * ease(if airborne then 6 else 14, dt)
 	y = math.clamp(y, target.Y - 3, target.Y + 3)
@@ -293,7 +296,7 @@ function BikeCamera.Update(dt: number, bike: CFrame, travelYaw: number?, kmh: nu
 	local focus = Vector3.new(target.X, y, target.Z)
 
 	local speed = math.clamp(kmh / 90, 0, 1)
-	local wanted = (11 + speed * 6 + (if airborne then 2 else 0)) * zoom
+	local wanted = (11 + speed * 6 + (if airborne then 2 else 0)) * zoom * (0.4 + 0.6 * SIZE)
 	local camYaw = yaw + orbitYaw
 	local pitch = BASE_PITCH + orbitPitch
 	local direction = Vector3.new(math.sin(camYaw) * math.cos(pitch), math.sin(pitch), math.cos(camYaw) * math.cos(pitch))
