@@ -759,7 +759,9 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 				pitchTarget = s.Pitch
 			end
 		end
-		s.Pitch = approach(s.Pitch, pitchTarget, 7 * dt)
+		-- follow the ground closely: the height tracks the rear tyre exactly, so a lagging pitch
+		-- buried the front wheel in the foot of every ramp (worse the bigger the bike is drawn)
+		s.Pitch = approach(s.Pitch, pitchTarget, 18 * dt)
 		s.Position = Vector3.new(target.X, yr + half * math.sin(s.Pitch), target.Z)
 		local kind = rearSupport.Kind
 		if frontHit and OFFROAD[frontHit.Kind] then
