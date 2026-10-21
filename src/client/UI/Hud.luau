@@ -89,7 +89,7 @@ local function keycap(parent: Instance, key: string, order: number)
 	Theme.Label({ Text = key, Size = UDim2.fromScale(1, 1), TextSize = if #key > 1 then 9 else 11, Font = Theme.Body, Stroke = 0, Parent = cap })
 end
 
-local function hintGroup(parent: Instance, keys: { string }, label: string, order: number)
+local function hintGroup(parent: Instance, keys: { string }, label: string, order: number): Frame
 	local group = New("Frame", { BackgroundColor3 = Color3.fromRGB(44, 44, 48), BackgroundTransparency = 0.15, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 26), LayoutOrder = order, Parent = parent })
 	Theme.Corner(group, 6)
 	New("UIPadding", { PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 7), Parent = group })
@@ -99,7 +99,20 @@ local function hintGroup(parent: Instance, keys: { string }, label: string, orde
 	end
 	local text = Theme.Label({ Text = label, Size = UDim2.fromOffset(0, 26), TextSize = 13, Font = Theme.Body, Stroke = 0, LayoutOrder = 10, Parent = group })
 	text.AutomaticSize = Enum.AutomaticSize.X
+	return group
 end
+
+-- The air tricks, in order, with their keys (the row above the key hints; the one being done lights up)
+local TRICK_KEYS = {
+	{ "Z", "Superman", "Superman" },
+	{ "X", "Can-Can", "CanCan" },
+	{ "T", "Nac-Nac", "NacNac" },
+	{ "G", "Knee Knocker", "KneeKnocker" },
+	{ "N", "No-Footer", "NoFooter" },
+	{ "Y", "Barspin", "Barspin" },
+}
+local trickRow: Frame
+local trickGroups: { [string]: Frame } = {}
 
 function Hud.Init(gui: ScreenGui, open: (string) -> ())
 	-- Cash pill (bottom-left)
@@ -166,6 +179,17 @@ function Hud.Init(gui: ScreenGui, open: (string) -> ())
 	hintGroup(hints, { "M" }, "Mode", 8)
 	hintGroup(hints, { "␣" }, "Get Off", 9)
 
+	-- Air tricks, numbered in order, above the hints
+	trickRow = New("Frame", { Name = "Tricks", BackgroundTransparency = 1, Size = UDim2.new(1, -520, 0, 28), Position = UDim2.new(0.5, 0, 1, -44), AnchorPoint = Vector2.new(0.5, 1), Visible = false, Parent = gui })
+	Theme.List(trickRow, Enum.FillDirection.Horizontal, 5, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center)
+	local title = Theme.Label({ Text = "AIR TRICKS", Size = UDim2.fromOffset(0, 26), TextSize = 13, Color = C.Orange, LayoutOrder = 0, Parent = trickRow })
+	title.AutomaticSize = Enum.AutomaticSize.X
+	for i, trick in TRICK_KEYS do
+		trickGroups[trick[3]] = hintGroup(trickRow, { trick[1] }, string.format("%d. %s", i, trick[2]), i)
+	end
+	hintGroup(trickRow, { "R" }, "Drift", 7)
+	hintGroup(trickRow, { "F" }, "Camera", 8)
+
 	State.Changed:Connect(function()
 		local data = State.Get()
 		if data and data.Equipped ~= ridesIconBike then
@@ -181,6 +205,7 @@ end
 function Hud.SetRiding(riding: boolean)
 	speedo.Frame.Visible = riding
 	hints.Visible = riding and State.Settings().Hints and not UserInputService.TouchEnabled
+	trickRow.Visible = hints.Visible
 end
 
 function Hud.Update(dt: number)
@@ -194,6 +219,17 @@ function Hud.Update(dt: number)
 		cashLabel.Text = Economy.FormatCash(math.floor(shownCash + 0.5))
 	end
 	minimap:Update()
+	-- light up the trick being done
+	if trickRow.Visible then
+		local physics = BikeController.Physics
+		local active = ""
+		if physics and not physics.Grounded then
+			active = if physics.BarSpin > 0 then "Barspin" elseif physics.TrickExt > 0.05 then physics.TrickName else ""
+		end
+		for name, group in trickGroups do
+			group.BackgroundColor3 = if name == active then C.Orange else Color3.fromRGB(44, 44, 48)
+		end
+	end
 	if speedo.Frame.Visible then
 		local spec = BikeController.Spec
 		local physics = BikeController.Physics

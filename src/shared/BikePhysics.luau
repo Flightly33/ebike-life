@@ -978,6 +978,20 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	-- Air tricks: hold a trick key to throw the body out (it counts after a moment fully out), let
 	-- go to tuck back in. One at a time; switching means tucking first.
 	local want = if riding then input.Trick else nil
+	-- the ground coming up: tuck in (and don't start a barspin) in time to land on the bike, so a key
+	-- held too long never means a bail
+	local landingIn = math.huge -- seconds until touchdown, falling from here
+	if s.VerticalSpeed <= 0 then
+		local below = world.Down(s.Position + UP * 0.5, 60)
+		if below then
+			local h = math.max(0, s.Position.Y - below.Position.Y) / STUDS
+			local down = -s.VerticalSpeed
+			landingIn = (math.sqrt(down * down + 2 * P.Gravity * h) - down) / P.Gravity
+		end
+	end
+	if landingIn < AT.InTime * 1.4 + 0.03 then
+		want = nil
+	end
 	if want and (s.TrickName == "" or s.TrickName == want) then
 		if s.TrickName ~= want then
 			s.TrickName = want
@@ -1000,7 +1014,7 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 		end
 	end
 	-- Barspin: a press flicks the bars round once
-	if riding and input.Barspin and not s.BarspinHeld and s.BarSpin <= 0 then
+	if riding and input.Barspin and not s.BarspinHeld and s.BarSpin <= 0 and landingIn > AT.BarspinTime then
 		s.BarSpin = 0.001
 	end
 	s.BarspinHeld = input.Barspin

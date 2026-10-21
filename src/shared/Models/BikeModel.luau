@@ -714,6 +714,9 @@ function BikeModel.Build(bike: Bikes.Bike, choice: PaintChoice?, options: Option
 	local wheelbase = bike.Geometry.Wheelbase * VIS
 	local root = PartKit.Box(model, "Root", Vector3.new(0.4, 0.2, wheelbase), CFrame.identity, BLACK, SMOOTH, { Transparency = 1, Collide = false, Query = false, Touch = false })
 	root.Massless = false
+	-- the bike, not the rider, is the root of the bike + rider assembly: its frame is what replicates,
+	-- and each client places the rider on the seat itself
+	root.RootPriority = 100
 	model.PrimaryPart = root
 
 	if isMoto then

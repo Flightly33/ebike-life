@@ -418,19 +418,23 @@ do
 	check(table.find(tricks, "Superman") ~= nil, "holding Z in the air lands a superman")
 	check(table.find(tricks, "Barspin") ~= nil, "tapping Y spins the bars")
 	check(landed ~= nil and landed.Text ~= "Crash", "tucked in time: clean landing")
-	-- holding a trick all the way to the ground bails
-	spec, state = spawn("ridge_ht")
-	local bailed = false
-	local hold = input({ Throttle = 1 })
-	ride(spec, state, Modes.Defaults.TURBO, world, 12, hold, function(_, s, events)
-		hold.Trick = if s.Grounded then nil else "CanCan"
-		for _, e in events do
-			if e.Kind == "Crash" then
-				bailed = true
+	-- every trick, held all the way to the ground: counted, and tucked in time to land
+	for _, name in { "Superman", "CanCan", "NacNac", "KneeKnocker", "NoFooter" } do
+		spec, state = spawn("ridge_ht")
+		local bailed, counted = false, false
+		local hold = input({ Throttle = 1 })
+		ride(spec, state, Modes.Defaults.TURBO, world, 12, hold, function(_, s, events)
+			hold.Trick = if s.Grounded then nil else name
+			for _, e in events do
+				if e.Kind == "Crash" then
+					bailed = true
+				elseif e.Kind == "AirTrick" and e.Text == name then
+					counted = true
+				end
 			end
-		end
-	end)
-	check(bailed, "still stretched out at touchdown: bail")
+		end)
+		check(counted and not bailed, name .. ": held to the ground, it counts and tucks in to land")
+	end
 	-- stoppie: brake + wheelie key at speed
 	spec, state = spawn("ridge_ht")
 	ride(spec, state, Modes.Defaults.TURBO, flat, 6, input({ Throttle = 1 }))
