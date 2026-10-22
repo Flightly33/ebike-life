@@ -27,7 +27,8 @@ for _, bike in Bikes.List do
 		return nil
 	end
 	local function world(a): any
-		return (a.Parent.CFrame * a.CFrame).Position
+		-- (Attachment.CFrame doesn't follow .Position under Lune; Position does)
+		return a.Parent.CFrame * a.Position
 	end
 	local pedal = find("PedalL") or find("PegL")
 	local grip = find("GripL")

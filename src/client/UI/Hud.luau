@@ -102,17 +102,52 @@ local function hintGroup(parent: Instance, keys: { string }, label: string, orde
 	return group
 end
 
--- The air tricks, in order, with their keys (the row above the key hints; the one being done lights up)
+-- The air tricks, in order, with their keyboard keys and controller buttons (the row above the key
+-- hints; the one being done lights up)
 local TRICK_KEYS = {
-	{ "Z", "Superman", "Superman" },
-	{ "X", "Can-Can", "CanCan" },
-	{ "T", "Nac-Nac", "NacNac" },
-	{ "G", "Knee Knocker", "KneeKnocker" },
-	{ "N", "No-Footer", "NoFooter" },
-	{ "Y", "Barspin", "Barspin" },
+	{ Key = "Z", Pad = "↑", Label = "Superman", Name = "Superman" },
+	{ Key = "X", Pad = "B", Label = "Can-Can", Name = "CanCan" },
+	{ Key = "T", Pad = "LB", Label = "Nac-Nac", Name = "NacNac" },
+	{ Key = "G", Pad = "↓", Label = "Knee Knocker", Name = "KneeKnocker" },
+	{ Key = "N", Pad = "RB", Label = "No-Footer", Name = "NoFooter" },
+	{ Key = "Y", Pad = "Y", Label = "Barspin", Name = "Barspin" },
 }
 local trickRow: Frame
 local trickGroups: { [string]: Frame } = {}
+local riding = false
+
+local function usingPad(): boolean
+	local last = UserInputService:GetLastInputType()
+	return last.Name:sub(1, 7) == "Gamepad"
+end
+
+-- (Re)builds the trick row for the keyboard or a controller, scaled down to fit its slot
+local function buildTrickRow(pad: boolean)
+	for _, child in trickRow:GetChildren() do
+		child:Destroy()
+	end
+	table.clear(trickGroups)
+	local layout = Theme.List(trickRow, Enum.FillDirection.Horizontal, 5, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center)
+	local fit = New("UIScale", { Parent = trickRow })
+	local title = Theme.Label({ Text = "AIR TRICKS", Size = UDim2.fromOffset(0, 26), TextSize = 13, Color = C.Orange, LayoutOrder = 0, Parent = trickRow })
+	title.AutomaticSize = Enum.AutomaticSize.X
+	for i, trick in TRICK_KEYS do
+		trickGroups[trick.Name] = hintGroup(trickRow, { if pad then trick.Pad else trick.Key }, string.format("%d. %s", i, trick.Label), i)
+	end
+	hintGroup(trickRow, { if pad then "B" else "R" }, "Drift", 7)
+	hintGroup(trickRow, { if pad then "RS" else "F" }, "Camera", 8)
+	-- the row never runs into the minimap or the speedometer: shrink it to its slot
+	local function refit()
+		local content = layout.AbsoluteContentSize.X / math.max(fit.Scale, 0.01)
+		local room = trickRow.AbsoluteSize.X
+		if content > 0 and room > 0 then
+			fit.Scale = math.min(1, room / content)
+		end
+	end
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refit)
+	trickRow:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
+	refit()
+end
 
 function Hud.Init(gui: ScreenGui, open: (string) -> ())
 	-- Cash pill (bottom-left)
@@ -181,14 +216,17 @@ function Hud.Init(gui: ScreenGui, open: (string) -> ())
 
 	-- Air tricks, numbered in order, above the hints
 	trickRow = New("Frame", { Name = "Tricks", BackgroundTransparency = 1, Size = UDim2.new(1, -520, 0, 28), Position = UDim2.new(0.5, 0, 1, -44), AnchorPoint = Vector2.new(0.5, 1), Visible = false, Parent = gui })
-	Theme.List(trickRow, Enum.FillDirection.Horizontal, 5, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center)
-	local title = Theme.Label({ Text = "AIR TRICKS", Size = UDim2.fromOffset(0, 26), TextSize = 13, Color = C.Orange, LayoutOrder = 0, Parent = trickRow })
-	title.AutomaticSize = Enum.AutomaticSize.X
-	for i, trick in TRICK_KEYS do
-		trickGroups[trick[3]] = hintGroup(trickRow, { trick[1] }, string.format("%d. %s", i, trick[2]), i)
-	end
-	hintGroup(trickRow, { "R" }, "Drift", 7)
-	hintGroup(trickRow, { "F" }, "Camera", 8)
+	local pad = usingPad()
+	buildTrickRow(pad)
+	-- keyboard <-> controller: swap the trick row's glyphs, and the keyboard-only hints come and go
+	UserInputService.LastInputTypeChanged:Connect(function()
+		local now = usingPad()
+		if now ~= pad then
+			pad = now
+			buildTrickRow(pad)
+			Hud.SetRiding(riding)
+		end
+	end)
 
 	State.Changed:Connect(function()
 		local data = State.Get()
@@ -202,10 +240,12 @@ function Hud.Init(gui: ScreenGui, open: (string) -> ())
 	end)
 end
 
-function Hud.SetRiding(riding: boolean)
+function Hud.SetRiding(isRiding: boolean)
+	riding = isRiding
 	speedo.Frame.Visible = riding
-	hints.Visible = riding and State.Settings().Hints and not UserInputService.TouchEnabled
-	trickRow.Visible = hints.Visible
+	local show = riding and State.Settings().Hints and not UserInputService.TouchEnabled
+	hints.Visible = show and not usingPad() -- the bottom row is keyboard keys
+	trickRow.Visible = show
 end
 
 function Hud.Update(dt: number)

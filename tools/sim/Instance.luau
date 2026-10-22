@@ -842,6 +842,8 @@ InstanceMT.__index = function(self, key)
 		return Vector2.new(1280, 720)
 	elseif key == "AbsolutePosition" and isA(cls, "GuiBase2d") then
 		return Vector2.zero
+	elseif key == "AbsoluteContentSize" and (cls == "UIListLayout" or cls == "UIGridLayout") then
+		return Vector2.new(400, 28) -- (no layout engine here: a plausible content size)
 	end
 	local custom = Sim.FindAccessor(Sim.Getters, cls, key)
 	if custom then

@@ -19,7 +19,7 @@ Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
 -- Bike and car models are built from real dimensions in metres at this scale (the same one)
 -- Bikes are drawn at this times life size. 1.0 is where a default avatar fits the whole line-up:
 -- seated, knees bent on the footpegs and hands on the bars (tools/lune/reach.luau prints each bike's
--- fitting size, 0.89 for the biggest enduro to 1.29 for the youth pit bike). The owner tried 1.2,
+-- fitting size, 0.87 for the biggest enduro to 1.17 for the youth pit bike). The owner tried 1.2,
 -- 2.4 and 1.8 when the rider pose was broken; bigger than ~1.0 and the feet can't reach the pegs.
 Config.BIKE_SIZE = 1.0
 Config.VISUAL_STUDS_PER_METER = Config.STUDS_PER_METER * Config.BIKE_SIZE

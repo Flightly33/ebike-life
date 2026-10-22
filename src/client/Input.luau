@@ -38,6 +38,13 @@ Input.Touch = {
 
 local controls: any = nil
 local enabled = false
+local airborne = false
+local padDriftLatched = false -- B held from the air (a Can-Can) doesn't become a drift on landing
+
+-- The bike is in the air: pad buttons switch to their trick meanings (BikeController, every frame)
+function Input.SetAirborne(inAir: boolean)
+	airborne = inAir
+end
 
 local function down(...: Enum.KeyCode): boolean
 	for _, key in { ... } do
@@ -122,7 +129,13 @@ function Input.Read(): BikePhysics.Input
 	input.Hop = down(Enum.KeyCode.Q) or gpHop or t.Hop
 	input.OneHand = down(Enum.KeyCode.C) or gpOne or t.OneHand
 	input.NoHands = down(Enum.KeyCode.V) or gpNo or t.NoHands
-	input.Drift = down(Enum.KeyCode.R) or gamepadDrift() or t.Drift
+	local padDrift = gamepadDrift()
+	if padDrift and airborne then
+		padDriftLatched = true
+	elseif not padDrift then
+		padDriftLatched = false
+	end
+	input.Drift = down(Enum.KeyCode.R) or (padDrift and not padDriftLatched) or t.Drift
 	-- air tricks (the physics only uses them in the air)
 	local pad = UserInputService:GetGamepadConnected(Enum.UserInputType.Gamepad1)
 	local function button(key: Enum.KeyCode): boolean
@@ -132,11 +145,11 @@ function Input.Read(): BikePhysics.Input
 		input.Trick = "Superman"
 	elseif down(Enum.KeyCode.X) or button(Enum.KeyCode.ButtonB) then
 		input.Trick = "CanCan"
-	elseif down(Enum.KeyCode.T) then
+	elseif down(Enum.KeyCode.T) or (airborne and button(Enum.KeyCode.ButtonL1)) then
 		input.Trick = "NacNac"
 	elseif down(Enum.KeyCode.G) or button(Enum.KeyCode.DPadDown) then
 		input.Trick = "KneeKnocker"
-	elseif down(Enum.KeyCode.N) then
+	elseif down(Enum.KeyCode.N) or (airborne and button(Enum.KeyCode.ButtonR1)) then
 		input.Trick = "NoFooter"
 	end
 	input.Barspin = down(Enum.KeyCode.Y) or button(Enum.KeyCode.ButtonY) or t.Barspin
@@ -152,9 +165,9 @@ function Input.SetRiding(riding: boolean)
 				return Enum.ContextActionResult.Pass
 			end
 			local key = object.KeyCode
-			if key == Enum.KeyCode.M or key == Enum.KeyCode.ButtonR1 then
-				Input.Action:Fire("ModeUp")
-			elseif key == Enum.KeyCode.ButtonL1 then
+			if key == Enum.KeyCode.M or (key == Enum.KeyCode.ButtonR1 and not airborne) then
+				Input.Action:Fire("ModeUp") -- (in the air the bumpers are Nac-Nac and No-Footer)
+			elseif key == Enum.KeyCode.ButtonL1 and not airborne then
 				Input.Action:Fire("ModeDown")
 			elseif key == Enum.KeyCode.H then
 				Input.Action:Fire("Bell")

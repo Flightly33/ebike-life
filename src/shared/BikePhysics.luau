@@ -1159,6 +1159,11 @@ function BikePhysics.Step(s: State, spec: Spec, mode: Mode, input: Input, world:
 	else
 		airStep(s, spec, input, world, dt, events)
 	end
+	-- a barspin starts on a press made in the air, not a key already held at takeoff (a pad's hop
+	-- preload is the same button)
+	if s.Grounded or s.Loop then
+		s.BarspinHeld = input.Barspin
+	end
 	return events
 end
 

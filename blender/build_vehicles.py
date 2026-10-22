@@ -704,7 +704,7 @@ def moto_bike(k, P):
             F(alu, K.sweep([pivot + o + Z * 0.12, Vector((0, RA.y + 0.15, seat_h - 0.1)) + o * 0.9], 0, 12, profile=(0.012, 0.018)))
         case_front = HT.y - 0.05
         case_rear = pivot.y - 0.18
-        case_top = HT.z - 0.1
+        case_top = min(HT.z - 0.1, seat_h - 0.08)  # never above the seat
         case_bot = pivot.z + 0.05
         cc = Vector((0, (case_front + case_rear) / 2, (case_top + case_bot) / 2))
         csize = (0.2, case_front - case_rear, case_top - case_bot)
@@ -819,9 +819,9 @@ def moto_bike(k, P):
             # round headlight in a bowl on brackets, mirrors on stalks
             lamp = plate_c + fwd_perp * 0.02 + AX * 0.03
             bowl = "Chrome" if kit == "Chopper" else "Black"
-            S(bowl, K.lathe(lamp, fwd_perp, [(-0.085, 0), (-0.085, 0.04), (-0.06, 0.08), (0.0, 0.095), (0.012, 0.09), (0.012, 0)], 36))
-            S("Chrome", K.torus(lamp + fwd_perp * 0.012, fwd_perp, 0.088, 0.007, 40, 8))
-            S("NeonWhite", K.lathe(lamp + fwd_perp * 0.013, fwd_perp, [(0, 0.082), (0.01, 0.05), (0.014, 0)], 32))
+            S(bowl, K.lathe(lamp, Y, [(-0.085, 0), (-0.085, 0.04), (-0.06, 0.08), (0.0, 0.095), (0.012, 0.09), (0.012, 0)], 36))
+            S("Chrome", K.torus(lamp + Y * 0.012, Y, 0.088, 0.007, 40, 8))
+            S("NeonWhite", K.lathe(lamp + Y * 0.013, Y, [(0, 0.082), (0.01, 0.05), (0.014, 0)], 32))
             for side in (-1, 1):
                 S("Black", K.bar(HT + X * side * (tw / 2 + 0.04), lamp + X * side * 0.07 - fwd_perp * 0.03, 0.015, 0.03, 0.004))
                 base = P["Bars"] + X * side * (k["BarWidth"] / 2 - 0.12) + Z * 0.05

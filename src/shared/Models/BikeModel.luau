@@ -166,7 +166,13 @@ local function geometry(bike: Bikes.Bike): Geo
 	local frontAxle = Vector3.new(0, Rf, -wb / 2)
 	local ha = math.rad(HEAD_ANGLE[style] or 70)
 	local axis = Vector3.new(0, math.sin(ha), math.cos(ha))
-	local hb = frontAxle + axis * (FORK_LENGTH[style] or 0.45)
+	local forkLength = FORK_LENGTH[style] or 0.45
+	if style == "Moto" then
+		-- e-motos: the fork is as long as it takes to put the head tube just above the seat, so a
+		-- small-wheeled pit bike gets a short fork (its tank and battery stay under the rider)
+		forkLength = math.clamp((geo.SeatHeight + 0.1 - Rf) / math.sin(ha) - 0.16, 0.35, 0.75)
+	end
+	local hb = frontAxle + axis * forkLength
 	local ht = hb + axis * (if style == "Cruiser" then 0.2 elseif style == "Enduro" then 0.12 else 0.16)
 	local bbHeight = if style == "Enduro" then 0.34 elseif style == "Fat" then 0.31 else 0.29
 	local bb = Vector3.new(0, bbHeight, rearAxle.Z - (CHAINSTAY[style] or 0.45))
@@ -316,8 +322,9 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 		end
 		-- front fender: high on the dirt bikes, hugging the tyre on the road ones
 		if kit == "Supermoto" or kit == "Street" or kit == "Chopper" then
-			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.025, 0)
-			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.05, 0.16)), scale(fTop + Vector3.new(0, -0.03, -0.2)), geo.TireWidth + 0.04, 0.012, if kit == "Street" then "Frame" else "Accent")
+			-- a flat chord over the tyre: its ends at +-0.2 m are already below the top, so it clears
+			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.045, 0)
+			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, 0, 0.16)), scale(fTop + Vector3.new(0, 0, -0.2)), geo.TireWidth + 0.04, 0.012, if kit == "Street" then "Frame" else "Accent")
 		else
 			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.06, 0)
 			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.03, 0.18)), scale(fTop + Vector3.new(0, 0.0, -0.25)), geo.TireWidth + 0.05, 0.015, "Accent")
@@ -542,7 +549,7 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	-- sloped top panel ("tank") running from the head tube down to the seat
 	local caseFrontZ = g.HT.Z + 0.07
 	local caseRearZ = pivot.Z + 0.14
-	local caseTopY = g.HT.Y - 0.12
+	local caseTopY = math.min(g.HT.Y - 0.12, seatH - 0.08) -- never above the seat
 	local caseBottomY = pivot.Y - 0.02
 	local caseCenter = Vector3.new(0, (caseTopY + caseBottomY) / 2, (caseFrontZ + caseRearZ) / 2)
 	local caseSize = Vector3.new(0.2, caseTopY - caseBottomY, caseRearZ - caseFrontZ)
@@ -830,7 +837,9 @@ function BikeModel.Build(bike: Bikes.Bike, choice: PaintChoice?, options: Option
 
 	-- Seat: where the rider's hips go, tipped forward for the riding position
 	local seatLean = if style == "Road" then -16 elseif style == "Hardtail" or style == "Enduro" then -10 elseif isMoto then -8 elseif style == "Cruiser" then 0 else -5
-	local seatPoint = if isMoto then Vector3.new(0, bike.Geometry.SeatHeight + 0.04, g.RearAxle.Z - 0.6) elseif style == "Moped" then Vector3.new(0, bike.Geometry.SeatHeight - 0.01, g.BB.Z + 0.18) else g.SeatTop + Vector3.new(0, 0.05, 0.04)
+	-- on an e-moto the hips go a third of the way back along the seat pad (moto() builds the pad from
+	-- RearAxle.Z - 0.54 to RearAxle.Z - 0.05), on its top
+	local seatPoint = if isMoto then Vector3.new(0, bike.Geometry.SeatHeight + 0.04, g.RearAxle.Z - 0.39) elseif style == "Moped" then Vector3.new(0, bike.Geometry.SeatHeight - 0.01, g.BB.Z + 0.18) else g.SeatTop + Vector3.new(0, 0.05, 0.04)
 
 	if not static then
 		local seat = Instance.new("Seat")

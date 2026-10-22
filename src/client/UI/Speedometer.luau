@@ -161,7 +161,7 @@ function Speedometer.new(parent: Instance): Speedometer
 			if charging then
 				batteryText.Text = string.format("⚡ Charging %d%%", math.floor(battery * 100))
 			elseif battery <= 0 then
-				batteryText.Text = "EMPTY - pedal or find ⚡"
+				batteryText.Text = "EMPTY - find a ⚡ charger"
 			else
 				batteryText.Text = string.format("%d%%  ·  %.1f %s", math.floor(battery * 100 + 0.5), math.min(range, 99.9), if units == "mph" then "mi" else "km")
 			end

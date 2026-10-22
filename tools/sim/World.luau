@@ -505,6 +505,9 @@ function World:InstallHooks()
 		GetFocusedTextBox = function()
 			return nil
 		end,
+		GetLastInputType = function()
+			return roblox.Enum.UserInputType.Keyboard
+		end,
 		GetMouseLocation = function()
 			return Vector2.new(640, 360)
 		end,

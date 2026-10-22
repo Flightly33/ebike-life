@@ -228,6 +228,7 @@ local function step(dt: number)
 		end
 	end
 
+	Input.SetAirborne(not s.Grounded)
 	local input = Input.Read()
 	BikeController.Input = input
 	local events = BikePhysics.Step(s, spec, modeTable(), input, World.Physics, dt)

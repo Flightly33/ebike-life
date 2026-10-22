@@ -31,7 +31,7 @@ local HELP = {
 	"Wheelies and no-hands near cops fill their heat meter. A full meter is a wanted star and a chase.",
 	"Lose the cops (get out of sight) to escape and get paid. Stop next to them and you're busted.",
 	"Assist modes (M or 1-5): ECO goes far, TURBO goes hard. Customise them in Tuning → Ride Modes.",
-	"Batteries drain with the motor's power. Charge at ⚡ stations. Pedal bikes still move on an empty pack.",
+	"Batteries drain with the motor's power: an empty pack stops you dead, so charge at ⚡ stations.",
 	"Buy new Flightly bikes at Flighty Mechanics; upgrade and paint them in Tuning.",
 }
 
