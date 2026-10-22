@@ -694,6 +694,12 @@ Methods.Seat = {
 		local weld = Sim.Raw("Weld")
 		states[weld].Name = "SeatWeld"
 		weld.Part0 = self
+		-- like Roblox: the seat welds the character's root part
+		local character = states[humanoid].Parent
+		local root = character and findChild(character, "HumanoidRootPart", false)
+		if root then
+			weld.Part1 = root
+		end
 		weld.Parent = self
 		st.Props.Occupant = humanoid
 		states[humanoid].Props.SeatPart = self

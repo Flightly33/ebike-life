@@ -453,6 +453,12 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	end
 	-- Assist fades over the last 2 km/h before the cut-off, like a real controller
 	wanted *= math.clamp((spec.CutoffKmh - kmh) / 2, 0, 1)
+	-- R locks the rear wheel (to drift, or to skid at low speed): a locked wheel takes no drive, so
+	-- the controller cuts the motor rather than burn the pack for nothing
+	local rearLocked = riding and input.Drift and s.Wheelie < 0.05
+	if rearLocked then
+		wanted = 0
+	end
 	local rampUp = spec.MotorW * (0.8 + 4 * mode.Response)
 	if wanted > s.MotorPower then
 		s.MotorPower = approach(s.MotorPower, wanted, rampUp * dt)
@@ -464,8 +470,6 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	local motorForce = math.min(s.MotorPower / speedForForce, spec.WheelForceN * math.max(0.35, mode.MaxPower) * bms)
 	local riderForce = math.min(riderW / speedForForce, spec.RiderForceN * throttle)
 	local traction = grip * m * g * 0.62 -- weight on the rear tyre
-	-- R locks the rear wheel to drift: a locked wheel puts no drive down
-	local rearLocked = riding and input.Drift and v > DR.MinSpeed and s.Wheelie < 0.05
 	local drive = if rearLocked then 0 else math.min(motorForce + riderForce, traction)
 
 	-- Resistances
@@ -530,7 +534,8 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	-- Drift: the rear brake is locked, so the tail is free to swing out. The steering throws the
 	-- heading round faster than grip allows, while the direction of travel catches up only as fast
 	-- as the tyres can bend it (lateral grip / speed). The gap is the slip angle; sliding scrubs speed.
-	local drifting = rearLocked
+	-- the tail only swings out at speed; slower than that a locked rear just skids you to a stop
+	local drifting = rearLocked and v > DR.MinSpeed
 	if drifting then
 		-- the tail swings out at the steering, tapering off toward the hold angle: holding the key
 		-- keeps a big, steady slide (bigger the faster you go) instead of spinning you out
@@ -543,10 +548,10 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		s.TravelYaw += math.clamp(wrap(s.Yaw - s.TravelYaw), -catchUp * dt, catchUp * dt)
 		s.Slip = wrap(s.Yaw - s.TravelYaw)
 		v = math.max(0, v - (DR.LockedDecel + DR.SlideDecel * math.abs(math.sin(s.Slip))) * g * dt)
-		if math.abs(s.Slip) > DR.SpinOut then
-			crash(s, events, "Spun out")
-		end
 	else
+		if rearLocked and v > 0 then
+			v = math.max(0, v - DR.LockedDecel * g * dt)
+		end
 		s.Yaw -= yawRate * dt
 		s.TravelYaw += wrap(s.Yaw - s.TravelYaw) * math.min(1, DR.Recover * dt)
 		-- carving scrubs a little speed off
@@ -558,7 +563,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	if s.DriftActive then
 		s.DriftTime += dt
 		s.DriftAngle = math.max(s.DriftAngle, math.abs(s.Slip))
-		if math.abs(s.Slip) < DR.EndSlip or s.Crash > 0 then
+		if not drifting or s.Crash > 0 then
 			s.DriftActive = false
 			push(events, "DriftEnd", s.DriftTime, math.deg(s.DriftAngle), if s.Crash > 0 then "Failed" else nil)
 		end
@@ -988,11 +993,22 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	local want = if riding then input.Trick else nil
 	-- the ground coming up: tuck in (and don't start a barspin) in time to land on the bike, so a key
 	-- held too long never means a bail
-	local landingIn = math.huge -- seconds until touchdown, falling from here
-	if s.VerticalSpeed <= 0 then
-		local below = world.Down(s.Position + UP * 0.5, 60)
-		if below then
-			local h = math.max(0, s.Position.Y - below.Position.Y) / STUDS
+	-- Seconds until touchdown, rising or falling, onto the highest ground under either wheel or where
+	-- the bike will be by the time a tuck finishes (so a gap jump onto a raised deck counts the deck)
+	local landingIn = math.huge
+	do
+		local dir = heading(s.Yaw)
+		local half = spec.Wheelbase / 2
+		local ahead = Vector3.new(s.AirVelocity.X, 0, s.AirVelocity.Z) * (AT.InTime * 1.4 + 0.03)
+		local highest: number? = nil
+		for _, at in { s.Position, s.Position + dir * half, s.Position - dir * half, s.Position + ahead + dir * half } do
+			local below = world.Down(at + UP * 0.5, 60)
+			if below and (highest == nil or below.Position.Y > highest) then
+				highest = below.Position.Y
+			end
+		end
+		if highest then
+			local h = math.max(0, s.Position.Y - highest) / STUDS
 			local down = -s.VerticalSpeed
 			landingIn = (math.sqrt(down * down + 2 * P.Gravity * h) - down) / P.Gravity
 		end

@@ -32,7 +32,7 @@ end
 local DT = 1 / 60
 
 -- World: flat road at y = 0, optional kicker ramp (rising toward -Z), optional wall across -Z
-type Options = { RampStart: number?, RampLength: number?, RampHeight: number?, WallZ: number?, WallKind: string?, Grass: boolean?, DropZ: number?, DropHeight: number?, QuarterStart: number?, QuarterRadius: number?, QuarterAngle: number? }
+type Options = { RampStart: number?, RampLength: number?, RampHeight: number?, WallZ: number?, WallKind: string?, Grass: boolean?, DropZ: number?, DropHeight: number?, QuarterStart: number?, QuarterRadius: number?, QuarterAngle: number?, DeckZ: number?, DeckHeight: number? }
 
 local function makeWorld(opt: Options)
 	local function height(x: number, z: number): (number, string, any)
@@ -51,6 +51,9 @@ local function makeWorld(opt: Options)
 			if z <= start and z >= start - length then
 				return h * (start - z) / length, "Ramp", Vector3.new(0, 1, h / length).Unit
 			end
+		end
+		if opt.DeckZ and opt.DeckHeight and z <= opt.DeckZ then
+			return opt.DeckHeight, "Ramp", Vector3.new(0, 1, 0)
 		end
 		if opt.DropZ and opt.DropHeight and z < opt.DropZ then
 			return -opt.DropHeight, "Road", Vector3.new(0, 1, 0)
@@ -273,7 +276,7 @@ do
 	end
 	print(string.format("  %.0f -> %.0f km/h, heading swung %.0f deg, line bent %.0f deg, max slip %.0f deg", before, during, math.deg(swung), math.deg(bent), math.deg(maxSlip)))
 	check(started, "a drift starts")
-	check(maxSlip > 0.3 and maxSlip < Config.Drift.SpinOut, "the tail swings out without spinning")
+	check(maxSlip > 0.3 and maxSlip < Config.Drift.HoldSlip, "the tail swings out without spinning")
 	check(swung > bent, "the heading turns faster than the line (that's the slide)")
 	check(during < before - 2, "sliding scrubs speed")
 	check(ended ~= nil and (ended.Value or 0) > 0.3, "releasing ends the drift with its time")
@@ -290,9 +293,37 @@ do
 			held = math.max(held, math.abs(s.Slip))
 		end)
 		print(string.format("  %s held full lock from %.0f km/h: slip up to %.0f deg, down to %.0f km/h", run.Id, entry, math.deg(held), kmh(state)))
-		check(not crashed and held < Config.Drift.SpinOut and held > 0.5, run.Id .. ": holding full lock keeps a big slide without spinning out")
+		check(not crashed and held < Config.Drift.HoldSlip and held > 0.5, run.Id .. ": holding full lock keeps a big slide without spinning out")
 		check(kmh(state) < entry - 10 or kmh(state) < 5, run.Id .. ": a long slide scrubs speed off, even on the gas")
 	end
+	-- letting go of R ends the drift (and pays it) even while still carving at full lock
+	spec, state = spawn("hornet_6")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }), atMost(50))
+	ride(spec, state, Modes.Defaults.TURBO, flat, 1, input({ Drift = true, Steer = 1, Throttle = 1 }))
+	local ends = 0
+	for _, e in ride(spec, state, Modes.Defaults.TURBO, flat, 3, input({ Steer = 1, Throttle = 1 })) do
+		if e.Kind == "DriftEnd" then
+			ends += 1
+		end
+	end
+	check(ends == 1 and not state.DriftActive, "releasing R ends the drift at once, even still steering")
+	-- holding R + full lock + gas until it slows: it skids to a stop, one drift, the motor off
+	spec, state = spawn("deathrider")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }), atMost(60))
+	local before = state.Battery
+	local starts, finished = 0, 0
+	for _, e in ride(spec, state, Modes.Defaults.TURBO, flat, 20, input({ Drift = true, Steer = 1, Throttle = 1 })) do
+		if e.Kind == "DriftStart" then
+			starts += 1
+		elseif e.Kind == "DriftEnd" then
+			finished += 1
+		end
+	end
+	print(string.format("  R + lock + gas for 20 s: %d drift(s), %.1f km/h, %.1f Wh used", starts, kmh(state), before - state.Battery))
+	check(starts == 1 and finished == 1, "a held lock is one drift, not a loop of them")
+	check(kmh(state) < 1, "a locked rear skids the bike to a stop")
+	-- (only the motor winding down after the lock: ~12 Wh, against ~490 Wh when it kept pulling)
+	check(before - state.Battery < 20, "a locked rear doesn't burn the battery")
 	-- too slow to drift
 	spec, state = spawn("hornet_6")
 	ride(spec, state, Modes.Defaults.OFF, flat, 1, input({ Throttle = 0.3 }))
@@ -450,6 +481,73 @@ do
 			end
 		end)
 		check(counted and not bailed, name .. ": held to the ground, it counts and tucks in to land")
+	end
+	-- a gap jump onto a deck higher than the gap's floor (the mega ramp): a trick held to the ground
+	-- still tucks in time, because the tuck looks at where the wheels will land, not straight down
+	do
+		local gap = makeWorld({ RampStart = -150, RampLength = 16, RampHeight = 9, DeckZ = -190, DeckHeight = 6 })
+		spec, state = spawn("hornet_6")
+		local bailed, landedOnDeck = false, false
+		local held = input({ Throttle = 1 })
+		local cap = atMost(44)
+		ride(spec, state, Modes.Defaults.TURBO, gap, 8, held, function(t, s, events)
+			if s.Grounded then
+				cap(t, s)
+			end
+			held.Trick = if s.Grounded then nil else "Superman"
+			for _, e in events do
+				if e.Kind == "Crash" then
+					bailed = true
+					print(string.format("  gap jump: crash (%s) at z=%.1f y=%.1f", tostring(e.Text), s.Position.Z, s.Position.Y))
+				elseif e.Kind == "Land" then
+					print(string.format("  gap jump: landed (%s, %.2f s air) at z=%.1f y=%.1f, trick ext %.2f", tostring(e.Text), e.Value or 0, s.Position.Z, s.Position.Y, s.TrickExt))
+					landedOnDeck = landedOnDeck or s.Position.Y > 5
+				end
+			end
+		end)
+		check(landedOnDeck and not bailed, "gap jump onto a raised deck with a trick held: tucks in time, no bail")
+	end
+	-- the exact bad spot: falling, the middle of the bike over the gap's floor, the front wheel just
+	-- above the deck, the trick fully out. The tuck has to see the deck, not the floor.
+	do
+		local gap = makeWorld({ DeckZ = -190, DeckHeight = 6 })
+		spec, state = spawn("hornet_6")
+		local half = spec.Wheelbase / 2
+		state.Grounded = false
+		state.Position = Vector3.new(0, 8.5, -190 + half * 0.6) -- front wheel over the deck, middle over the gap
+		state.VerticalSpeed = -3
+		state.AirVelocity = Vector3.new(0, 0, -1) -- creeping forward: the middle stays over the gap
+		state.AirTime = 1
+		state.TrickName = "Superman"
+		state.TrickExt = 1
+		local bailed = false
+		ride(spec, state, Modes.Defaults.TURBO, gap, 1.5, input({ Trick = "Superman" }), function(_, _, events)
+			for _, e in events do
+				if e.Kind == "Crash" then
+					bailed = true
+				end
+			end
+		end)
+		check(not bailed, "falling onto a deck that's under the front wheel only: the trick still tucks in time")
+	end
+	-- a barspin pressed on the way up a tap hop doesn't start if it can't finish before touchdown
+	for press = 2, 14, 4 do
+		spec, state = spawn("hornet_6")
+		ride(spec, state, Modes.Defaults.TURBO, flat, 3, input({ Throttle = 1 }), atMost(30))
+		local hopInput = input({ Throttle = 1, Hop = true })
+		BikePhysics.Step(state, spec, Modes.Defaults.TURBO, hopInput, flat, DT)
+		hopInput.Hop = false
+		local frame, crashedSpin = 0, false
+		ride(spec, state, Modes.Defaults.TURBO, flat, 1.5, hopInput, function(_, s, events)
+			frame += 1
+			hopInput.Barspin = frame == press
+			for _, e in events do
+				if e.Kind == "Crash" then
+					crashedSpin = true
+				end
+			end
+		end)
+		check(not crashedSpin, string.format("a barspin pressed %d frames into a tap hop never bails", press))
 	end
 	-- stoppie: brake + wheelie key at speed
 	spec, state = spawn("hornet_6")

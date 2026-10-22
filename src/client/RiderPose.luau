@@ -178,9 +178,14 @@ local function pose(rider: Rider, dt: number)
 	if state.Crashed then
 		return
 	end
-	-- hips on the seat (each client sets the weld for itself; the server's is the default one)
+	-- only while they're actually on the seat: the moment they get off or the weld goes, leave the
+	-- body to the Animator (sync() tears the rider down a moment later)
 	local weld = seat:FindFirstChild("SeatWeld")
-	if weld and weld:IsA("Weld") and weld.Part1 == hrpPart and (weld.C0 ~= rider.SeatC0 or weld.C1 ~= CFrame.identity) then
+	if not seat:IsA("Seat") or seat.Occupant ~= rider.Humanoid or not (weld and weld:IsA("Weld") and weld.Part1 == hrpPart) then
+		return
+	end
+	-- hips on the seat (each client sets the weld for itself; the server's is the default one)
+	if weld.C0 ~= rider.SeatC0 or weld.C1 ~= CFrame.identity then
 		weld.C0 = rider.SeatC0
 		weld.C1 = CFrame.identity
 	end
