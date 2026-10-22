@@ -278,14 +278,21 @@ do
 	check(during < before - 2, "sliding scrubs speed")
 	check(ended ~= nil and (ended.Value or 0) > 0.3, "releasing ends the drift with its time")
 	check(math.abs(state.Slip) < 0.1, "the line snaps back to the heading")
-	-- holding it too long at full lock spins you out
-	spec, state = spawn("hornet_6")
-	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }))
-	local crashed = false
-	ride(spec, state, Modes.Defaults.TURBO, flat, 4, input({ Drift = true, Steer = 1, Throttle = 1 }), function(_, s)
-		crashed = crashed or s.Crash > 0
-	end)
-	check(crashed or state.Speed < 2, "holding full lock spins you out (or slides to a stop)")
+	-- holding full lock, flat out or at a starter bike's pace: a steady slide that scrubs speed, never
+	-- a spin-out
+	for _, run in { { Id = "hornet_6", Kmh = 200 }, { Id = "flit_mini", Kmh = 40 }, { Id = "deathrider", Kmh = 200 } } do
+		spec, state = spawn(run.Id)
+		ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }), atMost(run.Kmh))
+		local entry = kmh(state)
+		local crashed, held = false, 0
+		ride(spec, state, Modes.Defaults.TURBO, flat, 4, input({ Drift = true, Steer = 1, Throttle = 1 }), function(_, s)
+			crashed = crashed or s.Crash > 0
+			held = math.max(held, math.abs(s.Slip))
+		end)
+		print(string.format("  %s held full lock from %.0f km/h: slip up to %.0f deg, down to %.0f km/h", run.Id, entry, math.deg(held), kmh(state)))
+		check(not crashed and held < Config.Drift.SpinOut and held > 0.5, run.Id .. ": holding full lock keeps a big slide without spinning out")
+		check(kmh(state) < entry - 10 or kmh(state) < 5, run.Id .. ": a long slide scrubs speed off, even on the gas")
+	end
 	-- too slow to drift
 	spec, state = spawn("hornet_6")
 	ride(spec, state, Modes.Defaults.OFF, flat, 1, input({ Throttle = 0.3 }))

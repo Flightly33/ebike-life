@@ -464,7 +464,9 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	local motorForce = math.min(s.MotorPower / speedForForce, spec.WheelForceN * math.max(0.35, mode.MaxPower) * bms)
 	local riderForce = math.min(riderW / speedForForce, spec.RiderForceN * throttle)
 	local traction = grip * m * g * 0.62 -- weight on the rear tyre
-	local drive = math.min(motorForce + riderForce, traction)
+	-- R locks the rear wheel to drift: a locked wheel puts no drive down
+	local rearLocked = riding and input.Drift and v > DR.MinSpeed and s.Wheelie < 0.05
+	local drive = if rearLocked then 0 else math.min(motorForce + riderForce, traction)
 
 	-- Resistances
 	local aero = 0.5 * P.AirDensity * spec.CdA * v * math.abs(v)
@@ -528,9 +530,15 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	-- Drift: the rear brake is locked, so the tail is free to swing out. The steering throws the
 	-- heading round faster than grip allows, while the direction of travel catches up only as fast
 	-- as the tyres can bend it (lateral grip / speed). The gap is the slip angle; sliding scrubs speed.
-	local drifting = riding and input.Drift and v > DR.MinSpeed and s.Wheelie < 0.05
+	local drifting = rearLocked
 	if drifting then
-		s.Yaw -= input.Steer * handsFactor * (DR.YawRate + DR.YawPerSpeed * v) * dt
+		-- the tail swings out at the steering, tapering off toward the hold angle: holding the key
+		-- keeps a big, steady slide (bigger the faster you go) instead of spinning you out
+		local swing = input.Steer * handsFactor * (DR.YawRate + DR.YawPerSpeed * v)
+		if -swing * s.Slip > 0 then
+			swing *= math.max(0, 1 - (math.abs(s.Slip) / DR.HoldSlip) ^ 2)
+		end
+		s.Yaw -= swing * dt
 		local catchUp = lateralMax * DR.Grip / math.max(v, 1)
 		s.TravelYaw += math.clamp(wrap(s.Yaw - s.TravelYaw), -catchUp * dt, catchUp * dt)
 		s.Slip = wrap(s.Yaw - s.TravelYaw)

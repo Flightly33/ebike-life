@@ -124,7 +124,7 @@ world:Run(8)
 local kmh = BikeController.Kmh()
 local moved = bike and (bike.PrimaryPart.Position - start).Magnitude or 0
 print(string.format("[test] %.1f km/h after 8 s, moved %.0f studs", kmh, moved))
-check(kmh > 25 and kmh < 34, "the commuter reaches its 32 km/h class limit")
+check(kmh > 30 and kmh <= 51, "the starter pit bike gets going, under its 50 km/h top speed")
 check(moved > 34 * Config.STUDS_PER_METER, string.format("the bike moved (%.0f m)", moved / Config.STUDS_PER_METER))
 check(ride ~= nil and ride.State.Kmh > 20, "the server gets the rider's state")
 check((player:GetAttribute("Cash") :: number) > cashBefore, string.format("riding pays (%s -> %s)", tostring(cashBefore), tostring(player:GetAttribute("Cash"))))
