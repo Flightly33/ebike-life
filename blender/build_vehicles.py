@@ -155,6 +155,24 @@ def wheel(group, axle, D, tw, kind, knobby, hub_motor=False, rotor_side=-1, roto
         radial = Vector((0, math.cos(t), math.sin(t)))
         put("Dark", K.bar(rc + radial * 0.02, rc + radial * (ri + 0.004), 0.006, 0.012, 0.0, up=X))
     put("Dark", K.disc(rc, X, 0.028, 0.008, 20))
+    if moto:
+        # drilled rotor: a ring of holes through the braking band, and the carrier bolts
+        mid = (ro + ri) / 2
+        for i in range(18):
+            t = 2 * math.pi * (i + 0.5) / 18
+            radial = Vector((0, math.cos(t), math.sin(t)))
+            put("Dark", K.disc(rc + radial * (mid + (0.004 if i % 2 else -0.004)), X, 0.0035, 0.0034, 8))
+        for i in range(6):
+            t = 2 * math.pi * i / 6
+            radial = Vector((0, math.cos(t), math.sin(t)))
+            put("Metal", K.disc(rc + radial * (ri + 0.002) + X * rotor_side * 0.002, X, 0.004, 0.003, 6))
+        # valve stem and its cap, a rim lock opposite, axle nuts both sides
+        up = Vector((0, 0, 1))
+        put("Metal", K.cyl(axle + up * (r_in + 0.004), axle + up * (r_in - 0.026), 0.0035, 0.0035, 8))
+        put("Black", K.cyl(axle + up * (r_in - 0.026), axle + up * (r_in - 0.036), 0.0045, 0.0045, 8))
+        put("Dark", K.rbox(axle - up * (r_in - 0.012), (rim_w * 0.5, 0.03, 0.022), 0.004))
+        for side in (-1, 1):
+            put("Metal", K.disc(axle + X * side * 0.092, X, 0.016, 0.012, 6))
 
     if cassette:
         for i in range(9):
@@ -774,8 +792,28 @@ def moto_bike(k, P):
         # chain on the left to the rear sprocket (it rides the swingarm; the front sprocket sits by the pivot)
         sp_front = m - X * 0.09
         sp_rear = RA - X * (0.05 + 0.035)
-        SW("Dark", K.sweep([sp_front + Z * 0.035, sp_rear + Z * 0.102], 0.0045, 6))
-        SW("Dark", K.sweep([sp_front - Z * 0.035, sp_rear - Z * 0.102], 0.0045, 6))
+        # the chain as links: alternating side plates with a roller pin at each pitch, top and bottom runs
+        for z_front, z_rear in ((0.035, 0.102), (-0.035, -0.102)):
+            a = sp_front + Z * z_front
+            b = sp_rear + Z * z_rear
+            run = b - a
+            n = max(4, int(run.length / 0.019))
+            d = run.normalized()
+            for i in range(n):
+                p0 = a + run * (i / n)
+                p1 = a + run * ((i + 1) / n)
+                inner = i % 2 == 0
+                for side in (-1, 1):
+                    off = X * side * (0.0045 if inner else 0.0065)
+                    SW("Dark" if inner else "Metal", K.bar(p0 + off - d * 0.002, p1 + off + d * 0.002, 0.0015, 0.0085, 0.0, up=Z))
+                SW("Metal", K.cyl(p0 - X * 0.0075, p0 + X * 0.0075, 0.0028, 0.0028, 6))
+        # the front sprocket's teeth
+        for i in range(14):
+            t = 2 * math.pi * i / 14
+            radial = Vector((0, math.cos(t), math.sin(t)))
+            tangent = X.cross(radial)
+            F("Metal", K.rbox(sp_front + radial * 0.038, (0.006, 0.006, 0.009), 0, K.frame_rot(X, tangent, radial)))
+        F("Metal", K.disc(sp_front - X * 0.004, X, 0.012, 0.006, 6))
         SW("Black", K.bar(sp_front - Z * 0.05 + Y * -0.02, sp_rear - Z * 0.115 + Y * 0.05, 0.012, 0.015, 0.004))
         # footpegs
         for side in (-1, 1):
@@ -787,10 +825,50 @@ def moto_bike(k, P):
                 F("Dark", K.rbox(peg + Y * e * 0.024 + Z * 0.012, (0.1, 0.004, 0.008), 0.001))
         F("Dark", K.sweep([pivot + Vector((-0.1, -0.05, -0.16)), pivot + Vector((-0.2, 0.05, -0.32)), pivot + Vector((-0.24, 0.1, -pivot.z + 0.015))], 0.009, 8))
 
+    if not moped:
+        # battery case: bolts round the side covers, louvred vents, a charge port on the right
+        for side in (-1, 1):
+            face = cc + X * side * 0.108
+            for fy in (-0.42, 0.42):
+                for fz in (-0.4, 0.4):
+                    F("Metal", K.disc(face + Y * (csize[1] * fy) + Z * (csize[2] * fz), X, 0.006, 0.004, 6))
+            for i in range(5):
+                F("Black", K.rbox(face + Y * (-csize[1] * 0.3 + i * 0.022) - Z * (csize[2] * 0.28), (0.004, 0.008, csize[2] * 0.22), 0.001))
+        port = cc + X * 0.11 + Y * (csize[1] * 0.25) + Z * (csize[2] * 0.15)
+        F("Black", K.disc(port, X, 0.018, 0.01, 20))
+        F("Metal", K.torus(port + X * 0.005, X, 0.018, 0.0025, 20, 6))
+        F("Accent", K.disc(port + X * 0.007, X, 0.006, 0.002, 12))
+        # wiring loom from the controller down to the motor
+        for i, slot in enumerate(("Red", "Black", "Orange")):
+            off = X * (-0.02 + i * 0.02)
+            top = cc - Z * (csize[2] / 2) + Y * (csize[1] * 0.2) + off
+            F(slot, K.sweep([top, top - Z * 0.04 - Y * 0.02, m + Z * 0.09 + Y * 0.03 + off], 0.0045, 6))
+        # rubber knee grips on the tank, ribbed seat cover and its stitching
+        for side in (-1, 1):
+            mid = tank_f + (tank_r - tank_f) * 0.55
+            F("Black", K.rbox(mid + X * side * 0.105 - Z * 0.01, (0.006, 0.16, 0.05), 0.004))
+        for i in range(1, 8):
+            p = seat_f + (seat_b - seat_f) * (i / 8)
+            F("Dark", K.rbox(p + Z * 0.041, (0.16, 0.003, 0.003), 0.001))
+        for side in (-1, 1):
+            F("Dark", K.sweep([seat_f + X * side * 0.082 + Z * 0.025, seat_b + X * side * 0.1 + Z * 0.03], 0.0018, 4))
+        # the rear brake line: caliper, along the swingarm, up the frame to the left lever
+        lever = P["Bars"] - X * (k["BarWidth"] / 2 - 0.16)
+        cal = RA + X * 0.085 + Y * 0.06 + Z * 0.06
+        SW("Black", K.sweep([cal, (RA + pivot) / 2 + X * 0.07 + Z * 0.05], 0.004, 6))
+        F("Black", K.sweep([(RA + pivot) / 2 + X * 0.07 + Z * 0.05, pivot + X * 0.08 + Z * 0.08, HT - AX * 0.05 + X * 0.06, lever + Z * 0.01], 0.004, 6))
+
     # ---- front end
     tire_half = tw / 2 + 0.035
     S("Black", K.rbox(HB, (tire_half * 2 + 0.09, 0.08, 0.035), 0.012, rot_steer))
     S("Black", K.rbox(HT, (tire_half * 2 + 0.08, 0.075, 0.03), 0.012, rot_steer))
+    if not moped:
+        # pinch bolts on both clamps, the stem nut on top
+        for clamp, depth in ((HB, 0.04), (HT, 0.0375)):
+            for side in (-1, 1):
+                for e in (-1, 1):
+                    S("Metal", K.cyl(clamp + X * side * (tire_half + 0.03 * e) - fwd_perp * depth, clamp + X * side * (tire_half + 0.03 * e) - fwd_perp * (depth + 0.008), 0.005, 0.005, 6))
+        S("Metal", K.cyl(HT + AX * 0.015, HT + AX * 0.028, 0.014, 0.014, 6))
     for side in (-1, 1):
         top = HT + X * side * tire_half + AX * 0.02
         bottom = FA + X * side * tire_half
@@ -1170,12 +1248,22 @@ def render(ids, out_dir, kinds):
             for child in e.children:
                 child.hide_render = hidden
         is_car = vid in kinds
-        for view, (dx, dy, dz) in (("side", (3.2, 0.6, 1.0)), ("q", (2.2, 2.4, 1.4))) if not is_car else (("side", (7.5, 5.0, 3.0)), ("rear", (-6.0, -6.5, 2.8))):
-            target = Vector((0, 0, 0.55 if not is_car else 0.75))
+        bike_views = (
+            ("side", (3.2, 0.6, 1.0), (0, 0, 0.55), 50),
+            ("q", (2.2, 2.4, 1.4), (0, 0, 0.55), 50),
+            ("chain", (-1.5, -0.35, 0.15), (0, -0.25, 0.42), 50),
+            ("front", (1.0, 1.5, 0.45), (0, 0.45, 0.65), 50),
+        )
+        car_views = (("side", (7.5, 5.0, 3.0), (0, 0, 0.75), 45), ("rear", (-6.0, -6.5, 2.8), (0, 0, 0.75), 45))
+        views = arg("--views")
+        for view, (dx, dy, dz), (tx, ty, tz), lens in (car_views if is_car else bike_views):
+            if views and view not in views:
+                continue
+            target = Vector((tx, ty, tz))
             cam.location = target + Vector((dx, dy, dz))
             direction = target - cam.location
             cam.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
-            cam_data.lens = 50 if not is_car else 45
+            cam_data.lens = lens
             scene.render.filepath = os.path.join(out_dir, f"{vid}_{view}.png")
             bpy.ops.render.render(write_still=True)
 
