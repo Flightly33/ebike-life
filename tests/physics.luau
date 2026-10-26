@@ -726,6 +726,21 @@ do
 		check(math.abs(sinkF) < 0.05 and math.abs(sinkR) < 0.05, "riding along, both wheels sit on the road")
 	end
 
+	-- 1c. a bike drawn 1.6x to fit a big rider: its wheels sit on the road too
+	do
+		local sp, st = spawn("hornet_6")
+		sp = BikeStats.Scaled(sp, 1.6)
+		ride(sp, st, Modes.Defaults.TURBO, flat, 6, input({ Throttle = 1 }), atMost(30))
+		local VIS = Config.VISUAL_STUDS_PER_METER
+		local cf = BikePhysics.GetCFrame(st, sp)
+		local df, dr = BikePhysics.DrawnCompression(st)
+		local front = cf:PointToWorldSpace(Vector3.new(0, sp.WheelRadius + df * VIS, -sp.Wheelbase / 2))
+		local rear = cf:PointToWorldSpace(Vector3.new(0, sp.RearWheelRadius + dr * VIS, sp.Wheelbase / 2))
+		local worst = math.max(math.abs(st.Position.Y + sp.WheelRadius - front.Y), math.abs(st.Position.Y + sp.RearWheelRadius - rear.Y))
+		print(string.format("  1.6x bike: wheels %.2f studs off the road", worst))
+		check(worst < 0.05, "a bike scaled to fit a big rider keeps its wheels on the road")
+	end
+
 	-- 2. a kerb UP at 20 km/h: the front fork takes the hit first, then the rear, the chassis pitches
 	-- up then down, no takeoff or landing, and it ends up on top
 	local kerb = makeWorld({ StepZ = -120, StepHeight = 0.625 })

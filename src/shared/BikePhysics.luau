@@ -327,7 +327,7 @@ end
 -- The box swept for collisions: the body above step height, aligned with the heading
 function BikePhysics.Body(s: State, spec: Spec): (CFrame, Vector3)
 	local length = spec.Wheelbase + spec.WheelRadius + spec.RearWheelRadius
-	local k = Config.BIKE_SIZE / 1.2 -- the box was sized for bikes drawn 1.2x life size
+	local k = Config.BIKE_SIZE * spec.Scale / 1.2 -- the box was sized for bikes drawn 1.2x life size
 	local height = 3.4 * k
 	local size = Vector3.new(1.3 * k, height, length)
 	local center = s.Position + UP * (P.StepHeight + 0.1 + height / 2)

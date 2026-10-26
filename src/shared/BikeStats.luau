@@ -36,6 +36,7 @@ export type Spec = {
 	WheelRadius: number, -- studs (front)
 	RearWheelRadius: number, -- studs
 	WheelRadiusM: number, -- metres, for wheel spin
+	Scale: number, -- the bike is drawn this many times BIKE_SIZE to fit its rider (BikeStats.Scaled)
 	HopSpeed: number,
 	Landing: number,
 	AirControl: number,
@@ -111,6 +112,7 @@ function BikeStats.Compute(bike: Bikes.Bike, levels: Upgrades.Levels?): Spec
 		AirControl = bike.AirControl * (Upgrades.AirControlScale[suspension] or 1),
 		WheeliePop = bike.WheeliePop,
 		Unlocked = unlocked,
+		Scale = 1,
 		FrontTravel = geo.FrontTravel or 0.2, -- (BikeModel draws the same defaults)
 		RearTravel = geo.RearTravel or 0.2,
 		BikeKg = bike.WeightKg,
@@ -157,6 +159,18 @@ function BikeStats.Chips(bike: Bikes.Bike, levels: Upgrades.Levels?): { Chip }
 		{ Label = "Top Speed", Value = string.format("%d km/h", math.min(spec.CutoffKmh, BikeStats.TopSpeedKmh(spec, 1, 3.4))) },
 		{ Label = "Battery", Value = string.format("%dV %s", bike.Volts, Bikes.FormatWh(math.floor(spec.BatteryWh))) },
 	}
+end
+
+-- The same spec for the bike drawn `size` times bigger (fitted to its rider): its wheels and wheelbase
+-- in studs grow with it, everything physical (power, mass, travel, speeds) stays
+function BikeStats.Scaled(spec: Spec, size: number): Spec
+	local out = table.clone(spec)
+	out.Wheelbase = spec.Wheelbase * size
+	out.WheelRadius = spec.WheelRadius * size
+	out.RearWheelRadius = spec.RearWheelRadius * size
+	out.WheelRadiusM = spec.WheelRadiusM * size
+	out.Scale = spec.Scale * size
+	return out
 end
 
 return BikeStats

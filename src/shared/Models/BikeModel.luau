@@ -31,7 +31,9 @@ local MeshKit = require(script.Parent.MeshKit)
 
 local BikeModel = {}
 
-local VIS = Config.VISUAL_STUDS_PER_METER
+local BASE_VIS = Config.VISUAL_STUDS_PER_METER
+-- studs per metre for the bike being built (Build scales it to fit its rider; see Options.Scale)
+local VIS = BASE_VIS
 local SMOOTH = Enum.Material.SmoothPlastic
 local METAL = Enum.Material.Metal
 local BLACK = Color3.fromRGB(26, 26, 28)
@@ -40,7 +42,10 @@ local SILVER = Color3.fromRGB(190, 192, 196)
 local DARK = Color3.fromRGB(52, 54, 58)
 
 export type PaintChoice = { Frame: string?, Accent: string?, Rims: string?, Glow: string? }
-export type Options = { Static: boolean? }
+export type Options = {
+	Static: boolean?,
+	Scale: number?, -- drawn this many times BIKE_SIZE (BikeModel.FitScale fits a rider); default 1
+}
 
 type Group = { Parts: { BasePart }, Pivot: BasePart? }
 type Builder = {
@@ -835,8 +840,10 @@ function BikeModel.ApplyPaint(model: Model, bike: Bikes.Bike, choice: PaintChoic
 	if glowPaint and glowPaint.Kind == "Glow" and root then
 		local strip = Instance.new("Part")
 		strip.Name = "Underglow"
-		strip.Size = Vector3.new(0.12, 0.05, bike.Geometry.Wheelbase * VIS * 0.55)
-		strip.CFrame = root.CFrame * CFrame.new(0, 0.35 * VIS, 0)
+		local size = model:GetAttribute("Scale")
+		local vis = if type(size) == "number" then BASE_VIS * size else VIS
+		strip.Size = Vector3.new(0.12, 0.05, bike.Geometry.Wheelbase * vis * 0.55)
+		strip.CFrame = root.CFrame * CFrame.new(0, 0.35 * vis, 0)
 		strip.Color = glowPaint.Color
 		strip.Material = Enum.Material.Neon
 		strip.CanCollide = false
@@ -872,7 +879,21 @@ local function motor(name: string, part0: BasePart, part1: BasePart): Motor6D
 	return m
 end
 
+local build: (Bikes.Bike, PaintChoice?, Options?) -> Model
+
 function BikeModel.Build(bike: Bikes.Bike, choice: PaintChoice?, options: Options?): Model
+	local size = if options and options.Scale then math.clamp(options.Scale, 0.5, 3) else 1
+	VIS = BASE_VIS * size
+	local ok, result = pcall(build, bike, choice, options)
+	VIS = BASE_VIS
+	if not ok then
+		error(result, 0)
+	end
+	result:SetAttribute("Scale", size)
+	return result
+end
+
+build = function(bike: Bikes.Bike, choice: PaintChoice?, options: Options?): Model
 	local static = options ~= nil and options.Static == true
 	local colors, _ = resolvePaints(bike, choice)
 	local model = Instance.new("Model")
@@ -1043,11 +1064,13 @@ export type SuspensionGeo = {
 	Pivot: Vector3,
 	ShockTop: Vector3,
 	ShockBottom: Vector3,
+	Scale: number, -- the bike is drawn this many times its size (the points above are at size 1)
 }
 
-function BikeModel.SuspensionGeometry(bike: Bikes.Bike): SuspensionGeo
+function BikeModel.SuspensionGeometry(bike: Bikes.Bike, size: number?): SuspensionGeo
 	local g = geometry(bike)
 	return {
+		Scale = size or 1,
 		FrontAxle = g.FrontAxle,
 		RearAxle = g.RearAxle,
 		Radius = { g.Rf, g.Rr },
@@ -1079,21 +1102,49 @@ export type SuspensionPose = { Fork: CFrame, Swing: CFrame, ShockTop: CFrame, Sh
 	shaft turn to keep pointing at each other.
 ]]
 function BikeModel.SuspensionPose(sus: SuspensionGeo, front: number, rear: number): SuspensionPose
-	front = math.clamp(front, 0, sus.Travel[1] * 1.05)
-	rear = math.clamp(rear, 0, sus.Travel[2] * 1.05)
-	local arm = sus.RearAxle - sus.Pivot
+	-- the compressions are real metres; the bike's points scale with its drawn size
+	front = math.clamp(front, 0, sus.Travel[1] * 1.05 + 0.06)
+	rear = math.clamp(rear, 0, sus.Travel[2] * 1.05 + 0.06)
+	local k = sus.Scale
+	local arm = (sus.RearAxle - sus.Pivot) * k
 	local y = arm.Y + rear
 	local z = math.sqrt(math.max(arm.Y * arm.Y + arm.Z * arm.Z - y * y, 1e-6))
 	local swing = sideAngle(arm) - math.atan2(y, z)
-	local rest = sus.ShockBottom - sus.ShockTop
-	local now = sus.Pivot + turnX(sus.ShockBottom - sus.Pivot, swing) - sus.ShockTop
+	local rest = (sus.ShockBottom - sus.ShockTop) * k
+	local now = (sus.Pivot - sus.ShockTop) * k + turnX((sus.ShockBottom - sus.Pivot) * k, swing)
 	local body = sideAngle(rest) - sideAngle(now)
 	return {
-		Fork = CFrame.new(0, front / sus.SinHead * VIS, 0),
+		Fork = CFrame.new(0, front / sus.SinHead * BASE_VIS, 0),
 		Swing = CFrame.Angles(swing, 0, 0),
 		ShockTop = CFrame.Angles(body, 0, 0),
 		ShockEnd = CFrame.Angles(body - swing, 0, 0),
 	}
+end
+
+-- The size (times BIKE_SIZE) to draw a bike so a rider whose legs measure `hipToAnkle` studs (hip
+-- joint to ankle joint, standing) sits on it with the knees bent to ~85% of that, as on a real e-moto.
+-- A default R15 avatar measures about 1.76.
+function BikeModel.FitScale(bike: Bikes.Bike, hipToAnkle: number): number
+	local g = geometry(bike)
+	local seatPoint = Vector3.new(0, bike.Geometry.SeatHeight + 0.04, g.RearAxle.Z - 0.39)
+	local peg = g.Pivot + Vector3.new(-0.17, -0.02, -0.08)
+	local rider = hipToAnkle / 1.76
+	local function reach(k: number): number
+		local hip = seatPoint * BASE_VIS * k + Vector3.new(0, -0.1 * k + 0.21 * rider, 0)
+		local ankle = peg * BASE_VIS * k + Vector3.new(0, 0.24 * rider, 0)
+		return (hip - ankle).Magnitude
+	end
+	local want = 0.85 * hipToAnkle
+	local lo, hi = 0.5, 3
+	for _ = 1, 30 do
+		local mid = (lo + hi) / 2
+		if reach(mid) < want then
+			lo = mid
+		else
+			hi = mid
+		end
+	end
+	return (lo + hi) / 2
 end
 
 -- The rider's foot rest points for e-motos (no pedals) and the seat height, for the rider pose

@@ -26,7 +26,8 @@ local BikeCamera = {}
 
 local BASE_PITCH = 0.2 -- radians above horizontal
 -- the camera was framed for bikes drawn 1.2x life size; bigger bikes pull it up and back
-local SIZE = Config.BIKE_SIZE / 1.2
+local BASE_SIZE = Config.BIKE_SIZE / 1.2
+local SIZE = BASE_SIZE
 local MIN_PITCH, MAX_PITCH = -0.25, 1.1
 local MOUSE_RATE = 0.006 -- radians per pixel
 local TOUCH_RATE = 0.008
@@ -358,6 +359,11 @@ function BikeCamera.Init()
 			zoom = math.clamp(zoom - input.Position.Z * 0.1, 0.6, 2.2)
 		end
 	end)
+end
+
+-- The bike being followed is drawn this many times its size (fitted to its rider)
+function BikeCamera.SetBikeScale(size: number)
+	SIZE = BASE_SIZE * size
 end
 
 return BikeCamera

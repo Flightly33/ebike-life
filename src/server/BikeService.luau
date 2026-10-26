@@ -141,6 +141,27 @@ local function groundBelow(position: Vector3, exclude: { Instance }): Vector3
 	return Vector3.new(position.X, 0.7, position.Z)
 end
 
+-- A character's leg length in studs, hip joint to ankle joint (a default R15 avatar: ~1.76)
+local function legLength(character: Model): number
+	local function joint(partName: string, attachmentName: string): Vector3?
+		local part = character:FindFirstChild(partName)
+		local a = part and part:FindFirstChild(attachmentName)
+		return if a and a:IsA("Attachment") then a.WorldPosition else nil
+	end
+	local hip = joint("LowerTorso", "LeftHipRigAttachment")
+	local knee = joint("LeftUpperLeg", "LeftKneeRigAttachment")
+	local ankle = joint("LeftLowerLeg", "LeftAnkleRigAttachment")
+	if hip and knee and ankle then
+		-- along the bones, so a bent knee doesn't shorten it
+		return math.clamp((knee - hip).Magnitude + (ankle - knee).Magnitude, 0.8, 6)
+	end
+	local leg = character:FindFirstChild("Left Leg") -- R6
+	if leg and leg:IsA("BasePart") then
+		return math.clamp(leg.Size.Y * 0.88, 0.8, 6)
+	end
+	return 1.76
+end
+
 local function park(ride: Ride)
 	local root = ride.Root
 	local cf = root.CFrame
@@ -258,9 +279,11 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 	lastSpawn[player] = now
 	BikeService.Despawn(player)
 
+	-- drawn to fit this rider: their legs, hip joint to ankle joint, as they stand
+	local size = BikeModel.FitScale(bike, legLength(character))
 	local levels = Profile.Levels(data, bikeId)
-	local spec = BikeStats.Compute(bike, levels)
-	local model = BikeModel.Build(bike, data.Paint[bikeId])
+	local spec = BikeStats.Scaled(BikeStats.Compute(bike, levels), size)
+	local model = BikeModel.Build(bike, data.Paint[bikeId], { Scale = size })
 	model.Name = "Bike_" .. player.UserId
 	model:SetAttribute("Owner", player.UserId)
 	model:SetAttribute("BikeId", bikeId)
@@ -358,7 +381,7 @@ function BikeService.Refresh(player: Player)
 		return
 	end
 	local levels = Profile.Levels(data, ride.Bike.Id)
-	ride.Spec = BikeStats.Compute(ride.Bike, levels)
+	ride.Spec = BikeStats.Scaled(BikeStats.Compute(ride.Bike, levels), ride.Spec.Scale)
 	for _, slot in Upgrades.Slots do
 		ride.Model:SetAttribute("Up_" .. slot.Name, Upgrades.Level(levels, slot.Name))
 	end

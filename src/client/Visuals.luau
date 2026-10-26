@@ -85,7 +85,8 @@ local function bikeRig(model: Model): BikeRig?
 	if not root or not bike then
 		return nil
 	end
-	local spec = BikeStats.Compute(bike, nil)
+	local size = model:GetAttribute("Scale")
+	local spec = BikeStats.Scaled(BikeStats.Compute(bike, nil), if type(size) == "number" then size else 1)
 	local moto = not bike.Pedals
 	local newRig: BikeRig = {
 		Root = root,
@@ -98,7 +99,10 @@ local function bikeRig(model: Model): BikeRig?
 		Swing = findMotor(model, "SwingJoint"),
 		ShockTop = findMotor(model, "ShockJoint"),
 		ShockEnd = findMotor(model, "ShockRodJoint"),
-		Sus = BikeModel.SuspensionGeometry(bike),
+		Sus = BikeModel.SuspensionGeometry(bike, (function()
+			local size = model:GetAttribute("Scale")
+			return if type(size) == "number" then size else 1
+		end)()),
 		Comp = { 0, 0 },
 		WheelAngle = 0,
 		CrankAngle = 0,
@@ -177,9 +181,9 @@ end
 -- (a straight-down ray) is where the tyre's bottom sits, less its squash; the axle rises along the
 -- chassis' normal, which a lean or wheelie tips, so the climb is divided by its vertical part. Eased
 -- so a lost ray doesn't snap.
-local function measureSuspension(rig: BikeRig, dt: number)
+local function measureSuspension(rig: BikeRig, dt: number, instant: boolean?)
 	local root = rig.Root
-	if root.Anchored then
+	if root.Anchored and not instant then
 		rig.Comp[1], rig.Comp[2] = 0, 0 -- parked: topped out, origin on the ground
 		return
 	end
@@ -190,10 +194,10 @@ local function measureSuspension(rig: BikeRig, dt: number)
 	end
 	local upY = math.max(frame.UpVector.Y, 0.3)
 	local sus = rig.Sus
-	local ease = 1 - math.exp(-25 * dt)
+	local ease = if instant then 1 else 1 - math.exp(-25 * dt)
 	for i = 1, 2 do
-		local travel, radius = sus.Travel[i], sus.Radius[i]
-		local axle = frame:PointToWorldSpace((if i == 1 then sus.FrontAxle else sus.RearAxle) * VIS)
+		local travel, radius = sus.Travel[i], sus.Radius[i] * sus.Scale
+		local axle = frame:PointToWorldSpace((if i == 1 then sus.FrontAxle else sus.RearAxle) * VIS * sus.Scale)
 		local above = (travel + radius) * VIS
 		local hit = Workspace:Raycast(axle + Vector3.new(0, above, 0), Vector3.new(0, -(above + (radius + 0.15) * VIS), 0), World.Params())
 		local target = 0
@@ -250,6 +254,9 @@ local function updateBikes(dt: number)
 			local spec = BikeController.Spec
 			power = if spec and spec.MotorW > 0 then physics.MotorPower / spec.MotorW else 0
 			rig.Comp[1], rig.Comp[2] = BikePhysics.DrawnCompression(physics)
+			-- then put each wheel on the ground actually under it this frame (the physics' own ground
+			-- can differ a little from what's drawn; the wheels must never sink into the road)
+			measureSuspension(rig, dt, true)
 		else
 			speed = forwardSpeed(rig.Root) / STUDS
 			rig.WheelAngle = (rig.WheelAngle + speed / rig.RadiusM * dt) % TAU

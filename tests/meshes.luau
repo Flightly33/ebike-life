@@ -166,9 +166,17 @@ for _, bike in Bikes.List do
 	MeshKit.Forget(bike.Id)
 end
 local VIS = server.Require(Shared:WaitForChild("Config")).VISUAL_STUDS_PER_METER
+local cases = {}
 for _, bike in Bikes.List do
-	local model = BikeModel.Build(bike, nil)
-	local sus = BikeModel.SuspensionGeometry(bike)
+	table.insert(cases, { bike, 1 })
+end
+-- fitted to bigger and smaller riders
+table.insert(cases, { Bikes.Get("hornet_6"), 1.6 })
+table.insert(cases, { Bikes.Get("flit_mini"), 0.8 })
+for _, case in cases do
+	local bike, size = case[1], case[2]
+	local model = BikeModel.Build(bike, nil, { Scale = size })
+	local sus = BikeModel.SuspensionGeometry(bike, size)
 	local built: { [any]: any } = {}
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
@@ -208,7 +216,7 @@ for _, bike in Bikes.List do
 	for _, c in { { 0, 0 }, { 0.3, 0.3 }, { 1, 0.5 }, { 0.5, 1 }, { 1, 1 } } do
 		local cf, cr = c[1] * sus.Travel[1], c[2] * sus.Travel[2]
 		local at = solve(BikeModel.SuspensionPose(sus, cf, cr))
-		worst = math.max(worst, math.abs(at[frontHub].Position.Y - (sus.Radius[1] + cf) * VIS), math.abs(at[rearHub].Position.Y - (sus.Radius[2] + cr) * VIS))
+		worst = math.max(worst, math.abs(at[frontHub].Position.Y - (sus.Radius[1] * size + cf) * VIS), math.abs(at[rearHub].Position.Y - (sus.Radius[2] * size + cr) * VIS))
 		-- the shock's body and shaft point along one line
 		local body, shaft
 		for part in at do
@@ -249,7 +257,7 @@ for _, bike in Bikes.List do
 	do
 		local CLEAR = tonumber(process.env.CLEAR) or 0.7
 		local at = solve(BikeModel.SuspensionPose(sus, CLEAR * sus.Travel[1], CLEAR * sus.Travel[2]))
-		local width = bike.Geometry.TireWidth * VIS / 2
+		local width = bike.Geometry.TireWidth * VIS * size / 2
 		local hit = {}
 		for part, cf in at do
 			local body = { BatteryCase = true, SideCover = true, Tank = true, SeatPad = true, Tail = true, Fender = true, Motor = true }
@@ -258,7 +266,7 @@ for _, bike in Bikes.List do
 			end
 			for i, hub in { frontHub, rearHub } do
 				local centre = at[hub].Position
-				local radius = sus.Radius[i] * VIS
+				local radius = sus.Radius[i] * VIS * size
 				local loc = cf:PointToObjectSpace(centre)
 				local half = part.Size / 2
 				local near = cf:PointToWorldSpace(Vector3.new(math.clamp(loc.X, -half.X, half.X), math.clamp(loc.Y, -half.Y, half.Y), math.clamp(loc.Z, -half.Z, half.Z)))

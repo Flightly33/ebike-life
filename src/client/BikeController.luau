@@ -123,7 +123,9 @@ local function computeSpec(model: Model): (Bikes.Bike?, BikeStats.Spec?)
 			levels[slot.Name] = level
 		end
 	end
-	return bike, BikeStats.Compute(bike, levels)
+	-- drawn to fit its rider: its wheels and wheelbase grow with it
+	local size = model:GetAttribute("Scale")
+	return bike, BikeStats.Scaled(BikeStats.Compute(bike, levels), if type(size) == "number" then size else 1)
 end
 
 local function sendTrick(kind: string, value: number?, extra: number?, text: string?)
@@ -337,6 +339,7 @@ function BikeController.Start(model: Model)
 	BikeController.Model = model
 	BikeController.Bike = bike
 	BikeController.Spec = spec
+	BikeCamera.SetBikeScale(spec.Scale)
 	local mode = player:GetAttribute("Mode")
 	BikeController.ModeName = if Modes.IsMode(mode) then mode :: string else "TOUR"
 	local battery = batteries[model] or spec.BatteryWh
