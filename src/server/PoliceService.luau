@@ -10,8 +10,9 @@
 	Lose every pursuer's line of sight for long enough and you escape (and get paid).
 
 	Pursuit tactics, like real units working a chase together:
-	  Lead        the nearest car: drives at where you're going to be, and from PITStars stars
-	              knocks you off (a PIT) when it gets alongside
+	  Lead        the nearest car: follows a safe gap behind you (police don't ram or PIT
+	              motorcycles: it's deadly force); it only closes in to block you once you're
+	              nearly stopped
 	  Flank       the second car: rides beside you to box you in
 	  Intercept   the rest: predict the crossing you'll reach a few seconds ahead, get there
 	              first and block it, then close in
@@ -68,7 +69,6 @@ type Watch = {
 	Spotted: boolean,
 	Inside: number?, -- intersection node the player is crossing
 	MaxStarsThisChase: number,
-	KnockedAt: number,
 	RoadblockAt: number,
 }
 
@@ -83,7 +83,7 @@ losParams.RespectCanCollide = true
 local function watch(player: Player): Watch
 	local w = watches[player]
 	if not w then
-		w = { Heat = Heat.new(), SeenAt = -math.huge, Seen = false, Spotted = false, Inside = nil, MaxStarsThisChase = 0, KnockedAt = -math.huge, RoadblockAt = -math.huge }
+		w = { Heat = Heat.new(), SeenAt = -math.huge, Seen = false, Spotted = false, Inside = nil, MaxStarsThisChase = 0, RoadblockAt = -math.huge }
 		watches[player] = w
 	end
 	return w
@@ -684,26 +684,23 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 	end
 
 	local aim = position
+	local flat = Vector3.new(velocity.X, 0, velocity.Z)
+	local moving = flat.Magnitude / Config.STUDS_PER_METER * 3.6 > C.BoxInKmh
+	if moving and role ~= "Flank" then
+		-- tail at a safe gap, never into the bike
+		aim = position - flat.Unit * C.FollowGap
+	end
 	if role == "Flank" and visible and distance < 140 then
 		-- ride alongside, on the side the car is already on
-		local flat = Vector3.new(velocity.X, 0, velocity.Z)
 		if flat.Magnitude > 4 then
 			local dir = flat.Unit
 			local right = Vector3.new(-dir.Z, 0, dir.X)
 			local side = if (driver.Position - position):Dot(right) >= 0 then 1 else -1
-			aim = position + right * (side * 11) + flat * 0.5
+			-- pacing a lane over and a little behind, never alongside close enough to touch
+			aim = position + right * (side * C.FlankOffset) - dir * 6
 		end
 	end
 	CarDriver.Chase(driver, aim, velocity, visible)
-
-	-- PIT: alongside at speed, the lead or flank car knocks the rider off
-	if (role == "Lead" or role == "Flank") and w.Heat.Stars >= C.PITStars and now - w.KnockedAt > C.PITCooldown then
-		local ride = BikeService.Get(player)
-		if ride and ride.Riding and not BikeService.Bailed(player) and distance < C.PITRange and BikeService.Kmh(ride) > 15 and driver.Speed > 6 then
-			w.KnockedAt = now
-			Remotes.Event("Knocked"):FireClient(player, (position - driver.Position).Unit)
-		end
-	end
 
 	-- hopelessly stuck or left far behind: bring it back in closer
 	if driver.StuckCount >= 3 or distance > 1400 then

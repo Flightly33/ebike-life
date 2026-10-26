@@ -94,7 +94,7 @@ for _, bike in Bikes.List do
 	check(fork > 0 and swing > 0, string.format("%s: fork lowers %d and swingarm %d meshes ride the suspension", bike.Id, fork, swing))
 	local leftovers = 0
 	for _, d in model:GetDescendants() do
-		if d:IsA("Part") and d.Transparency < 1 and d.Name ~= "Underglow" and d.Name ~= "ExhaustPipe" and d.Name ~= "ExhaustTip" then
+		if d:IsA("Part") and d.Transparency < 1 and d.Name ~= "Underglow" and d.Name ~= "ExhaustPipe" and d.Name ~= "ExhaustTip" and string.sub(d.Name, 1, 5) ~= "Hell_" then
 			leftovers += 1
 		end
 	end

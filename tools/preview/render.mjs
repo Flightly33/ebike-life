@@ -53,7 +53,7 @@ await page.evaluate((parts) => {
 	const cyl = new T.CylinderGeometry(0.5, 0.5, 1, 20);
 	cyl.rotateZ(-Math.PI / 2); // Roblox cylinders run along X
 	const sphere = new T.SphereGeometry(0.5, 18, 12);
-	const geos = { Block: box, Cylinder: cyl, Ball: sphere };
+	const geos = { Block: box, Cylinder: cyl, Ball: sphere, Ellipsoid: sphere };
 
 	const groups = {};
 	const m4 = new T.Matrix4();

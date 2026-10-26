@@ -226,9 +226,10 @@ Config.Police = {
 	PursuitAccel = { 5.5, 6, 6.5, 7, 7.5 }, -- m/s²
 	Units = { 1, 2, 3, 4, 5 }, -- cars chasing per star
 	-- Tactics
-	PITStars = 2, -- from this many stars the lead car will knock you off
-	PITRange = 10, -- studs between car and bike
-	PITCooldown = 7, -- seconds between knocks on the same rider
+	-- no PIT or ramming: police don't use contact on motorcycles (it's deadly force)
+	FollowGap = 24, -- studs the chasing car keeps behind a moving rider
+	FlankOffset = 16, -- studs to the side a pacing car rides
+	BoxInKmh = 12, -- below this the cars close in and block the rider in
 	InterceptAhead = 6, -- seconds ahead an interceptor aims for
 	RoadblockStars = 3,
 	RoadblockAhead = 9, -- seconds ahead a roadblock goes

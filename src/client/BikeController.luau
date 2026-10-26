@@ -170,8 +170,13 @@ local function onEvent(event: BikePhysics.Event)
 		end
 	elseif kind == "Recover" then
 		if bailing then
+			-- back on your feet where you landed; the bike stays where it slid to, and you walk over and
+			-- get back on (its Enter prompt)
+			bailing = false
 			Ragdoll.Stop(player.Character)
-			Remotes.Event("Remount"):FireServer()
+			Remotes.Event("GotUp"):FireServer()
+			BikeController.Stop()
+			return
 		end
 	elseif kind == "Impact" then
 		local now = os.clock()
@@ -410,15 +415,6 @@ function BikeController.Init()
 	if player.Character then
 		task.spawn(hookCharacter, player.Character)
 	end
-	-- a police car knocked us off (PIT)
-	Remotes.Event("Knocked").OnClientEvent:Connect(function()
-		local s = BikeController.Physics
-		if BikeController.Active and s and s.Crash <= 0 then
-			for _, event in BikePhysics.ForceCrash(s, "Knocked off") do
-				onEvent(event)
-			end
-		end
-	end)
 	Input.Action:Connect(function(action: string, index: number?)
 		if not BikeController.Active then
 			return

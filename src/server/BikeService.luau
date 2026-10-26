@@ -406,20 +406,14 @@ local function bail(player: Player)
 	end)
 end
 
--- Back on after the ragdoll (only your own bike, only close to it)
-local function remount(player: Player)
+-- Up after the ragdoll: the bike parks where it slid to, for the rider to walk back and get on
+local function gotUp(player: Player)
 	local ride = rides[player]
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local hrp = character and character:FindFirstChild("HumanoidRootPart")
-	if not ride or not ride.BailedAt or not humanoid or humanoid.Health <= 0 or not hrp or not hrp:IsA("BasePart") then
+	if not ride or not ride.BailedAt then
 		return
 	end
-	if (hrp.Position - ride.Root.Position).Magnitude > 60 then
-		return
-	end
-	(character :: Model):PivotTo(ride.Seat.CFrame + Vector3.new(0, 2, 0))
-	ride.Seat:Sit(humanoid)
+	ride.BailedAt = nil
+	dismount(ride)
 end
 
 function BikeService.Bailed(player: Player): boolean
@@ -475,7 +469,7 @@ function BikeService.Init()
 		BikeService.Despawn(player)
 	end)
 	Remotes.Event("Bail").OnServerEvent:Connect(bail)
-	Remotes.Event("Remount").OnServerEvent:Connect(remount)
+	Remotes.Event("GotUp").OnServerEvent:Connect(gotUp)
 	Remotes.Unreliable("BikeState").OnServerEvent:Connect(function(player: Player, raw: any)
 		local ride = rides[player]
 		if not ride or not ride.Riding then

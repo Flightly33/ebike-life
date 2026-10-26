@@ -682,6 +682,7 @@ end
 
 -- Recolour an existing bike (a respray in the Tuning menu)
 local FIRE_TEXTURE = "rbxasset://textures/particles/fire_main.dds"
+local SOCKET_DARK = Color3.fromRGB(14, 10, 8)
 
 local function flames(parent: BasePart, rate: number, speed: number)
 	local fire = Instance.new("Fire")
@@ -738,9 +739,76 @@ local function hellfire(b: Builder, bike: Bikes.Bike, g: Geo)
 			fire.Color = Color3.fromRGB(255, 90, 10)
 			fire.SecondaryColor = Color3.fromRGB(255, 200, 60)
 			fire.Parent = hub
+			-- the wheel burns from its rim: flames off an invisible ring the size of the tyre
+			local radius = if groupName == "Front" then g.Rf else g.Rr
+			local ring = PartKit.Box(b.Model, "Hell_Ring", Vector3.new(bike.Geometry.TireWidth, radius * 2, radius * 2) * VIS, hub.CFrame, BLACK, SMOOTH, { Transparency = 1 })
+			ring.Shape = Enum.PartType.Cylinder
+			add(b, groupName, ring)
+			local rim = Instance.new("ParticleEmitter")
+			rim.Name = "Hellfire"
+			rim.Texture = FIRE_TEXTURE
+			rim.Shape = Enum.ParticleEmitterShape.Cylinder
+			rim.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+			rim.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
+			rim.Rate = 90
+			rim.Lifetime = NumberRange.new(0.15, 0.35)
+			rim.Speed = NumberRange.new(1, 3)
+			rim.Acceleration = Vector3.new(0, 8, 0)
+			rim.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 0.1) })
+			rim.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+			rim.Color = ColorSequence.new(Color3.fromRGB(255, 210, 80), Color3.fromRGB(255, 50, 0))
+			rim.LightEmission = 1
+			rim.LightInfluence = 0
+			rim.Parent = ring
 		end
 	end
-	local _ = bike
+
+	-- bones: a spine of vertebrae along the tank and ribs wrapping the battery case
+	local bone = Color3.fromRGB(226, 218, 192)
+	local function blob(group: string, name: string, size: Vector3, at: Vector3, color: Color3, material: Enum.Material?): BasePart
+		local part = PartKit.Box(b.Model, name, size * VIS, CFrame.new(scale(at)), color, material or SMOOTH)
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = part
+		return add(b, group, part)
+	end
+	local seatH = bike.Geometry.SeatHeight
+	local spineFrom = g.HT + Vector3.new(0, 0.005, 0.07)
+	local spineTo = Vector3.new(0, seatH + 0.0, g.Pivot.Z + 0.06)
+	for i = 0, 8 do
+		local at = spineFrom:Lerp(spineTo, i / 8) + Vector3.new(0, 0.035, 0)
+		blob("Frame", "Hell_Vertebra", Vector3.new(0.075, 0.05, 0.055), at, bone)
+		box(b, "Frame", "Hell_Spine", Vector3.new(0.018, 0.04, 0.025) * VIS, CFrame.new(scale(at + Vector3.new(0, 0.035, 0.01))) * CFrame.Angles(math.rad(-25), 0, 0), nil, bone)
+	end
+	for i = 1, 4 do
+		local top = spineFrom:Lerp(spineTo, 0.2 + i * 0.15) + Vector3.new(0, 0.02, 0)
+		for _, side in { -1, 1 } do
+			local mid = top + Vector3.new(side * 0.13, -0.08, 0.01)
+			local low = top + Vector3.new(side * 0.115, -0.2, 0.04)
+			tube(b, "Frame", "Hell_Rib", scale(top), scale(mid), 0.02, nil, bone)
+			tube(b, "Frame", "Hell_Rib", scale(mid), scale(low), 0.018, nil, bone)
+		end
+	end
+
+	-- a skull for a headlight, its eyes the lamps
+	local axis = g.Axis
+	local ahead = Vector3.new(0, axis.Z, -axis.Y) -- forward, square to the steering axis
+	local face = g.HB:Lerp(g.HT, 0.6) + ahead * 0.13
+	blob("Steer", "Hell_Skull", Vector3.new(0.16, 0.15, 0.16), face, bone)
+	blob("Steer", "Hell_Skull", Vector3.new(0.11, 0.08, 0.1), face + Vector3.new(0, -0.07, -0.03), bone)
+	for _, side in { -1, 1 } do
+		local eye = blob("Steer", "Hell_Eye", Vector3.new(0.045, 0.04, 0.03), face + Vector3.new(side * 0.035, 0.0, -0.07), Color3.fromRGB(255, 130, 20), Enum.Material.Neon)
+		if side == 1 then
+			local beam = Instance.new("SpotLight")
+			beam.Color = Color3.fromRGB(255, 170, 80)
+			beam.Range = 40
+			beam.Angle = 50
+			beam.Brightness = 3
+			beam.Face = Enum.NormalId.Front
+			beam.Parent = eye
+		end
+	end
+	box(b, "Steer", "Hell_Teeth", Vector3.new(0.06, 0.015, 0.01) * VIS, CFrame.new(scale(face + Vector3.new(0, -0.075, -0.08))), nil, SOCKET_DARK)
 end
 
 function BikeModel.ApplyPaint(model: Model, bike: Bikes.Bike, choice: PaintChoice?)

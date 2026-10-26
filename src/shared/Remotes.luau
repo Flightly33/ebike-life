@@ -12,7 +12,7 @@
 		Teleport(destination)
 		ClientReady()
 		Bail()                            the rider fell off: unseat, keep the ride
-		Remount()                         back on after the ragdoll
+		GotUp()                           up after the ragdoll: the bike parks where it lies
 
 	Client -> Server (RemoteFunction; returns ok, message, ...)
 		BuyBike(bikeId)
@@ -29,7 +29,6 @@
 		Payout(amount, reason)            "+$12 Air 1.2s" pops
 		Police(kind, data)                "Wanted", "Busted", "Escaped", "Spotted"
 		Charge(percent)                   a charging station topped your battery up
-		Knocked(direction)                a police car knocked you off (a PIT)
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -53,8 +52,7 @@ local EVENTS = {
 	"Police",
 	"Charge",
 	"Bail",
-	"Remount",
-	"Knocked",
+	"GotUp",
 }
 local UNRELIABLE = { "BikeState" }
 local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "OpenCrate", "BuyBoost", "GetProfile", "Admin" }

@@ -711,6 +711,21 @@ do
 	check(math.abs(cf - 0.3 * spec.FrontTravel) < 0.012 and math.abs(cr - 0.3 * spec.RearTravel) < 0.012, "at rest each end sits at ~30% sag")
 	check(math.abs((state.Sus :: any).EV) < 0.01, "and the chassis is still")
 
+	-- 1b. riding along, both drawn wheels sit on the road (not in it, not above it)
+	do
+		local sp, st = spawn("hornet_6")
+		ride(sp, st, Modes.Defaults.TURBO, flat, 6, input({ Throttle = 1 }), atMost(30))
+		local VIS = Config.VISUAL_STUDS_PER_METER
+		local cf = BikePhysics.GetCFrame(st, sp)
+		local df, dr = BikePhysics.DrawnCompression(st)
+		local front = cf:PointToWorldSpace(Vector3.new(0, sp.WheelRadius + df * VIS, -sp.Wheelbase / 2))
+		local rear = cf:PointToWorldSpace(Vector3.new(0, sp.RearWheelRadius + dr * VIS, sp.Wheelbase / 2))
+		local sinkF = st.Position.Y + sp.WheelRadius - front.Y
+		local sinkR = st.Position.Y + sp.RearWheelRadius - rear.Y
+		print(string.format("  riding: front wheel %.2f, rear wheel %.2f studs into the road", sinkF, sinkR))
+		check(math.abs(sinkF) < 0.05 and math.abs(sinkR) < 0.05, "riding along, both wheels sit on the road")
+	end
+
 	-- 2. a kerb UP at 20 km/h: the front fork takes the hit first, then the rear, the chassis pitches
 	-- up then down, no takeoff or landing, and it ends up on top
 	local kerb = makeWorld({ StepZ = -120, StepHeight = 0.625 })
@@ -842,6 +857,16 @@ do
 	local wf, wr = comp(state)
 	print(string.format("  wheelie (%.0f deg): front %.0f mm, rear %.0f mm", math.deg(state.Wheelie), wf * 1000, wr * 1000))
 	check(state.Wheelie > 0.2 and wf < 0.02 and wr > restR + 0.01, "in a wheelie the fork tops out and the rear sinks")
+	-- the drawn rear wheel stays on the road: its axle a wheel radius up (less the tyre's squash)
+	do
+		local VIS = Config.VISUAL_STUDS_PER_METER
+		local cf = BikePhysics.GetCFrame(state, spec)
+		local _, drawnR = BikePhysics.DrawnCompression(state)
+		local axle = cf:PointToWorldSpace(Vector3.new(0, spec.RearWheelRadius + drawnR * VIS, spec.Wheelbase / 2))
+		local sink = (state.Position.Y + spec.RearWheelRadius) - axle.Y
+		print(string.format("  wheelie rear wheel: %.2f studs into the road", sink))
+		check(math.abs(sink) < 0.05, "in a wheelie the rear wheel stays on the road, not in it")
+	end
 
 	-- 8. a loop's g-force loads the suspension, within its travel
 	do

@@ -9,7 +9,10 @@ function Preview.Export(root: any): { any }
 		if d:IsA("BasePart") and d.Transparency < 1 then
 			local c = d.Color
 			local shape = "Block"
-			if d.ClassName == "Part" then
+			local mesh = d:FindFirstChildOfClass("SpecialMesh")
+			if mesh and mesh.MeshType.Name == "Sphere" then
+				shape = "Ellipsoid" -- a sphere mesh fills the part's box, unlike a Ball part
+			elseif d.ClassName == "Part" then
 				shape = d.Shape.Name
 			elseif d.ClassName == "Seat" or d.ClassName == "SpawnLocation" then
 				shape = "Block"

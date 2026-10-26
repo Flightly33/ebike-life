@@ -265,9 +265,13 @@ end
 -- by the sag and moves with the suspension (heave along the line's normal, pitch about it).
 function BikePhysics.GetCFrame(s: State, spec: Spec): CFrame
 	local base = CFrame.new(s.Position) * CFrame.fromEulerAnglesYXZ(0, s.Yaw, 0)
-	local pivot = Vector3.new(0, 0, spec.Wheelbase / 2) -- rear tyre contact
+	-- a wheelie turns the bike about the rear axle (the wheel stays on the ground under it), a stoppie
+	-- about the front one, each where the suspension has it in the chassis (risen by its compression)
+	local cFront, cRear = BikePhysics.DrawnCompression(s)
+	local VIS = Config.VISUAL_STUDS_PER_METER
+	local pivot = Vector3.new(0, spec.RearWheelRadius + cRear * VIS, spec.Wheelbase / 2)
 	local wheelie = CFrame.new(pivot) * CFrame.Angles(s.Wheelie, 0, 0) * CFrame.new(-pivot)
-	local front = Vector3.new(0, 0, -spec.Wheelbase / 2)
+	local front = Vector3.new(0, spec.WheelRadius + cFront * VIS, -spec.Wheelbase / 2)
 	local stoppie = CFrame.new(front) * CFrame.Angles(-s.Stoppie, 0, 0) * CFrame.new(-front)
 	local frame = base * CFrame.Angles(s.Pitch, 0, 0)
 	local sus, params = s.Sus, s.SusParams
@@ -301,6 +305,23 @@ function BikePhysics.Compression(s: State): (number, number)
 		return 0, 0
 	end
 	return sus.C[1], sus.C[2]
+end
+
+-- What to draw at each wheel: the compression plus the tyre's squash (the drawn wheel is rigid, so it
+-- rises by the squash too and sits on the road instead of in it)
+function BikePhysics.DrawnCompression(s: State): (number, number)
+	local sus = s.Sus
+	if not sus then
+		return 0, 0
+	end
+	local out = { sus.C[1], sus.C[2] }
+	for i = 1, 2 do
+		local ground = sus.Ground[i]
+		if sus.Grounded[i] and ground then
+			out[i] += math.clamp(ground - sus.Y[i], 0, 0.06)
+		end
+	end
+	return out[1], out[2]
 end
 
 -- The box swept for collisions: the body above step height, aligned with the heading
@@ -1158,13 +1179,6 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	end
 	s.Velocity = s.AirVelocity + UP * (s.VerticalSpeed * STUDS)
 	s.WheelAngle = (s.WheelAngle + s.AirVelocity.Magnitude / STUDS / spec.WheelRadiusM * dt * 0.6) % TAU
-end
-
--- Knocked off from outside (a police PIT): a bail with the given reason
-function BikePhysics.ForceCrash(s: State, reason: string): { Event }
-	local events: { Event } = {}
-	crash(s, events, reason)
-	return events
 end
 
 -- Advances the bike by dt seconds. Returns what happened (tricks, crashes, landings).

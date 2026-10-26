@@ -408,9 +408,11 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 		if self.Mode == "Chase" and self.Direct and self.Target then
 			local distance = (self.Target - self.Position).Magnitude
 			if distance < 30 then
-				-- stay on their tail
+				-- hold station on the target point: speed up a little while behind it, ease off past it
+				-- (the police aim it a safe gap behind a rider, so this never closes into the bike)
 				local theirs = self.TargetVelocity.Magnitude / STUDS
-				targetSpeed = math.min(targetSpeed, theirs + 3)
+				local along = if self.TargetVelocity.Magnitude > 1 then (self.Target - self.Position):Dot(self.TargetVelocity.Unit) else distance
+				targetSpeed = math.min(targetSpeed, math.max(0, theirs + math.clamp(along * 0.25, -6, 3)))
 			end
 		end
 	end

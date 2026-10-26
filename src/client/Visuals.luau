@@ -23,7 +23,6 @@ local Layout = require(Shared.City.Layout)
 local BikeModel = require(Shared.Models.BikeModel)
 local BikePhysics = require(Shared.BikePhysics)
 local CarModel = require(Shared.Models.CarModel)
-local Suspension = require(Shared.Suspension)
 
 local BikeController = require(script.Parent.BikeController)
 local Sound = require(script.Parent.Sound)
@@ -199,8 +198,8 @@ local function measureSuspension(rig: BikeRig, dt: number)
 		local hit = Workspace:Raycast(axle + Vector3.new(0, above, 0), Vector3.new(0, -(above + (radius + 0.15) * VIS), 0), World.Params())
 		local target = 0
 		if hit then
-			local rise = (hit.Position.Y + radius * VIS * upY - axle.Y) / upY / VIS - Suspension.TYRE_SAG
-			target = math.clamp(rise, 0, travel)
+			local rise = (hit.Position.Y + radius * VIS * upY - axle.Y) / upY / VIS
+			target = math.clamp(rise, 0, travel + 0.06)
 		end
 		rig.Comp[i] += (target - rig.Comp[i]) * ease
 	end
@@ -250,7 +249,7 @@ local function updateBikes(dt: number)
 			rig.Barspin = physics.BarSpin
 			local spec = BikeController.Spec
 			power = if spec and spec.MotorW > 0 then physics.MotorPower / spec.MotorW else 0
-			rig.Comp[1], rig.Comp[2] = BikePhysics.Compression(physics)
+			rig.Comp[1], rig.Comp[2] = BikePhysics.DrawnCompression(physics)
 		else
 			speed = forwardSpeed(rig.Root) / STUDS
 			rig.WheelAngle = (rig.WheelAngle + speed / rig.RadiusM * dt) % TAU
