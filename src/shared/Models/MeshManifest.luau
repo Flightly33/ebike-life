@@ -152,8 +152,32 @@ local M: { [string]: { Entry } } = {
 		{ Name = "Car_Van__Wheel_RR__Metal", Group = "Wheel_RR", Slot = "Metal", Center = Vector3.new(0.9610, 0.3500, 1.6500), Size = Vector3.new(0.1020, 0.4690, 0.4690) },
 		{ Name = "Car_Van__Wheel_RR__Tire", Group = "Wheel_RR", Slot = "Tire", Center = Vector3.new(0.9000, 0.3500, 1.6500), Size = Vector3.new(0.2072, 0.7000, 0.7000) },
 	},
+	["Kit_Bench"] = {
+		{ Name = "Kit_Bench__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 1.7787, -0.0000), Size = Vector3.new(5.6800, 3.7954, 1.9000) },
+		{ Name = "Kit_Bench__Main__Wood", Group = "Main", Slot = "Wood", Center = Vector3.new(0.0000, 2.3825, 0.1025), Size = Vector3.new(6.2000, 1.6150, 1.7250) },
+	},
+	["Kit_Bin"] = {
+		{ Name = "Kit_Bin__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 1.7150, -0.0000), Size = Vector3.new(1.7200, 3.4300, 1.7200) },
+		{ Name = "Kit_Bin__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 1.5500, -0.0000), Size = Vector3.new(1.4800, 2.7000, 1.4800) },
+		{ Name = "Kit_Bin__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 1.6331, -0.0000), Size = Vector3.new(1.7136, 2.6670, 1.7400) },
+	},
+	["Kit_Bollard"] = {
+		{ Name = "Kit_Bollard__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 1.3000, -0.0000), Size = Vector3.new(0.9749, 2.6000, 1.0000) },
+		{ Name = "Kit_Bollard__Main__Yellow", Group = "Main", Slot = "Yellow", Center = Vector3.new(0.0000, 1.9500, -0.0000), Size = Vector3.new(0.6922, 0.2000, 0.7100) },
+	},
+	["Kit_Hydrant"] = {
+		{ Name = "Kit_Hydrant__Main__Blue", Group = "Main", Slot = "Blue", Center = Vector3.new(0.0000, 1.2266, -0.2500), Size = Vector3.new(1.4400, 0.5932, 0.9000) },
+		{ Name = "Kit_Hydrant__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, 0.1850, -0.0000), Size = Vector3.new(1.1693, 0.0700, 1.0326) },
+		{ Name = "Kit_Hydrant__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 1.2400, -0.0000), Size = Vector3.new(1.3000, 2.4800, 1.2400) },
+	},
 	["Kit_Lamp"] = {
 		{ Name = "Kit_Lamp__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 7.8950, -0.0000), Size = Vector3.new(2.2400, 15.7900, 2.2400) },
+	},
+	["Kit_Meter"] = {
+		{ Name = "Kit_Meter__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 3.7500, -0.3300), Size = Vector3.new(0.1200, 0.2000, 0.0200) },
+		{ Name = "Kit_Meter__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 1.7000, -0.0000), Size = Vector3.new(0.5706, 3.4000, 0.6000) },
+		{ Name = "Kit_Meter__Main__Glass", Group = "Main", Slot = "Glass", Center = Vector3.new(0.0000, 4.1800, -0.3300), Size = Vector3.new(0.5500, 0.3500, 0.0200) },
+		{ Name = "Kit_Meter__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, 4.1200, -0.0000), Size = Vector3.new(0.8500, 1.3400, 0.7600) },
 	},
 	["Kit_Tree_Birch"] = {
 		{ Name = "Kit_Tree_Birch__Main__Birch", Group = "Main", Slot = "Birch", Center = Vector3.new(0.0000, 6.6764, 0.0142), Size = Vector3.new(5.0395, 13.6471, 5.0108) },

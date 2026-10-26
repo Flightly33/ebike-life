@@ -42,6 +42,8 @@ SLOT_COLORS = {
     "Stone": (0.78, 0.76, 0.7),
     "Bark": (0.3, 0.22, 0.16),
     "Birch": (0.86, 0.85, 0.8),
+    "Yellow": (0.95, 0.78, 0.15),
+    "Wood": (0.55, 0.38, 0.22),
     "Black": (0.10, 0.10, 0.11),
     "Dark": (0.20, 0.21, 0.23),
     "Metal": (0.75, 0.75, 0.77),
@@ -1320,7 +1322,7 @@ def main():
         colors[name] = {"Paint": car_paint.get(kind, (0.62, 0.05, 0.06)), "Blue": (0.1, 0.3, 0.85), "Red": (0.6, 0.08, 0.08)}
     if not only or any(name.startswith("Kit_") for name in only):
         citykit.build_all()
-        for name in ("Kit_Window", "Kit_Tree_Broadleaf", "Kit_Tree_Birch", "Kit_Tree_Conifer", "Kit_Lamp"):
+        for name in ("Kit_Window", "Kit_Tree_Broadleaf", "Kit_Tree_Birch", "Kit_Tree_Conifer", "Kit_Lamp", "Kit_Bin", "Kit_Bollard", "Kit_Meter", "Kit_Hydrant", "Kit_Bench"):
             colors[name] = {"Paint": (0.55, 0.62, 0.3) if "Tree" in name else (0.9, 0.88, 0.82)}
     manifest = K.build_objects()
     os.makedirs(os.path.join(HERE, "out"), exist_ok=True)

@@ -173,9 +173,89 @@ def lamp():
     put("Black", K.cyl(o + Z * 15.45, o + Z * 15.62, 0.06, 0.06, 8))
 
 
+def bin_():
+    """A municipal litter bin (design: 1.6 wide, 3 tall to the lid): a slatted drum on a base ring,
+    a rolled rim, a domed lid with a mouth."""
+    K.vehicle("Kit_Bin")
+    put = lambda slot, bm: K.put("Main", slot, bm)  # noqa: E731
+    o = Vector((0, 0, 0))
+    put("Black", K.lathe(o, Z, [(0, 0.78), (0.18, 0.8), (0.22, 0.72), (0.22, 0)], 16))
+    put("Dark", K.cyl(o + Z * 0.2, o + Z * 2.9, 0.7, 0.74, 16))
+    for i in range(14):
+        a = 2 * math.pi * i / 14
+        d = Vector((math.cos(a), math.sin(a), 0))
+        put("Paint", K.bar(o + Z * 0.3 + d * 0.74, o + Z * 2.8 + d * 0.78, 0.22, 0.05, 0.0, up=d))
+    put("Paint", K.torus(o + Z * 2.9, Z, 0.8, 0.07, 18, 5))
+    put("Black", K.lathe(o + Z * 2.95, Z, [(0, 0.86), (0.12, 0.86), (0.35, 0.6), (0.45, 0.3), (0.48, 0)], 16))
+    put("Black", K.rbox(o + Z * 3.15 + Y * 0.7, (0.8, 0.12, 0.25)))
+
+
+def bollard():
+    """A cast-iron bollard (design: 0.8 wide, 2.6 tall): a flared foot, a ringed shaft, a domed cap,
+    a reflective band."""
+    K.vehicle("Kit_Bollard")
+    put = lambda slot, bm: K.put("Main", slot, bm)  # noqa: E731
+    o = Vector((0, 0, 0))
+    put("Paint", K.lathe(o, Z, [(0, 0.5), (0.15, 0.5), (0.3, 0.4), (0.45, 0.36), (2.15, 0.34), (2.2, 0.4), (2.3, 0.4), (2.35, 0.33), (2.5, 0.28), (2.58, 0.15), (2.6, 0)], 14))
+    put("Yellow", K.cyl(o + Z * 1.85, o + Z * 2.05, 0.355, 0.355, 14))
+
+
+def meter():
+    """A parking meter (design: pole 3.4, head to 4.65): pole, collar, a domed head with its window
+    and coin slot."""
+    K.vehicle("Kit_Meter")
+    put = lambda slot, bm: K.put("Main", slot, bm)  # noqa: E731
+    o = Vector((0, 0, 0))
+    put("Dark", K.lathe(o, Z, [(0, 0.3), (0.2, 0.25), (0.25, 0.15), (3.35, 0.14), (3.4, 0.22), (3.4, 0)], 10))
+    head = o + Z * 4.0
+    put("Metal", K.rbox(head, (0.85, 0.65, 1.1), 0.12))
+    put("Metal", K.lathe(head + Z * 0.55, Z, [(0, 0.38), (0.12, 0.34), (0.2, 0.2), (0.24, 0)], 12))
+    put("Glass", K.rbox(head + Y * 0.33 + Z * 0.18, (0.55, 0.02, 0.35), 0.05))
+    put("Black", K.rbox(head + Y * 0.33 - Z * 0.25, (0.12, 0.02, 0.2)))
+
+
+def hydrant():
+    """A fire hydrant (design: 1.05 wide, 2.5 tall): base flange with bolts, barrel, bonnet with the
+    pentagon nut, two side nozzles with chained caps, the big pumper nozzle in front."""
+    K.vehicle("Kit_Hydrant")
+    put = lambda slot, bm: K.put("Main", slot, bm)  # noqa: E731
+    o = Vector((0, 0, 0))
+    put("Paint", K.lathe(o, Z, [(0, 0.62), (0.15, 0.62), (0.2, 0.48), (0.35, 0.44), (1.75, 0.44), (1.8, 0.52), (1.9, 0.52), (2.05, 0.4), (2.25, 0.25), (2.3, 0)], 16))
+    for i in range(6):
+        a = 2 * math.pi * i / 6
+        put("Metal", K.cyl(o + Vector((math.cos(a) * 0.55, math.sin(a) * 0.55, 0.15)), o + Vector((math.cos(a) * 0.55, math.sin(a) * 0.55, 0.22)), 0.04, 0.04, 6))
+    put("Paint", K.cyl(o + Z * 2.28, o + Z * 2.48, 0.1, 0.1, 5))
+    for side in (-1, 1):
+        put("Paint", K.cyl(o + Z * 1.35, o + Z * 1.35 + X * side * 0.65, 0.17, 0.17, 12))
+        put("Blue", K.cyl(o + Z * 1.35 + X * side * 0.62, o + Z * 1.35 + X * side * 0.72, 0.2, 0.2, 6))
+    put("Paint", K.cyl(o + Z * 1.2, o + Z * 1.2 + Y * 0.62, 0.24, 0.24, 14))
+    put("Blue", K.cyl(o + Z * 1.2 + Y * 0.58, o + Z * 1.2 + Y * 0.7, 0.27, 0.27, 6))
+
+
+def bench():
+    """A park bench (design: 6 long, back to 3.6): cast-iron scroll ends, timber seat and back slats,
+    a centre support."""
+    K.vehicle("Kit_Bench")
+    put = lambda slot, bm: K.put("Main", slot, bm)  # noqa: E731
+    o = Vector((0, 0, 0))
+    end_shape = K.spline2d([(-0.85, 0.0), (-0.6, 0.05), (-0.55, 1.5), (0.45, 1.55), (0.55, 1.2), (0.7, 0.0), (0.85, 0.05), (0.75, 1.3), (0.95, 3.4), (0.75, 3.5), (0.55, 1.75), (-0.75, 1.7), (-0.95, 0.15)], 3)
+    for x in (-2.75, 0.0, 2.75):
+        put("Black", K.side_prism([(-p[0], p[1]) for p in end_shape], x - 0.09, x + 0.09, 0.02))
+    for i in range(5):
+        y = -0.65 + i * 0.32
+        put("Wood", K.rbox(o + Vector((0, y, 1.62)), (6.2, 0.26, 0.09), 0.03))
+    for i in range(3):
+        put("Wood", K.rbox(o + Vector((0, -0.78 - i * 0.07, 2.2 + i * 0.42)), (6.2, 0.09, 0.3), 0.03))
+
+
 def build_all():
     window()
     tree("Broadleaf", 11)
     tree("Birch", 23)
     tree("Conifer", 37)
     lamp()
+    bin_()
+    bollard()
+    meter()
+    hydrant()
+    bench()

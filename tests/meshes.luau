@@ -184,6 +184,11 @@ do
 		Props.Tree(street, Vector3.new(i * 20, 0, 30), rng)
 	end
 	Props.Lamp(street, Vector3.new(0, 0, 60))
+	Props.Bench(street, CFrame.new(20, 0, 60) * CFrame.Angles(0, math.rad(90), 0))
+	Props.Hydrant(street, Vector3.new(30, 0, 60))
+	Detail.Bin(street, Vector3.new(40, 0, 60))
+	Detail.Bollard(street, Vector3.new(50, 0, 60))
+	Detail.ParkingMeter(street, Vector3.new(60, 0, 60))
 	for _, d in street:GetDescendants() do
 		if d:IsA("Model") and d.Name == "Tree" then
 			species[d:GetAttribute("Species")] = true
@@ -201,7 +206,23 @@ do
 	local frames, panes = count("WindowFrame"), count("Window")
 	local placed = CityKit.Apply(street)
 	check(species.Broadleaf and species.Birch and species.Conifer, "the street has all three tree species")
-	check(placed == frames + 40 + 1, string.format("the kit replaced every window, tree and lamp (%d of %d)", placed, frames + 41))
+	check(placed == frames + 40 + 1 + 5, string.format("the kit replaced every window, tree, lamp and street furniture (%d of %d)", placed, frames + 46))
+	check(count("BinLid") == 0 and count("BollardBand") == 0 and count("Meter") == 0 and count("Nozzles") == 0, "street furniture trim replaced")
+	-- lamps and trees stand upright (their meshes taller than wide), furniture stands on the ground
+	local upright, grounded = true, true
+	for _, d in street:GetDescendants() do
+		if d:IsA("MeshPart") then
+			local owner = d.Parent
+			if owner and (owner.Name == "Lamp" or owner.Name == "Tree") and d.Name ~= "Kit_Paint" and d.Size.Y < math.max(d.Size.X, d.Size.Z) then
+				upright = false
+			end
+			if d.Position.Y - d.Size.Y / 2 < -0.3 then
+				grounded = false
+			end
+		end
+	end
+	check(upright, "lamp and tree kits stand upright")
+	check(grounded, "no kit piece sinks below the ground")
 	check(count("WindowFrame") == 0 and count("Sill") == 0, "frames and sills are gone")
 	check(count("Window") == panes, "the glass stays (it lights up at night)")
 	check(count("Leaves") == 0 and count("Trunk") == 40, "trees: leaves replaced, trunks kept as colliders")
@@ -209,7 +230,7 @@ do
 	-- each window surround sits on its frame: its casing over the frame's box, the glass behind the bars
 	local ok = true
 	for _, d in street:GetDescendants() do
-		if d:IsA("MeshPart") and d.Parent == street and d.Name == "Kit_Paint" then
+		if d:IsA("MeshPart") and d.Parent == street and d.Name == "Kit_Paint" and d.Size.Y > 5 then
 			local pane
 			for _, w in street:GetChildren() do
 				if w.Name == "Window" and (w.Position - d.Position).Magnitude < 1.5 then

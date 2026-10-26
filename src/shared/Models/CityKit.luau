@@ -70,6 +70,28 @@ local function place(pieces: { Piece }, parent: Instance, origin: CFrame, centre
 	return out
 end
 
+-- A model's box in `frame`'s axes (Roblox's own GetBoundingBox takes its axes from the model's
+-- pivot, which for these is a pole or trunk lying on its side: a rotated cylinder)
+local function boxIn(model: Instance, frame: CFrame): (CFrame, Vector3)
+	local lo = Vector3.new(math.huge, math.huge, math.huge)
+	local hi = -lo
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			local half = part.Size / 2
+			for _, sx in { -1, 1 } do
+				for _, sy in { -1, 1 } do
+					for _, sz in { -1, 1 } do
+						local p = frame:PointToObjectSpace(part.CFrame:PointToWorldSpace(Vector3.new(half.X * sx, half.Y * sy, half.Z * sz)))
+						lo = lo:Min(p)
+						hi = hi:Max(p)
+					end
+				end
+			end
+		end
+	end
+	return frame * CFrame.new((lo + hi) / 2), hi - lo
+end
+
 local function hide(part: BasePart)
 	part.Transparency = 1
 	part.CastShadow = false
@@ -117,6 +139,10 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 	local panes: { [string]: BasePart } = {}
 	local trees: { Model } = {}
 	local lamps: { Model } = {}
+	local benches: { Model } = {}
+	local hydrants: { Model } = {}
+	local loose: { [string]: { BasePart } } = {}
+	local LOOSE = { Bin = true, BinLid = true, Bollard = true, BollardBand = true, MeterPole = true, Meter = true }
 	local function key(p: Vector3): string
 		return string.format("%d,%d,%d", math.round(p.X * 2), math.round(p.Y * 2), math.round(p.Z * 2))
 	end
@@ -128,12 +154,20 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 				sills[key(d.Position)] = d
 			elseif d.Name == "Window" then
 				panes[key(d.Position)] = d
+			elseif LOOSE[d.Name] and (d:FindFirstAncestorWhichIsA("Model") == nil or d:FindFirstAncestorWhichIsA("Model") == city) then
+				local list = loose[d.Name] or {}
+				table.insert(list, d)
+				loose[d.Name] = list
 			end
 		elseif d:IsA("Model") then
 			if d.Name == "Tree" then
 				table.insert(trees, d)
 			elseif d.Name == "Lamp" then
 				table.insert(lamps, d)
+			elseif d.Name == "Bench" then
+				table.insert(benches, d)
+			elseif d.Name == "Hydrant" then
+				table.insert(hydrants, d)
 			end
 		end
 	end
@@ -150,7 +184,8 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 		if not pieces then
 			continue
 		end
-		local cf, size = model:GetBoundingBox()
+		local trunk = model:FindFirstChild("Trunk")
+		local cf, size = boxIn(model, CFrame.new(if trunk and trunk:IsA("BasePart") then trunk.Position else Vector3.zero))
 		local kc, ks = bounds(pieces)
 		local across = (size.X / ks.X + size.Z / ks.Z) / 2
 		local scale = Vector3.new(across, size.Y / ks.Y, across)
@@ -180,7 +215,8 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 	if lampKit then
 		local kc, ks = bounds(lampKit)
 		for _, model in lamps do
-			local cf, size = model:GetBoundingBox()
+			local pole = model:FindFirstChild("Pole")
+			local cf, size = boxIn(model, CFrame.new(if pole and pole:IsA("BasePart") then pole.Position else Vector3.zero))
 			local globe = model:FindFirstChild("Globe")
 			for _, part in model:GetChildren() do
 				if part:IsA("BasePart") and part ~= globe then
@@ -192,6 +228,97 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 				end
 			end
 			place(lampKit, model, cf, kc, Vector3.new(size.X / ks.X, size.Y / ks.Y, size.Z / ks.Z), Color3.new(0, 0, 0), turn)
+			done += 1
+			step()
+		end
+	end
+
+	-- benches and hydrants (models), bins, bollards and parking meters (loose parts)
+	local benchKit = MeshKit.Pieces("Kit_Bench")
+	if benchKit then
+		local kc, ks = bounds(benchKit)
+		for _, model in benches do
+			local seat = model:FindFirstChild("Seat")
+			if not (seat and seat:IsA("BasePart")) then
+				continue
+			end
+			local cf, size = boxIn(model, CFrame.new(seat.Position) * seat.CFrame.Rotation)
+			for _, part in model:GetChildren() do
+				if part:IsA("BasePart") then
+					if part == seat then
+						hide(part)
+					else
+						part:Destroy()
+					end
+				end
+			end
+			place(benchKit, model, cf, kc, Vector3.new(size.X / ks.X, size.Y / ks.Y, size.Z / ks.Z), Color3.new(0, 0, 0), turn)
+			done += 1
+			step()
+		end
+	end
+	local hydrantKit = MeshKit.Pieces("Kit_Hydrant")
+	if hydrantKit then
+		local kc, ks = bounds(hydrantKit)
+		for _, model in hydrants do
+			local body = model:FindFirstChild("Body")
+			if not (body and body:IsA("BasePart")) then
+				continue
+			end
+			local cf, size = boxIn(model, CFrame.new(body.Position))
+			local paint = body.Color
+			for _, part in model:GetChildren() do
+				if part:IsA("BasePart") then
+					if part == body then
+						hide(part)
+					else
+						part:Destroy()
+					end
+				end
+			end
+			local k = size.Y / ks.Y
+			place(hydrantKit, model, cf * CFrame.new(0, 0, 0), kc, Vector3.new(k, k, k), paint, turn)
+			done += 1
+			step()
+		end
+	end
+	-- loose posts: the kit stands on the post's foot, scaled by its height against the design's;
+	-- `extra` names the part that sat on it at `extraY` (design units) above the foot
+	type PostKit = { Name: string, Kit: string, Length: number, Extra: string, ExtraY: number, Keep: boolean }
+	local posts: { PostKit } = {
+		{ Name = "Bin", Kit = "Kit_Bin", Length = 3, Extra = "BinLid", ExtraY = 3.15, Keep = true },
+		{ Name = "Bollard", Kit = "Kit_Bollard", Length = 2.6, Extra = "BollardBand", ExtraY = 2.15, Keep = true },
+		{ Name = "MeterPole", Kit = "Kit_Meter", Length = 3.4, Extra = "Meter", ExtraY = 4.0, Keep = false },
+	}
+	for _, spec in posts do
+		local pieces = MeshKit.Pieces(spec.Kit)
+		local list = loose[spec.Name]
+		if not pieces or not list then
+			continue
+		end
+		local kc, ks = bounds(pieces)
+		local extras: { BasePart } = loose[spec.Extra] or {}
+		local byKey: { [string]: BasePart } = {}
+		for _, extraPart in extras do
+			byKey[key(extraPart.Position)] = extraPart
+		end
+		for _, part in list do
+			local length = part.Size.X -- (posts are cylinders stood on end)
+			local k = length / spec.Length
+			local foot = part.Position - Vector3.new(0, length / 2, 0)
+			local extra = byKey[key(foot + Vector3.new(0, spec.ExtraY * k, 0))]
+			local paint = part.Color
+			if extra then
+				extra:Destroy()
+			end
+			-- the kit's own foot is its bounds' bottom
+			local origin = CFrame.new(foot + Vector3.new(0, (ks.Y / 2) * k, 0))
+			place(pieces, part.Parent :: Instance, origin, kc, Vector3.new(k, k, k), paint, turn)
+			if spec.Keep then
+				hide(part)
+			else
+				part:Destroy()
+			end
 			done += 1
 			step()
 		end
