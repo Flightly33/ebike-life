@@ -330,8 +330,11 @@ function BikePhysics.Body(s: State, spec: Spec): (CFrame, Vector3)
 	local k = Config.BIKE_SIZE * spec.Scale / 1.2 -- the box was sized for bikes drawn 1.2x life size
 	local height = 3.4 * k
 	local size = Vector3.new(1.3 * k, height, length)
-	local center = s.Position + UP * (P.StepHeight + 0.1 + height / 2)
-	return CFrame.new(center) * CFrame.fromEulerAnglesYXZ(0, s.Yaw, 0), size
+	-- tilted with the ground under it, so on a ramp or a hill it glides along the surface instead of
+	-- its level front corner digging into the rise
+	local pitch = if s.Grounded then math.clamp(s.Pitch, -1.2, 1.2) else 0
+	local frame = CFrame.new(s.Position) * CFrame.fromEulerAnglesYXZ(0, s.Yaw, 0) * CFrame.Angles(pitch, 0, 0)
+	return frame * CFrame.new(0, P.StepHeight + 0.1 + height / 2, 0), size
 end
 
 local function push(events: { Event }, kind: string, value: number?, extra: number?, text: string?)
@@ -420,6 +423,10 @@ local function sweepMove(s: State, spec: Spec, world: World, delta: Vector3): (V
 	local distance, normal, kind = world.Sweep(frame, size, delta)
 	if not distance or not normal then
 		return delta, nil, 0, ""
+	end
+	if kind == "Slope" then
+		-- the edge of a ramp, a loop or a hill (World says so): ride on, the ground rays carry the bike
+		return delta, nil, 0, "Slope"
 	end
 	local travel = math.max(0, distance - 0.05)
 	local moved = delta.Unit * travel

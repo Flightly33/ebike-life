@@ -14,6 +14,7 @@ local World = {}
 
 local Config = require(Shared.Config)
 local loopPlates: { [BasePart]: boolean } = {}
+local rideable: (BasePart) -> boolean
 
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
@@ -69,6 +70,21 @@ local function kindOf(part: BasePart): string
 	return "Wall"
 end
 
+-- Ramps, kickers, loop sections, hillsides and natural ground: a tilted part (its most upward face
+-- slopes) or grass, dirt, sand or mud. Hitting their side edge isn't hitting a wall.
+local NATURAL = { [Enum.Material.Grass] = true, [Enum.Material.LeafyGrass] = true, [Enum.Material.Ground] = true, [Enum.Material.Sand] = true, [Enum.Material.Mud] = true }
+rideable = function(part: BasePart): boolean
+	if NATURAL[part.Material] or part:GetAttribute("Surface") == "Ramp" then
+		return true
+	end
+	if part:IsA("Part") and part.Shape ~= Enum.PartType.Block then
+		return false -- posts, poles, balls
+	end
+	local cf = part.CFrame
+	local top = math.max(math.abs(cf.RightVector.Y), math.abs(cf.UpVector.Y), math.abs(cf.LookVector.Y))
+	return top > 0.3 and top < 0.995
+end
+
 function World.Refresh()
 	local list: { Instance } = {}
 	local bikes = Workspace:FindFirstChild("Bikes")
@@ -102,6 +118,10 @@ World.Physics = {
 			return nil, nil, nil
 		end
 		local part = hit.Instance
+		if part:IsA("BasePart") and rideable(part) then
+			-- the edge of something you ride over: never a wall (the ground rays carry the bike)
+			return hit.Distance, Vector3.yAxis, "Slope"
+		end
 		return hit.Distance, hit.Normal, if part:IsA("BasePart") then kindOf(part) else "Wall"
 	end,
 	-- Loop entries are plates named "LoopEntry" (LookVector along the loop, top face on the riding

@@ -960,6 +960,17 @@ end
 
 print("== little bumps don't bail")
 do
+	-- clipping the side of a ramp, a loop or a hillside (World reports it as "Slope") never stops or bails you
+	local edge = makeWorld({ WallZ = -150, WallKind = "Slope" })
+	local spec0, state0 = spawn("storm_x")
+	local evs = ride(spec0, state0, Modes.Defaults.TURBO, edge, 8, input({ Throttle = 1 }))
+	local bailed = false
+	for _, e in evs do
+		if e.Kind == "Crash" then
+			bailed = true
+		end
+	end
+	check(not bailed and state0.Position.Z < -160, "the edge of a ramp or hill is no wall: no bail, no stop")
 	local function crashes(events): boolean
 		for _, e in events do
 			if e.Kind == "Crash" then
