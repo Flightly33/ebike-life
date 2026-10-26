@@ -706,7 +706,8 @@ def moto_bike(k, P):
             F(alu, K.sweep([HT + o * 0.4 - AX * 0.02, HT + o + (pivot - HT) * 0.45 + Z * 0.04, pivot + o + Z * 0.12], 0, 14, profile=(0.018, 0.032)))
             F(alu, K.sweep([HB + o * 0.4, HB + o * 0.8 + (pivot - HB) * 0.35 - Z * 0.12, pivot + o - Z * 0.1], 0, 12, profile=(0.014, 0.022)))
             F(alu, K.sweep([pivot + o + Z * 0.12, Vector((0, RA.y + 0.15, seat_h - 0.1)) + o * 0.9], 0, 12, profile=(0.012, 0.018)))
-        case_front = HT.y - 0.05
+        # the case's front clears the front tyre at full travel (the axle slides back up the steering axis)
+        case_front = min(HT.y - 0.05, FA.y - k.get("FrontTravel", 0.2) * (-AX.y) / AX.z - P["Rf"] - 0.03)
         case_rear = pivot.y - 0.18
         case_top = min(HT.z - 0.1, seat_h - 0.08)  # never above the seat
         case_bot = pivot.z + 0.05
@@ -728,7 +729,7 @@ def moto_bike(k, P):
             f = i / 7
             secs.append((seat_f + (seat_b - seat_f) * f, 0.09 + 0.025 * min(1, f * 2.5), 0.04, 4))
         F("Leather", K.loft(secs, 24, True, axis="Y"))
-        F("Frame", K.loft([(seat_b - Z * 0.06 + Y * 0.06, 0.09, 0.035, 3), (seat_b - Z * 0.05 - Y * 0.15, 0.07, 0.03, 3), (seat_b - Z * 0.03 - Y * 0.32, 0.04, 0.02, 3)], 20, True, axis="Y"))
+        F("Frame", K.loft([(seat_b - Z * 0.035 + Y * 0.06, 0.09, 0.035, 3), (seat_b - Z * 0.02 - Y * 0.15, 0.07, 0.03, 3), (seat_b + Z * 0.0 - Y * 0.32, 0.04, 0.02, 3)], 20, True, axis="Y"))
         F("NeonRed", K.rbox(seat_b - Z * 0.035 - Y * 0.322, (0.06, 0.006, 0.02), 0.003))
         kit = k.get("Kit", "Dirt")
         if kit in ("Street", "Chopper"):
@@ -869,9 +870,14 @@ def moto_bike(k, P):
             FK("Frame" if kit == "Street" else "Accent", K.sweep(pts, 0, 16, profile=(tw / 2 + 0.025, 0.006)))
         else:
             # high fender right under the lower crown (clear of the tyre over the fork's travel)
-            up = HB.z - FA.z - 0.05
+            under = HB.z - FA.z - 0.05
+            up = max(under, P["Rf"] + k.get("FrontTravel", 0.2) + 0.03)  # higher where the fork is capped
             c = FA + AX * (up / AX.z)
-            S("Accent", K.sweep([c + Y * -0.14 + Z * -0.025, c + Y * 0.04 + Z * 0.0, c + Y * 0.22 + Z * -0.01, c + Y * 0.36 + Z * -0.04], 0, 16, profile=(tw / 2 + 0.008, 0.006)))
+            if up > under + 0.001:
+                pts = [c + Y * 0.08 + Z * 0.0, c + Y * 0.18 + Z * -0.008, c + Y * 0.28 + Z * -0.02, c + Y * 0.36 + Z * -0.04]
+            else:
+                pts = [c + Y * -0.14 + Z * -0.025, c + Y * 0.04 + Z * 0.0, c + Y * 0.22 + Z * -0.01, c + Y * 0.36 + Z * -0.04]
+            S("Accent", K.sweep(pts, 0, 16, profile=(tw / 2 + 0.008, 0.006)))
             S("Black", K.bar(HB - AX * 0.02, c + Z * 0.004, 0.05, 0.02, 0.006))
         S("Dark", K.rbox(P["Bars"] + Y * 0.0 + Z * 0.04, (0.09, 0.05, 0.03), 0.01))
     grips = cockpit(k, style, True, P)

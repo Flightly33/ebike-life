@@ -23,6 +23,7 @@ local Layout = require(Shared.City.Layout)
 local BikeModel = require(Shared.Models.BikeModel)
 local BikePhysics = require(Shared.BikePhysics)
 local CarModel = require(Shared.Models.CarModel)
+local Suspension = require(Shared.Suspension)
 
 local BikeController = require(script.Parent.BikeController)
 local Sound = require(script.Parent.Sound)
@@ -173,23 +174,34 @@ local function forwardSpeed(root: BasePart): number
 	return v:Dot(root.CFrame.LookVector)
 end
 
--- Another rider's bike: how far each wheel's axle has risen from top-out, from the ground under it
--- (along the chassis' normal, the way the suspension measures it), eased so a lost ray doesn't snap
+-- Another rider's bike: how far each wheel's axle has risen from top-out. The ground under each axle
+-- (a straight-down ray) is where the tyre's bottom sits, less its squash; the axle rises along the
+-- chassis' normal, which a lean or wheelie tips, so the climb is divided by its vertical part. Eased
+-- so a lost ray doesn't snap.
 local function measureSuspension(rig: BikeRig, dt: number)
-	local frame = rig.Root.CFrame
+	local root = rig.Root
+	if root.Anchored then
+		rig.Comp[1], rig.Comp[2] = 0, 0 -- parked: topped out, origin on the ground
+		return
+	end
+	local frame = root.CFrame
 	local camera = Workspace.CurrentCamera
 	if camera and (camera.CFrame.Position - frame.Position).Magnitude > MEASURE_RANGE then
 		return
 	end
-	local up = frame.UpVector
+	local upY = math.max(frame.UpVector.Y, 0.3)
 	local sus = rig.Sus
 	local ease = 1 - math.exp(-25 * dt)
 	for i = 1, 2 do
 		local travel, radius = sus.Travel[i], sus.Radius[i]
 		local axle = frame:PointToWorldSpace((if i == 1 then sus.FrontAxle else sus.RearAxle) * VIS)
-		local start = axle + up * (travel * VIS)
-		local hit = Workspace:Raycast(start, -up * ((travel + radius + 0.15) * VIS), World.Params())
-		local target = if hit then math.clamp(travel + radius - hit.Distance / VIS, 0, travel) else 0
+		local above = (travel + radius) * VIS
+		local hit = Workspace:Raycast(axle + Vector3.new(0, above, 0), Vector3.new(0, -(above + (radius + 0.15) * VIS), 0), World.Params())
+		local target = 0
+		if hit then
+			local rise = (hit.Position.Y + radius * VIS * upY - axle.Y) / upY / VIS - Suspension.TYRE_SAG
+			target = math.clamp(rise, 0, travel)
+		end
 		rig.Comp[i] += (target - rig.Comp[i]) * ease
 	end
 end
@@ -416,8 +428,10 @@ local function updateOfficers(dt: number)
 end
 
 function Visuals.Init()
+	-- bikes right after the local ride step (EB_Ride), so the fork and swingarm are drawn against the
+	-- chassis frame of the same render
+	RunService:BindToRenderStep("EB_BikeVisuals", Enum.RenderPriority.Input.Value + 2, updateBikes)
 	RunService.Stepped:Connect(function(_time: number, dt: number)
-		updateBikes(dt)
 		updateCars(dt)
 		updateOfficers(dt)
 	end)

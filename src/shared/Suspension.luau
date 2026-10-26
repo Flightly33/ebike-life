@@ -41,6 +41,7 @@ local TYRE_SAG = 0.02 -- m of tyre squash under static load
 local ENVELOP = 0.6 -- a tyre wraps round a sharp edge over this fraction of its radius (rising ground
 -- under a wheel is smoothed over that much travel; falling ground isn't)
 local LEGS = 0.6 -- of the landing speed that reaches the suspension (the rider's legs take the rest)
+Suspension.TYRE_SAG = TYRE_SAG
 
 export type Corner = {
 	X: number, -- m along the chassis from the centre of mass (+ forward)
@@ -82,6 +83,7 @@ export type State = {
 	Lift: number, -- while airborne: the chassis' leftover offset from the bike's air position, m
 	Tilt: number, -- (and pitch)
 	Ready: boolean,
+	Fresh: boolean, -- never stepped: the first ground step starts it topped out, to sink onto its springs
 }
 
 -- What BikePhysics tells the suspension about a frame
@@ -107,6 +109,7 @@ export type Frame = {
 
 local function cornerFor(x: number, radius: number, travel: number, share: number, mSprung: number, mWheel: number, level: number): Corner
 	local load = share * mSprung * G
+	travel = math.max(travel, 0.02)
 	local sag = SAG * travel
 	local preload = PRELOAD * travel
 	local prog = if level >= 2 then 2.2 else 1.4
@@ -195,7 +198,7 @@ local function settle(st: State, p: Params, rest: { number }, pitch: number)
 end
 
 function Suspension.new(p: Params): State
-	local st: State = { Space = "World", E = 0, EV = 0, B = 0, BV = 0, Y = { 0, 0 }, YV = { 0, 0 }, C = { 0, 0 }, Grounded = { true, true }, Ground = { nil, nil }, Lift = 0, Tilt = 0, Ready = false }
+	local st: State = { Space = "World", E = 0, EV = 0, B = 0, BV = 0, Y = { 0, 0 }, YV = { 0, 0 }, C = { 0, 0 }, Grounded = { true, true }, Ground = { nil, nil }, Lift = 0, Tilt = 0, Ready = false, Fresh = true }
 	return st
 end
 
@@ -295,6 +298,9 @@ function Suspension.Step(st: State, p: Params, f: Frame, dt: number)
 	if dt <= 0 then
 		return
 	end
+	if f.Mode ~= "Ground" then
+		st.Fresh = false
+	end
 	dt = math.min(dt, 0.1)
 	if f.Mode == "Air" then
 		-- the bike flies where BikePhysics says; the chassis eases onto that, the wheels drop to
@@ -359,6 +365,19 @@ function Suspension.Step(st: State, p: Params, f: Frame, dt: number)
 		end
 		st.Lift, st.Tilt = 0, 0
 		st.Ready = true
+	elseif st.Fresh then
+		-- just mounted: the bike was parked topped out; it sinks onto its springs from there
+		st.E = f.Origin.Y + p.Xcg * math.sin(f.Pitch)
+		st.B = f.Pitch
+		st.EV, st.BV = 0, 0
+		for i, k in p.Corners do
+			st.Y[i] = mount(st, k)
+			st.YV[i] = 0
+			st.C[i] = 0
+		end
+		st.Lift, st.Tilt = 0, 0
+		st.Ready = true
+		st.Fresh = false
 	elseif not st.Ready then
 		settle(st, p, lineRest(p, f), f.Pitch)
 	elseif f.Move.Magnitude > 8 then

@@ -357,10 +357,13 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.045, 0)
 			bar(b, "Fork", "Fender", scale(fTop + Vector3.new(0, 0, 0.16)), scale(fTop + Vector3.new(0, 0, -0.2)), geo.TireWidth + 0.04, 0.012, if kit == "Street" then "Frame" else "Accent")
 		else
-			-- high fender right under the lower crown, clear of the tyre over the fork's travel
-			local fenderY = g.HB.Y - 0.05
+			-- high fender right under the lower crown, clear of the tyre over the fork's travel; where the
+			-- fork is short of that (its length is capped by the bars) it sits higher, ahead of the crown
+			local under = g.HB.Y - 0.05
+			local fenderY = math.max(under, g.FrontAxle.Y + g.Rf + (geo.FrontTravel or 0.2) + 0.03)
 			local fTop = Vector3.new(0, fenderY, g.FrontAxle.Z + (fenderY - g.FrontAxle.Y) * g.Axis.Z / g.Axis.Y)
-			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.02, 0.14)), scale(fTop + Vector3.new(0, -0.03, -0.36)), geo.TireWidth + 0.01, 0.015, "Accent")
+			local back = if fenderY > under + 0.001 then -0.08 else 0.14
+			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.02, back)), scale(fTop + Vector3.new(0, -0.03, -0.36)), geo.TireWidth + 0.01, 0.015, "Accent")
 		end
 	else
 		cyl(b, "Steer", "LampBody", 0.07, 0.07, CFrame.new(scale(lampAt)) * CFrame.Angles(0, math.pi / 2, 0), nil, BLACK)
@@ -583,7 +586,9 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	end
 	-- battery case: a boxy centre section from behind the head tube back over the motor, with a
 	-- sloped top panel ("tank") running from the head tube down to the seat
-	local caseFrontZ = g.HT.Z + 0.07
+	-- (its front clears the front tyre at full travel: the axle slides back up the steering axis)
+	local frontTravel = bike.Geometry.FrontTravel or 0.2
+	local caseFrontZ = math.max(g.HT.Z + 0.07, g.FrontAxle.Z + frontTravel * g.Axis.Z / g.Axis.Y + g.Rf + 0.03)
 	local caseRearZ = pivot.Z + 0.14
 	local caseTopY = math.min(g.HT.Y - 0.12, seatH - 0.08) -- never above the seat
 	local caseBottomY = pivot.Y - 0.02
@@ -604,7 +609,7 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	local seatBack = Vector3.new(0, seatH + 0.04, g.RearAxle.Z - 0.05)
 	bar(b, frame, "SeatPad", scale(seatFront), scale(seatBack), 0.22, 0.08, nil, Color3.fromRGB(28, 28, 30))
 	-- tail section
-	bar(b, frame, "Tail", scale(seatBack + Vector3.new(0, -0.07, -0.05)), scale(seatBack + Vector3.new(0, -0.02, 0.32)), 0.16, 0.05, frame)
+	bar(b, frame, "Tail", scale(seatBack + Vector3.new(0, -0.035, -0.05)), scale(seatBack + Vector3.new(0, 0.02, 0.32)), 0.16, 0.05, frame)
 	neon(b, frame, "Taillight", Vector3.new(0.08 * VIS, 0.03 * VIS, 0.015 * VIS), CFrame.new(scale(seatBack + Vector3.new(0, -0.03, 0.33))), Color3.fromRGB(255, 30, 30))
 	local kit = bike.Geometry.Kit or "Dirt"
 	if kit == "Street" or kit == "Chopper" then
@@ -619,8 +624,10 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 		end
 	end
 	-- motor and controller
-	cyl(b, frame, "Motor", 0.2, 0.16, CFrame.new(scale(pivot + Vector3.new(0, -0.02, -0.12))), nil, Color3.fromRGB(70, 72, 76), METAL)
-	cyl(b, frame, "MotorCap", 0.12, 0.17, CFrame.new(scale(pivot + Vector3.new(0, -0.02, -0.12))), "Accent")
+	-- (back from the front tyre's full travel on the short pit bikes)
+	local motorAt = Vector3.new(0, pivot.Y - 0.02, math.max(pivot.Z - 0.12, caseFrontZ + 0.1))
+	cyl(b, frame, "Motor", 0.2, 0.16, CFrame.new(scale(motorAt)), nil, Color3.fromRGB(70, 72, 76), METAL)
+	cyl(b, frame, "MotorCap", 0.12, 0.17, CFrame.new(scale(motorAt)), "Accent")
 	-- swingarm + mono shock: the swingarm swings about the pivot; the shock's body (on the frame) and
 	-- shaft (on the swingarm) each turn to keep pointing at the other, so it telescopes
 	local axleHalf = bike.Geometry.TireWidth / 2 + 0.035
@@ -653,9 +660,7 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 		PartKit.Attach(pegL :: BasePart, "PegL", scale(pivot + Vector3.new(-0.17, -0.02, -0.08)))
 		PartKit.Attach(pegR :: BasePart, "PegR", scale(pivot + Vector3.new(0.17, -0.02, -0.08)))
 	end
-	-- rear fender
-	local fTop = g.RearAxle + Vector3.new(0, g.Rr + 0.05, 0)
-	bar(b, "Swing", "RearHugger", scale(fTop + Vector3.new(0, 0, -0.2)), scale(fTop + Vector3.new(0, -0.04, 0.12)), bike.Geometry.TireWidth + 0.03, 0.012, nil, BLACK)
+	-- (no rear hugger: the tail is the rear fender, and a hugger on the swingarm would rise into it)
 	box(b, frame, "SeatAnchor", Vector3.new(0.1, 0.1, 0.1), CFrame.new(scale(seatFront:Lerp(seatBack, 0.35))), nil, BLACK).Transparency = 1
 end
 

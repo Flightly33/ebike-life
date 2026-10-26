@@ -111,8 +111,8 @@ function BikeStats.Compute(bike: Bikes.Bike, levels: Upgrades.Levels?): Spec
 		AirControl = bike.AirControl * (Upgrades.AirControlScale[suspension] or 1),
 		WheeliePop = bike.WheeliePop,
 		Unlocked = unlocked,
-		FrontTravel = geo.FrontTravel or 0.12,
-		RearTravel = geo.RearTravel or 0.1,
+		FrontTravel = geo.FrontTravel or 0.2, -- (BikeModel draws the same defaults)
+		RearTravel = geo.RearTravel or 0.2,
 		BikeKg = bike.WeightKg,
 		SeatHeightM = geo.SeatHeight,
 		SuspensionLevel = suspension,

@@ -245,6 +245,32 @@ for _, bike in Bikes.List do
 			end
 		end
 	end
+	-- deep in the travel neither tyre runs into the bodywork (big landings may go past that for a frame)
+	do
+		local CLEAR = tonumber(process.env.CLEAR) or 0.7
+		local at = solve(BikeModel.SuspensionPose(sus, CLEAR * sus.Travel[1], CLEAR * sus.Travel[2]))
+		local width = bike.Geometry.TireWidth * VIS / 2
+		local hit = {}
+		for part, cf in at do
+			local body = { BatteryCase = true, SideCover = true, Tank = true, SeatPad = true, Tail = true, Fender = true, Motor = true }
+			if not body[part.Name] then
+				continue
+			end
+			for i, hub in { frontHub, rearHub } do
+				local centre = at[hub].Position
+				local radius = sus.Radius[i] * VIS
+				local loc = cf:PointToObjectSpace(centre)
+				local half = part.Size / 2
+				local near = cf:PointToWorldSpace(Vector3.new(math.clamp(loc.X, -half.X, half.X), math.clamp(loc.Y, -half.Y, half.Y), math.clamp(loc.Z, -half.Z, half.Z)))
+				local d = near - centre
+				-- the tyre is a disc in the bike's side plane: inside its radius and its width
+				if math.abs(d.X) < width and math.sqrt(d.Y * d.Y + d.Z * d.Z) < radius - 0.02 then
+					table.insert(hit, (if i == 1 then "front tyre in " else "rear tyre in ") .. part.Name)
+				end
+			end
+		end
+		check(#hit == 0, string.format("%s: at " .. math.floor(CLEAR * 100) .. "%% travel the tyres clear the bodywork %s", bike.Id, table.concat(hit, ", ")))
+	end
 	check(worst < 0.002, string.format("%s: compressed, each wheel rises by its compression (off by %.4f studs)", bike.Id, worst))
 	check(aligned, bike.Id .. ": the shock's body and shaft stay in line")
 	check(clear, bike.Id .. ": the fork lowers clear the crown at full travel")

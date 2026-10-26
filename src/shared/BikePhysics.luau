@@ -1168,6 +1168,10 @@ function BikePhysics.Step(s: State, spec: Spec, mode: Mode, input: Input, world:
 		return events
 	end
 	s.Time += dt
+	-- for the suspension: where the bike was before anything this frame (a hop leaves the ground below)
+	local wasGround = s.Grounded or s.Loop ~= nil
+	local wasLoop = s.Loop ~= nil
+	local fallBefore = s.VerticalSpeed
 
 	if s.Crash > 0 then
 		s.Crash -= dt
@@ -1218,9 +1222,7 @@ function BikePhysics.Step(s: State, spec: Spec, mode: Mode, input: Input, world:
 			push(events, "LoopStart")
 		end
 	end
-	local wasGround = s.Grounded or s.Loop ~= nil
-	local wasLoop = s.Loop ~= nil
-	local before, pitchBefore, speedBefore, fallBefore = s.Position, s.Pitch, s.Speed, s.VerticalSpeed
+	local before, pitchBefore, speedBefore = s.Position, s.Pitch, s.Speed
 	if s.Loop then
 		loopStep(s, spec, input, dt, events)
 	elseif s.Grounded then

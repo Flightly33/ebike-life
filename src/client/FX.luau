@@ -233,7 +233,9 @@ local function onEvent(event: any)
 		rig.RearDust:Emit(n)
 		rig.FrontDust:Emit(n)
 		if air > 0.9 then
-			shockRing(rig.Root.Position, math.clamp(10 + air * 10, 12, 40))
+			-- on the ground under the bike (the chassis rides below it by the sag)
+			local physics = BikeController.Physics
+			shockRing(if physics then physics.Position else rig.Root.Position, math.clamp(10 + air * 10, 12, 40))
 		end
 		if event.Text == "Crash" then
 			rig.Sparks:Emit(40)
