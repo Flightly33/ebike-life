@@ -100,6 +100,7 @@ export type Frame = {
 	Support: { number? }, -- the height a wheel's axle rests at on the ground under it, m (world;
 	-- nil: nothing under it)
 	LongAccel: number, -- m/s², + speeding up
+	RearBrake: boolean?, -- slowing on the rear brake: the swingarm takes some of the pitch (it dives less)
 	Hop: number, -- 0..1 preload
 	FrontOff: boolean, -- wheelie: the front wheel is up
 	RearOff: boolean, -- stoppie: the rear wheel is up
@@ -220,7 +221,7 @@ local function integrate(st: State, p: Params, support: { number? }, gravity: nu
 	for _ = 1, steps do
 		local cosB = math.cos(st.B)
 		local heave = -p.M * gravity - f.Hop * 0.55 * p.M * G
-		local torque = p.M * f.LongAccel * p.H
+		local torque = p.M * f.LongAccel * p.H * (if f.RearBrake and f.LongAccel < 0 then 0.5 else 1)
 		for i, k in corners do
 			local c = compression(st, k, st.Y[i])
 			local cv = (st.YV[i] - (st.EV + k.X * cosB * st.BV)) / math.max(0.3, cosB)

@@ -147,6 +147,8 @@ export type State = {
 	Flat: number, -- seconds of flat tyre left (police spike strip)
 	Loop: Loop?, -- riding a loop
 	LoopAngle: number, -- rad round it
+	BrakeApplied: number, -- 0..1, the brake as squeezed (follows the input at BrakeSqueeze)
+	FrontBraking: boolean, -- the front brake is on (brake + Shift); otherwise braking is the rear's
 	-- the spring-damper suspension the chassis rides on (Shared/Suspension), built on the first step
 	Sus: Suspension.State?,
 	SusParams: Suspension.Params?,
@@ -238,6 +240,8 @@ function BikePhysics.new(spec: Spec, ground: CFrame, battery: number?, seed: num
 		Flat = 0,
 		Loop = nil,
 		LoopAngle = 0,
+		BrakeApplied = 0,
+		FrontBraking = false,
 		Sus = nil,
 		SusParams = nil,
 		SusSpec = nil,
@@ -490,7 +494,10 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	local crr = if offroad then spec.CrrOff else spec.CrrRoad
 	local riding = s.Crash <= 0
 	local throttle = if riding then input.Throttle else 0
-	local brake = if riding then input.Brake else 0
+	-- S is the rear brake; with Shift it's the front (full power, and what lifts a stoppie)
+	s.FrontBraking = riding and input.Brake > 0 and input.Wheelie
+	s.BrakeApplied = approach(s.BrakeApplied, if riding then input.Brake else 0, P.BrakeSqueeze * dt)
+	local brake = s.BrakeApplied
 
 	-- Battery management: a low pack limits power, an empty one cuts the motor
 	local charge = if spec.BatteryWh > 0 then s.Battery / spec.BatteryWh else 0
@@ -545,7 +552,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	local accel = (drive - aero - roll - grade) / m
 
 	-- Brakes (and walking the bike backwards from a stop)
-	local brakeDecel = brake * spec.BrakeG * g * math.min(1, grip / 0.85)
+	local brakeDecel = brake * spec.BrakeG * (if s.FrontBraking then 1 else P.RearBrakeShare) * g * math.min(1, grip / 0.85)
 	if v > 0.05 then
 		local before = v
 		v = math.max(0, v + accel * dt - brakeDecel * dt)
@@ -1265,6 +1272,7 @@ function BikePhysics.Step(s: State, spec: Spec, mode: Mode, input: Input, world:
 		Support = support,
 		LongAccel = if onGround then math.clamp((s.Speed - speedBefore) / dt, -25, 25) else 0,
 		Hop = if s.HopHeld then s.HopCharge else 0,
+		RearBrake = not s.FrontBraking and s.BrakeApplied > 0,
 		FrontOff = s.Wheelie > 0.03,
 		RearOff = s.Stoppie > 0.03,
 		LandingSpeed = if not wasGround and s.Grounded then fallBefore else nil,

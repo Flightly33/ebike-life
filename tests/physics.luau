@@ -243,8 +243,20 @@ do
 		end
 	end)
 	local distance = math.abs(state.Position.Z - startZ) * Config.METERS_PER_STUD
-	print(string.format("  %.0f km/h to stop in %.1f m", before, distance))
-	check(distance > 3 and distance < 12, "stops from ~32 km/h in 3-12 m")
+	print(string.format("  rear brake: %.0f km/h to stop in %.1f m", before, distance))
+	check(distance > 12 and distance < 28, "the rear brake alone stops from ~49 km/h in 12-28 m (about 0.45 g)")
+	-- the front brake (brake + Shift) stops much harder
+	spec, state = spawn("flit_mini")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 15, input({ Throttle = 1 }))
+	startZ = state.Position.Z
+	ride(spec, state, Modes.Defaults.TURBO, flat, 6, input({ Brake = 1, Wheelie = true }), function(_, s)
+		if s.Speed <= 0.01 then
+			s.Speed = 0
+		end
+	end)
+	local front = math.abs(state.Position.Z - startZ) * Config.METERS_PER_STUD
+	print(string.format("  front brake: to stop in %.1f m", front))
+	check(front < distance * 0.75, "the front brake stops harder than the rear")
 end
 
 print("== steering and lean")

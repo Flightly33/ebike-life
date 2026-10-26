@@ -40,6 +40,9 @@ Config.Physics = {
 	SteerRate = 4.5, -- how fast the bars follow the input (1/s)
 	MaxLean = 0.85, -- rad
 	ReverseSpeed = 1.3, -- m/s when walking the bike backwards
+	RearBrakeShare = 0.55, -- of the bike's full braking the rear brake (S) manages alone: the weight
+	-- shifts off the rear as it slows; brake + Shift is the front brake, at full power (stoppies)
+	BrakeSqueeze = 5, -- per second: how fast the brake comes on (a lever is squeezed, not snapped)
 	RiderEfficiency = 0.82, -- motor + controller efficiency for battery drain
 	CrashImpact = 9.5, -- m/s of head-on speed into a wall that bails the rider (~34 km/h)
 	CrashSquareness = 0.55, -- hits more glancing than this (0 = scrape, 1 = head-on) never bail
