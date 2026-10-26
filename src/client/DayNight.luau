@@ -136,6 +136,11 @@ local function applyLook(look: DayNightShared.Look, hour: number)
 		bloom.Intensity = look.Bloom
 		bloom.Threshold = look.BloomThreshold
 	end
+	local clouds = Workspace.Terrain:FindFirstChildOfClass("Clouds")
+	if clouds then
+		clouds.Color = look.Cloud
+		clouds.Cover = look.CloudCover
+	end
 	local rays = Lighting:FindFirstChildOfClass("SunRaysEffect")
 	if rays then
 		rays.Intensity = look.SunRays
@@ -276,6 +281,14 @@ function DayNight.Hour(): number
 end
 
 function DayNight.Init()
+	-- drifting clouds (the engine's own, no parts), blown by a light wind
+	if not Workspace.Terrain:FindFirstChildOfClass("Clouds") then
+		local clouds = Instance.new("Clouds")
+		clouds.Density = 0.62
+		clouds.Cover = 0.45
+		clouds.Parent = Workspace.Terrain
+	end
+	Workspace.GlobalWind = Vector3.new(6, 0, 3)
 	task.spawn(function()
 		local city = Workspace:WaitForChild("City", 60)
 		if city then

@@ -50,20 +50,21 @@ function Props.Tree(parent: Instance, base: Vector3, rng: Random, size: number?)
 	local model = PartKit.Model(parent, "Tree")
 	local kind = rng:NextNumber()
 	local spin = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
-	if kind < 0.15 then
-		-- conifer
-		local height = 6 * s
-		PartKit.Post(model, "Trunk", 0.9 * s, height, base, C.Trunk, Enum.Material.Wood)
+	if kind < 0.1 then
+		-- conifer: flat, overlapping tiers narrowing to a point above a clear trunk
+		local height = 5 * s
+		PartKit.Post(model, "Trunk", 0.8 * s, height + 4 * s, base, C.Trunk, Enum.Material.Wood)
 		local color = CONIFER[rng:NextInteger(1, #CONIFER)]
-		for tier = 0, 3 do
-			local w = (9 - tier * 2) * s
-			local y = height * 0.6 + tier * 3.6 * s
-			local shade = color:Lerp(Color3.fromRGB(150, 190, 120), tier * 0.06)
-			PartKit.Ellipsoid(model, "Leaves", Vector3.new(w, 5.5 * s, w), CFrame.new(base + Vector3.new(0, y, 0)) * spin, shade, Enum.Material.Grass, NO_COLLIDE)
+		for tier = 0, 4 do
+			local w = (7.5 - tier * 1.45) * s
+			local y = height + tier * 2.5 * s
+			local shade = color:Lerp(Color3.fromRGB(150, 190, 120), tier * 0.05)
+			PartKit.Ellipsoid(model, "Leaves", Vector3.new(w, 3.2 * s, w), CFrame.new(base + Vector3.new(0, y, 0)) * spin, shade, Enum.Material.Grass, NO_COLLIDE)
 		end
+		PartKit.Ellipsoid(model, "Leaves", Vector3.new(1.2, 2.6, 1.2) * s, CFrame.new(base + Vector3.new(0, height + 12.4 * s, 0)), color:Lerp(Color3.fromRGB(150, 190, 120), 0.3), Enum.Material.Grass, NO_COLLIDE)
 		return
 	end
-	local birch = kind < 0.3
+	local birch = kind < 0.25
 	local height = (if birch then 11 else 9) * s
 	local bark = if birch then BIRCH_BARK else C.Trunk
 	PartKit.Post(model, "Trunk", (if birch then 0.9 else 1.3) * s, height, base, bark, Enum.Material.Wood)
