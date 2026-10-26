@@ -5,7 +5,7 @@
 	V no hands, Space get off (Roblox's own jump does that), plus Q bunny hop (hold to preload),
 	M ride mode, 1-5 pick a mode, H bell, R drift (locks the rear brake), F first person.
 	In the air: Z superman, X can-can, T nac-nac, G knee knocker, N no-footer (hold), Y barspin (tap).
-	On the ground: brake + Shift = stoppie.
+	On the ground: brake + Shift = stoppie. P is the video camera (Client/CineCam).
 	Gamepad: RT gas, LT brake, left stick steer, X wheelie, Y hop, B drift, d-pad left/right one/no
 	hands, RB/LB mode, R3 first person, A get off. Touch: the on-screen riding buttons (UI/TouchControls) and the thumbstick.
 ]]
