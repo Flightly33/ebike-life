@@ -20,10 +20,13 @@ local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Admin = require(Shared.Admin)
 local Bikes = require(Shared.Bikes)
+local Config = require(Shared.Config)
+local DayNight = require(Shared.DayNight)
 local Economy = require(Shared.Economy)
 local Layout = require(Shared.City.Layout)
 local Remotes = require(Shared.Remotes)
@@ -161,8 +164,14 @@ local commands: { [string]: Handler } = {
 		if not hours then
 			return false, "Give an hour, 0 to 24"
 		end
-		Lighting.ClockTime = hours % 24
-		return true, string.format("Time %.1f", Lighting.ClockTime)
+		-- shift every client's clock (Shared/DayNight) so it reads that hour now
+		hours %= 24
+		local cfg = Config.DayNight
+		local now = Workspace:GetServerTimeNow()
+		local base = (now / cfg.DaySeconds + cfg.StartFraction) % 1
+		ReplicatedStorage:SetAttribute("ClockOffset", (DayNight.FractionAt(hours) - base) % 1)
+		Lighting.ClockTime = hours
+		return true, string.format("Time %.1f", hours)
 	end,
 }
 

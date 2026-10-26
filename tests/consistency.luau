@@ -150,6 +150,45 @@ for _, t in Layout.Teleports do
 	check(Layout.Places[t.Id] ~= nil, "teleport " .. t.Id .. " has a place")
 end
 
+-- The day and night clock: continuous, invertible, and a full look at every hour
+do
+	local DayNight = Loader.Require("ReplicatedStorage.Shared.DayNight")
+	local day = Config.DayNight.DaySeconds
+	local last = DayNight.Hour(0)
+	local jumps, dayTime = 0, 0
+	for i = 1, 2400 do
+		local t = i * day / 2400
+		local h = DayNight.Hour(t)
+		local step = (h - last) % 24
+		if step > 0.5 then
+			jumps += 1
+		end
+		if h >= 6 and h < 20 then
+			dayTime += 1
+		end
+		last = h
+	end
+	check(jumps == 0, "the clock never jumps")
+	check(math.abs(dayTime / 2400 - Config.DayNight.DayShare) < 0.01, "daylight takes DayShare of a day")
+	local worst = 0
+	for hour = 0, 23.5, 0.5 do
+		local back = DayNight.Hour((DayNight.FractionAt(hour) - Config.DayNight.StartFraction) * day)
+		worst = math.max(worst, math.abs(((back - hour + 12) % 24) - 12))
+	end
+	check(worst < 0.01, "FractionAt inverts the clock (admin time command)")
+	local ok = true
+	for hour = 0, 24, 0.25 do
+		local look = DayNight.LookAt(hour)
+		for _, key in { "Brightness", "Night", "Bloom", "AtmoDensity" } do
+			if type((look :: any)[key]) ~= "number" then
+				ok = false
+			end
+		end
+	end
+	check(ok, "every hour has a full look")
+	check(DayNight.LookAt(1).Night > 0.9 and DayNight.LookAt(13).Night < 0.01, "night is lit, noon isn't")
+end
+
 if failures > 0 then
 	print(string.format("%d consistency check(s) failed", failures))
 	process.exit(1)
