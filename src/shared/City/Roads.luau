@@ -20,6 +20,12 @@ local SMOOTH = Enum.Material.SmoothPlastic
 local MARK = { Collide = false, Query = false, Touch = false, Shadow = false }
 local THICK = 0.6 -- asphalt slab thickness
 local MARK_Y = Layout.ROAD_Y + 0.025
+local PATCH = Color3.fromRGB(72, 74, 78) -- repaired asphalt, darker than the road
+local SIGN_GREEN = Color3.fromRGB(28, 104, 62)
+
+-- Street names: the avenues run along Z (grid lines I), the streets along X (lines J)
+local AVENUES = { "1st Ave", "2nd Ave", "3rd Ave", "4th Ave", "5th Ave", "6th Ave", "7th Ave", "8th Ave", "9th Ave" }
+local STREETS = { "Maple St", "Oak St", "Cedar St", "Elm St", "Birch St", "Willow St", "Aspen St", "Spruce St", "Ash St" }
 
 local function slab(parent: Instance, name: string, center: Vector3, size: Vector3, yaw: number?): Part
 	local cf = CFrame.new(center.X, Layout.ROAD_Y - THICK / 2, center.Z) * CFrame.Angles(0, yaw or 0, 0)
@@ -118,6 +124,17 @@ function Roads.Build(city: Instance)
 			local size = if edge.Axis == "X" then Vector3.new(length, 0, edge.Width) else Vector3.new(edge.Width, 0, length)
 			slab(roads, "Road", center, size)
 			markings(marks, p0, p1, edge.Kind, edge.Width, edge.Lanes)
+			-- white edge lines along both kerbs, and a few darker repair patches in the asphalt
+			line(marks, p0 + dir * 4, p1 - dir * 4, edge.Width / 2 - 1.8, 0.4, C.White)
+			line(marks, p0 + dir * 4, p1 - dir * 4, -(edge.Width / 2 - 1.8), 0.4, C.White)
+			local rng = Random.new(edge.A * 7919 + edge.B * 104729)
+			for _ = 1, rng:NextInteger(1, 3) do
+				local along = rng:NextNumber(0.15, 0.85) * length
+				local across = rng:NextNumber(-0.35, 0.35) * edge.Width
+				local at = Vector3.new(p0.X, Layout.ROAD_Y + 0.012, p0.Z) + dir * along + Vector3.new(-dir.Z, 0, dir.X) * across
+				local size2 = Vector3.new(rng:NextNumber(3, 7), 0.02, rng:NextNumber(4, 10))
+				PartKit.Box(marks, "Patch", size2, CFrame.lookAt(at, at + dir) * CFrame.Angles(0, rng:NextNumber(-0.2, 0.2), 0), PATCH, ASPHALT, MARK)
+			end
 			-- manholes in the lanes, drains along both kerbs
 			local side = Vector3.new(-dir.Z, 0, dir.X)
 			local laneW = edge.Width / (edge.Lanes * 2)
@@ -168,11 +185,28 @@ function Roads.Build(city: Instance)
 	end
 
 	-- Intersections
+	local signs = PartKit.Folder(city, "StreetSigns")
 	for _, node in Layout.Nodes do
 		if node.Grid and node.I and node.J then
 			local wx = Layout.LineWidth(node.I) -- the road along Z is this wide (in X)
 			local wz = Layout.LineWidth(node.J)
 			slab(roads, "Intersection", node.Position, Vector3.new(wx, 0, wz))
+			-- a street-name sign on one corner: the avenue's name along Z, the street's along X
+			local foot = node.Position + Vector3.new(wx / 2 + 3, Layout.CURB_Y - Layout.ROAD_Y, -(wz / 2 + 7))
+			local model = PartKit.Model(signs, "StreetSign")
+			PartKit.Post(model, "Pole", 0.35, 10.5, foot, C.LampBlack, Enum.Material.Metal)
+			PartKit.Ball(model, "Cap", 0.45, foot + Vector3.new(0, 10.5, 0), C.LampBlack, Enum.Material.Metal, MARK)
+			local blades = {
+				{ Name = AVENUES[node.I + 1] or "Avenue", Y = 9.4, Along = Vector3.new(0, 0, 1) },
+				{ Name = STREETS[node.J + 1] or "Street", Y = 10.1, Along = Vector3.new(1, 0, 0) },
+			}
+			for _, blade in blades do
+				local at = foot + Vector3.new(0, blade.Y, 0)
+				local part = PartKit.Box(model, "Blade", Vector3.new(6, 0.9, 0.12), CFrame.lookAt(at, at + blade.Along:Cross(Vector3.yAxis)), SIGN_GREEN, SMOOTH, MARK)
+				for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+					PartKit.Sign(part, face, blade.Name, Color3.fromRGB(245, 245, 240), nil, Enum.Font.GothamBold, 24)
+				end
+			end
 			if Layout.HasLights(node) then
 				-- corner signals: SE and NW control traffic along Z, NE and SW along X
 				local corners = {

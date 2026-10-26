@@ -87,6 +87,15 @@ function PartKit.Post(parent: Instance, name: string, diameter: number, height: 
 	return PartKit.Cylinder(parent, name, diameter, height, cf, color, material, opts)
 end
 
+-- An ellipsoid filling `size` (a sphere mesh on a box part: Ball parts are always round)
+function PartKit.Ellipsoid(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material, opts: Opts?): Part
+	local p = PartKit.Box(parent, name, size, cframe, color, material, opts)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = p
+	return p
+end
+
 function PartKit.Ball(parent: Instance, name: string, diameter: number, position: Vector3, color: Color3, material: Enum.Material, opts: Opts?): Part
 	local p = Instance.new("Part")
 	p.Name = name

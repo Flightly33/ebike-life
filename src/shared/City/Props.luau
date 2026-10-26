@@ -39,26 +39,83 @@ Props.Leaves = {
 	Color3.fromRGB(222, 140, 40),
 }
 
+-- Trees: mostly broadleaf (a shaped canopy of clumps, sunlit on top and shaded underneath, on a
+-- trunk with a root flare and two limbs), some birches (white bark, a tall oval crown) and some
+-- conifers (tiers narrowing to a point)
+local BIRCH_BARK = Color3.fromRGB(226, 222, 212)
+local CONIFER = { Color3.fromRGB(46, 92, 58), Color3.fromRGB(58, 104, 62), Color3.fromRGB(40, 80, 60) }
+
 function Props.Tree(parent: Instance, base: Vector3, rng: Random, size: number?)
 	local s = size or rng:NextNumber(0.85, 1.3)
-	local height = 9 * s
 	local model = PartKit.Model(parent, "Tree")
-	PartKit.Post(model, "Trunk", 1.3 * s, height, base, C.Trunk, Enum.Material.Wood)
-	local color = Props.Leaves[rng:NextInteger(1, #Props.Leaves)]
-	local top = base + Vector3.new(0, height, 0)
-	PartKit.Ball(model, "Leaves", 11 * s, top + Vector3.new(0, 1.5 * s, 0), color, Enum.Material.Grass, NO_COLLIDE)
-	PartKit.Ball(model, "Leaves", 8 * s, top + Vector3.new(rng:NextNumber(-3, 3) * s, 5 * s, rng:NextNumber(-3, 3) * s), color:Lerp(Props.Leaves[rng:NextInteger(1, #Props.Leaves)], 0.4), Enum.Material.Grass, NO_COLLIDE)
-	if rng:NextNumber() < 0.6 then
-		PartKit.Ball(model, "Leaves", 7 * s, top + Vector3.new(rng:NextNumber(-4, 4) * s, -0.5 * s, rng:NextNumber(-4, 4) * s), color, Enum.Material.Grass, NO_COLLIDE)
+	local kind = rng:NextNumber()
+	local spin = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	if kind < 0.15 then
+		-- conifer
+		local height = 6 * s
+		PartKit.Post(model, "Trunk", 0.9 * s, height, base, C.Trunk, Enum.Material.Wood)
+		local color = CONIFER[rng:NextInteger(1, #CONIFER)]
+		for tier = 0, 3 do
+			local w = (9 - tier * 2) * s
+			local y = height * 0.6 + tier * 3.6 * s
+			local shade = color:Lerp(Color3.fromRGB(150, 190, 120), tier * 0.06)
+			PartKit.Ellipsoid(model, "Leaves", Vector3.new(w, 5.5 * s, w), CFrame.new(base + Vector3.new(0, y, 0)) * spin, shade, Enum.Material.Grass, NO_COLLIDE)
+		end
+		return
 	end
+	local birch = kind < 0.3
+	local height = (if birch then 11 else 9) * s
+	local bark = if birch then BIRCH_BARK else C.Trunk
+	PartKit.Post(model, "Trunk", (if birch then 0.9 else 1.3) * s, height, base, bark, Enum.Material.Wood)
+	PartKit.Post(model, "Roots", (if birch then 1.4 else 2.1) * s, 0.7 * s, base, bark, Enum.Material.Wood, NO_COLLIDE)
+	if birch then
+		for i = 1, 4 do
+			PartKit.Post(model, "Bark", 0.95 * s, 0.25 * s, base + Vector3.new(0, i * 2.2 * s, 0), Color3.fromRGB(40, 38, 36), Enum.Material.Wood, NO_COLLIDE)
+		end
+	end
+	local top = base + Vector3.new(0, height, 0)
+	-- two limbs reaching into the crown
+	for i = 1, 2 do
+		local a = rng:NextNumber(0, math.pi * 2) + i * math.pi
+		local from = base + Vector3.new(0, height * 0.62, 0)
+		local to = from + Vector3.new(math.cos(a) * 3 * s, 3.2 * s, math.sin(a) * 3 * s)
+		PartKit.Tube(model, "Limb", from, to, 0.55 * s, bark, Enum.Material.Wood, NO_COLLIDE)
+	end
+	local color = Props.Leaves[rng:NextInteger(1, #Props.Leaves)]
+	if birch then
+		color = color:Lerp(Color3.fromRGB(170, 190, 80), 0.5)
+	end
+	local light = color:Lerp(Color3.fromRGB(255, 240, 170), 0.18)
+	local dark = color:Lerp(Color3.new(0, 0, 0), 0.18)
+	local crown = if birch then Vector3.new(7.5, 11, 7.5) * s else Vector3.new(12, 9, 12) * s
+	PartKit.Ellipsoid(model, "Leaves", crown, CFrame.new(top + Vector3.new(0, 1.2 * s, 0)) * spin, color, Enum.Material.Grass, NO_COLLIDE)
+	local clumps = if birch then 3 else 5
+	for i = 1, clumps do
+		local a = (i / clumps) * math.pi * 2 + rng:NextNumber(-0.3, 0.3)
+		local r = (if birch then 2.6 else 4.6) * s
+		local up = rng:NextNumber(-1.5, 3.5) * s
+		local d = rng:NextNumber(5.5, 7.5) * s * (if birch then 0.75 else 1)
+		local tone = if up > 1.5 * s then light elseif up < 0 then dark else color
+		PartKit.Ellipsoid(model, "Leaves", Vector3.new(d, d * 0.8, d), CFrame.new(top + Vector3.new(math.cos(a) * r, 1.2 * s + up, math.sin(a) * r)) * spin, tone, Enum.Material.Grass, NO_COLLIDE)
+	end
+	-- a sunlit crown on top
+	PartKit.Ellipsoid(model, "Leaves", Vector3.new(7, 5, 7) * s * (if birch then 0.7 else 1), CFrame.new(top + Vector3.new(rng:NextNumber(-1, 1) * s, (if birch then 6.5 else 5) * s, rng:NextNumber(-1, 1) * s)), light, Enum.Material.Grass, NO_COLLIDE)
 end
 
 -- Old-fashioned black lamp post with a white globe (as in the reference city)
 function Props.Lamp(parent: Instance, base: Vector3)
 	local model = PartKit.Model(parent, "Lamp")
 	PartKit.Post(model, "Pole", 0.6, 13, base, C.LampBlack, METAL)
+	-- a fluted cast base, collars up the pole, a cage under the globe and a finial on top
+	PartKit.Post(model, "Base", 1.3, 1.6, base, C.LampBlack, METAL, DECOR)
+	PartKit.Post(model, "BaseCap", 1.0, 0.35, base + Vector3.new(0, 1.6, 0), C.LampBlack, METAL, DECOR)
+	for _, y in { 4.5, 9, 12.4 } do
+		PartKit.Post(model, "Collar", 0.85, 0.22, base + Vector3.new(0, y, 0), C.LampBlack, METAL, DECOR)
+	end
 	PartKit.Box(model, "Head", Vector3.new(1.6, 0.4, 1.6), CFrame.new(base + Vector3.new(0, 13.2, 0)), C.LampBlack, METAL, DECOR)
 	PartKit.Ball(model, "Globe", 1.9, base + Vector3.new(0, 14.3, 0), Color3.fromRGB(255, 246, 220), Enum.Material.Neon, DECOR)
+	PartKit.Post(model, "Crown", 0.9, 0.3, base + Vector3.new(0, 15.15, 0), C.LampBlack, METAL, DECOR)
+	PartKit.Ball(model, "Finial", 0.35, base + Vector3.new(0, 15.6, 0), C.LampBlack, METAL, DECOR)
 end
 
 function Props.Bench(parent: Instance, cf: CFrame)
