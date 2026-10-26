@@ -41,6 +41,12 @@ export type Spec = {
 	AirControl: number,
 	WheeliePop: number,
 	Unlocked: boolean,
+	-- suspension (Shared/Suspension builds the spring-damper model from these)
+	FrontTravel: number, -- m at the wheel
+	RearTravel: number,
+	BikeKg: number, -- the bike alone (MassKg adds the rider)
+	SeatHeightM: number,
+	SuspensionLevel: number, -- the Suspension upgrade: 0 stock, 1 tuned damping, 2 pro coil setup
 }
 
 type TireTable = { Crr: number, Off: number, Grip: number, GripOff: number }
@@ -105,6 +111,11 @@ function BikeStats.Compute(bike: Bikes.Bike, levels: Upgrades.Levels?): Spec
 		AirControl = bike.AirControl * (Upgrades.AirControlScale[suspension] or 1),
 		WheeliePop = bike.WheeliePop,
 		Unlocked = unlocked,
+		FrontTravel = geo.FrontTravel or 0.12,
+		RearTravel = geo.RearTravel or 0.1,
+		BikeKg = bike.WeightKg,
+		SeatHeightM = geo.SeatHeight,
+		SuspensionLevel = suspension,
 	}
 end
 

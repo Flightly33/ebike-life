@@ -6,11 +6,17 @@
 
 	Runtime bikes (Build without Static) are one assembly:
 		Root (invisible, the pivot)  <- welds: frame, battery, saddle, Seat
-		  RearHub   Motor6D "RearSpin"   (wheel spin)
-		  Steer     Motor6D "SteerJoint" (about the head tube axis)   <- welds: fork, bars, light
-		    FrontHub  Motor6D "FrontSpin"
+		  Steer     Motor6D "SteerJoint" (about the head tube axis)   <- welds: fork tops, bars, light
+		    Fork      Motor6D "ForkSlide"  (along the steering axis)    <- welds: fork lowers, low fender
+		      FrontHub  Motor6D "FrontSpin"
+		  Swing     Motor6D "SwingJoint" (about the swingarm pivot)    <- welds: swingarm, chain, hugger
+		    RearHub   Motor6D "RearSpin"   (wheel spin)
+		    ShockEnd  Motor6D "ShockRodJoint" (e-motos: the shock's shaft, aimed at its body)
+		  ShockTop  Motor6D "ShockJoint"  (e-motos: the shock's body and spring, aimed at the shaft)
 		  Crank     Motor6D "CrankSpin"  (pedals; pedal bikes only)
-	The client turns those joints through .Transform every frame. Attachments GripL / GripR (on the
+	The model is drawn with the suspension topped out (fully extended). The client turns those
+	joints through .Transform every frame: the wheels spin, the bars steer, and the fork and swingarm
+	follow the suspension's compression (Shared/Suspension). Attachments GripL / GripR (on the
 	bars), PedalL / PedalR (on the pedals) or PegL / PegR (e-motos) are where the rider's hands and
 	feet go. Parts carry a "Paint" attribute (Frame / Accent / Rims) so a respray only recolours.
 
@@ -141,6 +147,9 @@ export type Geo = {
 	SeatTop: Vector3,
 	ST: Vector3, -- seat tube top
 	Bars: Vector3, -- handlebar centre
+	Pivot: Vector3, -- swingarm pivot
+	ShockTop: Vector3, -- rear shock mounts: on the frame
+	ShockBottom: Vector3, -- and on the swingarm
 }
 
 local HEAD_ANGLE: { [string]: number } = {
@@ -167,13 +176,20 @@ local function geometry(bike: Bikes.Bike): Geo
 	local ha = math.rad(HEAD_ANGLE[style] or 70)
 	local axis = Vector3.new(0, math.sin(ha), math.cos(ha))
 	local forkLength = FORK_LENGTH[style] or 0.45
+	local headTube = if style == "Cruiser" then 0.2 elseif style == "Enduro" or style == "Moto" then 0.12 else 0.16
 	if style == "Moto" then
-		-- e-motos: the fork is as long as it takes to put the head tube just above the seat, so a
-		-- small-wheeled pit bike gets a short fork (its tank and battery stay under the rider)
-		forkLength = math.clamp((geo.SeatHeight + 0.1 - Rf) / math.sin(ha) - 0.16, 0.35, 0.75)
+		-- e-motos: the fork is long enough to put the head tube just above the seat (a small-wheeled
+		-- pit bike gets a short fork, its tank and battery under the rider) and for the tyre to clear
+		-- the lower crown at full travel, as far as the bars allow (the head tube stays under them, so
+		-- the bars, on the steering axis, stay where the rider fits them)
+		local sinHead = math.sin(ha)
+		local fit = (geo.SeatHeight + 0.1 - Rf) / sinHead - headTube
+		local clear = (Rf + (geo.FrontTravel or 0.2) + 0.06) / sinHead
+		local room = (geo.BarHeight - 0.03 - Rf) / sinHead - headTube
+		forkLength = math.clamp(math.max(fit, math.min(clear, room)), 0.35, 0.85)
 	end
 	local hb = frontAxle + axis * forkLength
-	local ht = hb + axis * (if style == "Cruiser" then 0.2 elseif style == "Enduro" then 0.12 else 0.16)
+	local ht = hb + axis * headTube
 	local bbHeight = if style == "Enduro" then 0.34 elseif style == "Fat" then 0.31 else 0.29
 	local bb = Vector3.new(0, bbHeight, rearAxle.Z - (CHAINSTAY[style] or 0.45))
 	if style == "Cargo" then
@@ -190,6 +206,11 @@ local function geometry(bike: Bikes.Bike): Geo
 	if style == "Cruiser" then
 		bars += Vector3.new(0, 0, 0.12) -- swept back
 	end
+	-- e-motos: the swingarm pivots behind the motor and a mono shock runs from under the seat to it;
+	-- the rest swing the rear wheel about the bottom bracket
+	local pivot = if style == "Moto" then Vector3.new(0, 0.42, rearAxle.Z - 0.58) else bb
+	local shockTop = Vector3.new(0, geo.SeatHeight - 0.15, pivot.Z + 0.01)
+	local shockBottom = pivot:Lerp(rearAxle, 0.35) + Vector3.new(0, 0.05, 0)
 	return {
 		RearAxle = rearAxle,
 		FrontAxle = frontAxle,
@@ -202,6 +223,9 @@ local function geometry(bike: Bikes.Bike): Geo
 		SeatTop = seatTop,
 		ST = st,
 		Bars = bars,
+		Pivot = pivot,
+		ShockTop = shockTop,
+		ShockBottom = shockBottom,
 	}
 end
 
@@ -226,6 +250,10 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 	local tireHalf = geo.TireWidth / 2 + 0.025
 	local forkW = if moto then 0.055 elseif style == "Hardtail" or style == "Enduro" or style == "Fat" or style == "Moped" then 0.045 else 0.03
 	local suspended = moto or style == "Hardtail" or style == "Enduro" or style == "Fat" or style == "Moped" or style == "Cruiser" or style == "Cargo"
+	-- the fork lowers slide up the steering axis with the suspension
+	local forkPivot = PartKit.Box(b.Model, "Fork", Vector3.new(0.1, 0.1, 0.1), CFrame.fromMatrix(scale(g.FrontAxle), Vector3.xAxis, g.Axis, Vector3.xAxis:Cross(g.Axis)), BLACK, SMOOTH, { Transparency = 1 })
+	add(b, "Fork", forkPivot)
+	b.Groups.Fork.Pivot = forkPivot
 	local crown = g.HB + g.Axis * 0.02
 	for _, side in { -1, 1 } do
 		local top = crown + Vector3.new(side * tireHalf, 0, 0)
@@ -233,7 +261,10 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 		if suspended then
 			local mid = bottom:Lerp(top, 0.45)
 			tube(b, "Steer", "Stanchion", scale(top), scale(mid), forkW, nil, if moto then Color3.fromRGB(200, 160, 40) else SILVER, METAL)
-			tube(b, "Steer", "ForkLeg", scale(mid + (top - mid) * 0.15), scale(bottom), forkW * 1.35, "Accent")
+			-- the lower's top stays clear of the crown at full travel
+			local travel = geo.FrontTravel or 0.2
+			local legTop = math.min(0.53, 1 - (travel / g.Axis.Y + 0.05) / (top - bottom).Magnitude)
+			tube(b, "Fork", "ForkLeg", scale(bottom:Lerp(top, legTop)), scale(bottom), forkW * 1.35, "Accent")
 		else
 			tube(b, "Steer", "ForkBlade", scale(top), scale(bottom), forkW, "Frame")
 		end
@@ -324,10 +355,12 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 		if kit == "Supermoto" or kit == "Street" or kit == "Chopper" then
 			-- a flat chord over the tyre: its ends at +-0.2 m are already below the top, so it clears
 			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.045, 0)
-			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, 0, 0.16)), scale(fTop + Vector3.new(0, 0, -0.2)), geo.TireWidth + 0.04, 0.012, if kit == "Street" then "Frame" else "Accent")
+			bar(b, "Fork", "Fender", scale(fTop + Vector3.new(0, 0, 0.16)), scale(fTop + Vector3.new(0, 0, -0.2)), geo.TireWidth + 0.04, 0.012, if kit == "Street" then "Frame" else "Accent")
 		else
-			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.06, 0)
-			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.03, 0.18)), scale(fTop + Vector3.new(0, 0.0, -0.25)), geo.TireWidth + 0.05, 0.015, "Accent")
+			-- high fender right under the lower crown, clear of the tyre over the fork's travel
+			local fenderY = g.HB.Y - 0.05
+			local fTop = Vector3.new(0, fenderY, g.FrontAxle.Z + (fenderY - g.FrontAxle.Y) * g.Axis.Z / g.Axis.Y)
+			bar(b, "Steer", "Fender", scale(fTop + Vector3.new(0, -0.02, 0.14)), scale(fTop + Vector3.new(0, -0.03, -0.36)), geo.TireWidth + 0.01, 0.015, "Accent")
 		end
 	else
 		cyl(b, "Steer", "LampBody", 0.07, 0.07, CFrame.new(scale(lampAt)) * CFrame.Angles(0, math.pi / 2, 0), nil, BLACK)
@@ -343,6 +376,9 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 end
 
 local function rearWheel(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
+	local swing = PartKit.Box(b.Model, "Swing", Vector3.new(0.1, 0.1, 0.1), CFrame.new(scale(g.Pivot)), BLACK, SMOOTH, { Transparency = 1 })
+	add(b, "Swing", swing)
+	b.Groups.Swing.Pivot = swing
 	local hub = PartKit.Box(b.Model, "RearHub", Vector3.new(0.1, 0.1, 0.1), CFrame.new(scale(g.RearAxle)), BLACK, SMOOTH, { Transparency = 1 })
 	add(b, "Rear", hub)
 	b.Groups.Rear.Pivot = hub
@@ -537,7 +573,7 @@ end
 local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	-- Light e-moto: big battery case, long flat seat, swingarm with a mono shock, footpegs
 	local frame = "Frame"
-	local pivot = Vector3.new(0, 0.42, g.RearAxle.Z - 0.58)
+	local pivot = g.Pivot
 	local seatH = bike.Geometry.SeatHeight
 	-- frame rails from the head down to the pivot
 	for _, side in { -1, 1 } do
@@ -585,16 +621,23 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	-- motor and controller
 	cyl(b, frame, "Motor", 0.2, 0.16, CFrame.new(scale(pivot + Vector3.new(0, -0.02, -0.12))), nil, Color3.fromRGB(70, 72, 76), METAL)
 	cyl(b, frame, "MotorCap", 0.12, 0.17, CFrame.new(scale(pivot + Vector3.new(0, -0.02, -0.12))), "Accent")
-	-- swingarm + mono shock
+	-- swingarm + mono shock: the swingarm swings about the pivot; the shock's body (on the frame) and
+	-- shaft (on the swingarm) each turn to keep pointing at the other, so it telescopes
 	local axleHalf = bike.Geometry.TireWidth / 2 + 0.035
 	for _, side in { -1, 1 } do
 		local o = Vector3.new(side * axleHalf, 0, 0)
-		bar(b, frame, "Swingarm", scale(pivot + o * 0.7), scale(g.RearAxle + o), 0.035, 0.07, nil, Color3.fromRGB(70, 72, 76), METAL)
+		bar(b, "Swing", "Swingarm", scale(pivot + o * 0.7), scale(g.RearAxle + o), 0.035, 0.07, nil, Color3.fromRGB(70, 72, 76), METAL)
 	end
-	local shockTop = Vector3.new(0, seatH - 0.15, pivot.Z + 0.02)
-	tube(b, frame, "Shock", scale(shockTop), scale(pivot:Lerp(g.RearAxle, 0.35) + Vector3.new(0, 0.05, 0)), 0.05, nil, Color3.fromRGB(240, 170, 20))
+	for _, name in { "ShockTop", "ShockEnd" } do
+		local at = if name == "ShockTop" then g.ShockTop else g.ShockBottom
+		local mount = PartKit.Box(b.Model, name, Vector3.new(0.1, 0.1, 0.1), CFrame.new(scale(at)), BLACK, SMOOTH, { Transparency = 1 })
+		add(b, name, mount)
+		b.Groups[name].Pivot = mount
+	end
+	tube(b, "ShockTop", "ShockBody", scale(g.ShockTop), scale(g.ShockTop:Lerp(g.ShockBottom, 0.55)), 0.05, nil, Color3.fromRGB(240, 170, 20))
+	tube(b, "ShockEnd", "ShockShaft", scale(g.ShockBottom), scale(g.ShockBottom:Lerp(g.ShockTop, 0.62)), 0.02, nil, SILVER, METAL)
 	-- chain/belt drive to the rear sprocket
-	tube(b, frame, "Belt", scale(pivot + Vector3.new(0.1, 0.0, -0.12)), scale(g.RearAxle + Vector3.new(0.1, 0.05, 0)), 0.015, nil, DARK, METAL)
+	tube(b, "Swing", "Belt", scale(pivot + Vector3.new(0.1, 0.0, -0.12)), scale(g.RearAxle + Vector3.new(0.1, 0.05, 0)), 0.015, nil, DARK, METAL)
 	-- footpegs
 	local pegL, pegR
 	for _, side in { -1, 1 } do
@@ -612,7 +655,7 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	end
 	-- rear fender
 	local fTop = g.RearAxle + Vector3.new(0, g.Rr + 0.05, 0)
-	bar(b, frame, "RearHugger", scale(fTop + Vector3.new(0, 0, -0.2)), scale(fTop + Vector3.new(0, -0.04, 0.12)), bike.Geometry.TireWidth + 0.03, 0.012, nil, BLACK)
+	bar(b, "Swing", "RearHugger", scale(fTop + Vector3.new(0, 0, -0.2)), scale(fTop + Vector3.new(0, -0.04, 0.12)), bike.Geometry.TireWidth + 0.03, 0.012, nil, BLACK)
 	box(b, frame, "SeatAnchor", Vector3.new(0.1, 0.1, 0.1), CFrame.new(scale(seatFront:Lerp(seatBack, 0.35))), nil, BLACK).Transparency = 1
 end
 
@@ -870,18 +913,33 @@ function BikeModel.Build(bike: Bikes.Bike, choice: PaintChoice?, options: Option
 				end
 			end
 		end
-		local steer = b.Groups.Steer and b.Groups.Steer.Pivot
-		local front = b.Groups.Front and b.Groups.Front.Pivot
-		local rear = b.Groups.Rear and b.Groups.Rear.Pivot
-		local crank = b.Groups.Crank and b.Groups.Crank.Pivot
+		local function pivotOf(name: string): BasePart?
+			local group = b.Groups[name]
+			return group and group.Pivot
+		end
+		local steer, fork, front = pivotOf("Steer"), pivotOf("Fork"), pivotOf("Front")
+		local swing, rear, crank = pivotOf("Swing"), pivotOf("Rear"), pivotOf("Crank")
+		local shockTop, shockEnd = pivotOf("ShockTop"), pivotOf("ShockEnd")
 		if steer then
 			motor("SteerJoint", root, steer)
-			if front then
-				motor("FrontSpin", steer, front)
-			end
+		end
+		if fork then
+			motor("ForkSlide", steer or root, fork)
+		end
+		if front then
+			motor("FrontSpin", fork or steer or root, front)
+		end
+		if swing then
+			motor("SwingJoint", root, swing)
 		end
 		if rear then
-			motor("RearSpin", root, rear)
+			motor("RearSpin", swing or root, rear)
+		end
+		if shockTop then
+			motor("ShockJoint", root, shockTop)
+		end
+		if shockEnd then
+			motor("ShockRodJoint", swing or root, shockEnd)
 		end
 		if crank then
 			motor("CrankSpin", root, crank)
@@ -900,6 +958,69 @@ function BikeModel.Build(bike: Bikes.Bike, choice: PaintChoice?, options: Option
 	end
 	BikeModel.ApplyPaint(model, bike, choice)
 	return model
+end
+
+-- The suspension's joints (model space, m), for drawing it
+export type SuspensionGeo = {
+	FrontAxle: Vector3,
+	RearAxle: Vector3,
+	Radius: { number }, -- [1] front, [2] rear
+	Travel: { number },
+	SinHead: number, -- the fork slides along the steering axis: this much of a slide is vertical
+	Pivot: Vector3,
+	ShockTop: Vector3,
+	ShockBottom: Vector3,
+}
+
+function BikeModel.SuspensionGeometry(bike: Bikes.Bike): SuspensionGeo
+	local g = geometry(bike)
+	return {
+		FrontAxle = g.FrontAxle,
+		RearAxle = g.RearAxle,
+		Radius = { g.Rf, g.Rr },
+		Travel = { bike.Geometry.FrontTravel or 0.2, bike.Geometry.RearTravel or 0.2 },
+		SinHead = math.max(0.3, g.Axis.Y),
+		Pivot = g.Pivot,
+		ShockTop = g.ShockTop,
+		ShockBottom = g.ShockBottom,
+	}
+end
+
+-- A model-space direction's angle in the bike's side plane, as CFrame.Angles(a, 0, 0) turns it
+-- (turning by a takes the angle from x to x - a)
+local function sideAngle(v: Vector3): number
+	return math.atan2(v.Y, v.Z)
+end
+
+local function turnX(v: Vector3, a: number): Vector3
+	local c, s = math.cos(a), math.sin(a)
+	return Vector3.new(v.X, v.Y * c - v.Z * s, v.Y * s + v.Z * c)
+end
+
+export type SuspensionPose = { Fork: CFrame, Swing: CFrame, ShockTop: CFrame, ShockEnd: CFrame }
+
+--[[
+	The joint Transforms that draw the suspension compressed `front` / `rear` m (how far each axle has
+	risen from top-out, along the chassis' normal): the fork lowers slide up the steering axis, the
+	swingarm turns about its pivot until the rear axle has risen that much, and the shock's body and
+	shaft turn to keep pointing at each other.
+]]
+function BikeModel.SuspensionPose(sus: SuspensionGeo, front: number, rear: number): SuspensionPose
+	front = math.clamp(front, 0, sus.Travel[1] * 1.05)
+	rear = math.clamp(rear, 0, sus.Travel[2] * 1.05)
+	local arm = sus.RearAxle - sus.Pivot
+	local y = arm.Y + rear
+	local z = math.sqrt(math.max(arm.Y * arm.Y + arm.Z * arm.Z - y * y, 1e-6))
+	local swing = sideAngle(arm) - math.atan2(y, z)
+	local rest = sus.ShockBottom - sus.ShockTop
+	local now = sus.Pivot + turnX(sus.ShockBottom - sus.Pivot, swing) - sus.ShockTop
+	local body = sideAngle(rest) - sideAngle(now)
+	return {
+		Fork = CFrame.new(0, front / sus.SinHead * VIS, 0),
+		Swing = CFrame.Angles(swing, 0, 0),
+		ShockTop = CFrame.Angles(body, 0, 0),
+		ShockEnd = CFrame.Angles(body - swing, 0, 0),
+	}
 end
 
 -- The rider's foot rest points for e-motos (no pedals) and the seat height, for the rider pose

@@ -642,10 +642,14 @@ def moto_bike(k, P):
     seat_h = k["SeatHeight"]
     F = lambda slot, bm: K.put("Frame", slot, bm)  # noqa: E731
     S = lambda slot, bm: K.put("Steer", slot, bm)  # noqa: E731
+    # the suspension's moving groups (BikeModel's joints): the fork lowers slide up the steering axis,
+    # the swingarm swings about its pivot, the shock's body and shaft turn to stay in line
+    FK = lambda slot, bm: K.put("Fork" if not moped else "Steer", slot, bm)  # noqa: E731
+    SW = lambda slot, bm: K.put("Swing", slot, bm)  # noqa: E731
     fwd_perp = Vector((0, AX.z, -AX.y)).normalized()
     rot_steer = K.frame_rot(X, fwd_perp, AX)
 
-    pivot = Vector((0, RA.y + 0.58, 0.42)) if not moped else BB + Z * 0.08 + Y * -0.02
+    pivot = P["Pivot"] if not moped else BB + Z * 0.08 + Y * -0.02
     F("Frame", K.cyl(HB - AX * 0.03, HT + AX * 0.02, 0.04, 0.04, 24))
 
     if moped:
@@ -751,22 +755,27 @@ def moto_bike(k, P):
         # swingarm, linkage, coil shock
         for side in (-1, 1):
             o = X * side * (tw / 2 + 0.035)
-            F(alu, K.loft([(pivot + o * 0.7, 0.02, 0.04, 4), ((pivot + RA) / 2 + o, 0.02, 0.05, 4), (RA + o + Y * 0.01, 0.02, 0.035, 4)], 16, True, axis="Y"))
-            F("Black", K.rbox(RA + o - Y * 0.02, (0.03, 0.05, 0.04), 0.008))
-        shock_top = Vector((0, pivot.y - 0.0, seat_h - 0.16))
-        shock_bot = pivot + (RA - pivot) * 0.35 + Z * 0.05
+            SW(alu, K.loft([(pivot + o * 0.7, 0.02, 0.04, 4), ((pivot + RA) / 2 + o, 0.02, 0.05, 4), (RA + o + Y * 0.01, 0.02, 0.035, 4)], 16, True, axis="Y"))
+            SW("Black", K.rbox(RA + o - Y * 0.02, (0.03, 0.05, 0.04), 0.008))
+        SW("Dark", K.cyl(pivot - X * 0.07, pivot + X * 0.07, 0.022, 0.022, 20))  # pivot bolt boss
+        shock_top = P["ShockTop"]
+        shock_bot = P["ShockBottom"]
+        length = (shock_bot - shock_top).length
         d = (shock_bot - shock_top).normalized()
-        F("Metal", K.cyl(shock_top, shock_bot, 0.013, 0.013, 16))
-        F("Dark", K.cyl(shock_top, shock_top + d * 0.08, 0.025, 0.025, 20))
+        # body, reservoir and spring on the frame mount; shaft and eye on the swingarm's
+        K.put("ShockTop", "Dark", K.cyl(shock_top, shock_top + d * 0.08, 0.025, 0.025, 20))
         for i in range(10):
-            F("Orange" if k["Id"] not in ("storm_x", "hornet_6") else "Accent", K.torus(shock_top + d * (0.09 + i * 0.014), d, 0.028, 0.004, 20, 6))
-        F(alu, K.bar(pivot - Z * 0.06, shock_bot, 0.04, 0.03, 0.008))
-        # chain on the left to the rear sprocket
+            K.put("ShockTop", "Orange" if k["Id"] not in ("storm_x", "hornet_6") else "Accent", K.torus(shock_top + d * (0.09 + i * 0.014), d, 0.028, 0.004, 20, 6))
+        K.put("ShockTop", "Dark", K.cyl(shock_top + d * 0.08, shock_top + d * (length * 0.55), 0.017, 0.017, 16))
+        K.put("ShockEnd", "Metal", K.cyl(shock_bot, shock_bot - d * (length * 0.62), 0.011, 0.011, 16))
+        K.put("ShockEnd", "Dark", K.cyl(shock_bot - X * 0.02, shock_bot + X * 0.02, 0.016, 0.016, 16))
+        SW(alu, K.bar(pivot - Z * 0.06, shock_bot, 0.04, 0.03, 0.008))
+        # chain on the left to the rear sprocket (it rides the swingarm; the front sprocket sits by the pivot)
         sp_front = m - X * 0.09
         sp_rear = RA - X * (0.05 + 0.035)
-        F("Dark", K.sweep([sp_front + Z * 0.035, sp_rear + Z * 0.102], 0.0045, 6))
-        F("Dark", K.sweep([sp_front - Z * 0.035, sp_rear - Z * 0.102], 0.0045, 6))
-        F("Black", K.bar(sp_front - Z * 0.05 + Y * -0.02, sp_rear - Z * 0.115 + Y * 0.05, 0.012, 0.015, 0.004))
+        SW("Dark", K.sweep([sp_front + Z * 0.035, sp_rear + Z * 0.102], 0.0045, 6))
+        SW("Dark", K.sweep([sp_front - Z * 0.035, sp_rear - Z * 0.102], 0.0045, 6))
+        SW("Black", K.bar(sp_front - Z * 0.05 + Y * -0.02, sp_rear - Z * 0.115 + Y * 0.05, 0.012, 0.015, 0.004))
         # footpegs
         for side in (-1, 1):
             # the game puts the rider's feet (PegL / PegR) 0.08 m ahead of the pivot (Blender +Y is forward)
@@ -789,14 +798,18 @@ def moto_bike(k, P):
             S("Metal", K.cyl(top, mid, 0.017, None, 18))
             S("Frame", K.cyl(mid + (top - mid) * 0.08, bottom + AX * 0.03, 0.025, 0.022, 18))
         else:
+            # upside-down fork: the gold inner tubes, axle lugs and guards slide up into the dark outers
             mid = bottom + (top - bottom) * 0.42
             S("Dark", K.cyl(top, mid, 0.028, 0.027, 22))
             S("Black", K.cyl(mid + (top - mid) * 0.02, mid - (top - mid) * 0.03, 0.03, 0.03, 22))
-            S("Gold", K.cyl(mid, bottom + AX * 0.04, 0.02, 0.02, 18))
-            S("Black", K.rbox(bottom + AX * 0.03, (0.04, 0.06, 0.07), 0.01, rot_steer))
-            S("Black", K.bar(mid - AX * 0.02 + fwd_perp * 0.025, bottom + AX * 0.09 + fwd_perp * 0.025, 0.04, 0.012, 0.004, up=fwd_perp))
-    S("Black", K.cyl(FA - X * (tire_half + 0.02), FA + X * (tire_half + 0.02), 0.01, 0.01, 12))
-    caliper("Steer", FA, -(0.05 + 0.035), 0.22, math.radians(-135), True)
+            FK("Gold", K.cyl(mid, bottom + AX * 0.04, 0.02, 0.02, 18))
+            FK("Black", K.rbox(bottom + AX * 0.03, (0.04, 0.06, 0.07), 0.01, rot_steer))
+            # the guard ends a full stroke below the outer tube's seal, so it never runs into it
+            slide = k.get("FrontTravel", 0.2) / max(0.3, AX.z)
+            guard_top = max(0.14, (mid - bottom).length - slide - 0.02)
+            FK("Black", K.bar(bottom + AX * guard_top + fwd_perp * 0.025, bottom + AX * 0.09 + fwd_perp * 0.025, 0.04, 0.012, 0.004, up=fwd_perp))
+    FK("Black", K.cyl(FA - X * (tire_half + 0.02), FA + X * (tire_half + 0.02), 0.01, 0.01, 12))
+    caliper("Fork" if not moped else "Steer", FA, -(0.05 + 0.035), 0.22, math.radians(-135), True)
     if moped:
         lamp = HT + fwd_perp * 0.13 - AX * 0.06
         S("Frame", K.lathe(lamp, Y, [(-0.09, 0), (-0.09, 0.05), (-0.05, 0.085), (0.02, 0.095), (0.03, 0.09), (0.03, 0)], 32))
@@ -853,12 +866,13 @@ def moto_bike(k, P):
             for i in range(9):
                 a = math.radians(-35 + i * 14)
                 pts.append(FA + Y * (math.sin(a) * r) + Z * (math.cos(a) * r))
-            S("Frame" if kit == "Street" else "Accent", K.sweep(pts, 0, 16, profile=(tw / 2 + 0.025, 0.006)))
+            FK("Frame" if kit == "Street" else "Accent", K.sweep(pts, 0, 16, profile=(tw / 2 + 0.025, 0.006)))
         else:
-            # high fender
-            top = P["Rf"] + 0.13
-            S("Accent", K.sweep([FA + Y * -0.18 + Z * (top - 0.06), FA + Y * 0.02 + Z * (top + 0.01), FA + Y * 0.18 + Z * top, FA + Y * 0.28 + Z * (top - 0.03)], 0, 16, profile=(tw / 2 + 0.03, 0.006)))
-            S("Black", K.bar(HB - AX * 0.02, FA + Y * 0.02 + Z * (top + 0.01), 0.05, 0.02, 0.006))
+            # high fender right under the lower crown (clear of the tyre over the fork's travel)
+            up = HB.z - FA.z - 0.05
+            c = FA + AX * (up / AX.z)
+            S("Accent", K.sweep([c + Y * -0.14 + Z * -0.025, c + Y * 0.04 + Z * 0.0, c + Y * 0.22 + Z * -0.01, c + Y * 0.36 + Z * -0.04], 0, 16, profile=(tw / 2 + 0.008, 0.006)))
+            S("Black", K.bar(HB - AX * 0.02, c + Z * 0.004, 0.05, 0.02, 0.006))
         S("Dark", K.rbox(P["Bars"] + Y * 0.0 + Z * 0.04, (0.09, 0.05, 0.03), 0.01))
     grips = cockpit(k, style, True, P)
 
@@ -872,7 +886,7 @@ def moto_bike(k, P):
     else:
         wheel("Front", FA, P["Rf"] * 2, tw, "Moto", knobby, False, -1, 0.22, False, False, None, "Metal")
         wheel("Rear", RA, P["Rr"] * 2, tw, "Moto", knobby, False, 1, 0.2, False, True, None, "Metal")
-        caliper("Frame", RA, 0.05 + 0.035, 0.2, math.radians(150), True)
+        caliper("Swing", RA, 0.05 + 0.035, 0.2, math.radians(150), True)
     return grips
 
 
@@ -1067,6 +1081,9 @@ def points(k):
         "ST": B(k["ST"]),
         "SeatTop": B(k["SeatTop"]),
         "Bars": B(k["Bars"]),
+        "Pivot": B(k["Pivot"]),
+        "ShockTop": B(k["ShockTop"]),
+        "ShockBottom": B(k["ShockBottom"]),
         "AX": Vector((k["Axis"][0], -k["Axis"][2], k["Axis"][1])),
         "Rf": k["Rf"],
         "Rr": k["Rr"],

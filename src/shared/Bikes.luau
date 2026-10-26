@@ -28,6 +28,8 @@ export type Geometry = {
 	BarHeight: number, -- grips above ground, m
 	BarWidth: number, -- m
 	Kit: Kit?, -- e-moto body kit (fenders, lights, plates, tail)
+	FrontTravel: number?, -- suspension travel at the wheel, m (the maker's figure)
+	RearTravel: number?,
 }
 
 export type Bike = {
@@ -111,7 +113,7 @@ local list: { Bike } = {
 		Landing = 0.66,
 		AirControl = 1.15,
 		WheeliePop = 1.25,
-		Geometry = { Style = "Moto", Kit = "Pit", WheelDiameter = 0.56, RearWheelDiameter = 0.52, TireWidth = 0.07, Wheelbase = 1.06, SeatHeight = 0.72, BarHeight = 0.95, BarWidth = 0.7 },
+		Geometry = { Style = "Moto", Kit = "Pit", WheelDiameter = 0.56, RearWheelDiameter = 0.52, TireWidth = 0.07, Wheelbase = 1.06, SeatHeight = 0.72, BarHeight = 0.95, BarWidth = 0.7, FrontTravel = 0.15, RearTravel = 0.14 },
 		Colors = { Frame = Color3.fromRGB(230, 230, 232), Accent = Color3.fromRGB(40, 160, 255), Rims = Color3.fromRGB(30, 30, 32) },
 	},
 	{
@@ -137,7 +139,7 @@ local list: { Bike } = {
 		Pedals = false,
 		Brakes = "Hydraulic disc",
 		BrakeG = 0.85,
-		Suspension = "Telescopic fork, mono shock",
+		Suspension = "120 mm telescopic fork, mono shock",
 		Tires = "90/90-17 street",
 		TireKind = "Road",
 		CdA = 0.52,
@@ -147,7 +149,7 @@ local list: { Bike } = {
 		Landing = 0.6,
 		AirControl = 0.95,
 		WheeliePop = 1.05,
-		Geometry = { Style = "Moto", Kit = "Street", WheelDiameter = 0.6, TireWidth = 0.09, Wheelbase = 1.22, SeatHeight = 0.78, BarHeight = 1.02, BarWidth = 0.68 },
+		Geometry = { Style = "Moto", Kit = "Street", WheelDiameter = 0.6, TireWidth = 0.09, Wheelbase = 1.22, SeatHeight = 0.78, BarHeight = 1.02, BarWidth = 0.68, FrontTravel = 0.12, RearTravel = 0.1 },
 		Colors = { Frame = Color3.fromRGB(200, 30, 40), Accent = Color3.fromRGB(235, 235, 235), Rims = Color3.fromRGB(30, 30, 32) },
 	},
 	{
@@ -183,7 +185,7 @@ local list: { Bike } = {
 		Landing = 0.62,
 		AirControl = 1.05,
 		WheeliePop = 1.15,
-		Geometry = { Style = "Moto", Kit = "Supermoto", WheelDiameter = 0.58, TireWidth = 0.09, Wheelbase = 1.18, SeatHeight = 0.78, BarHeight = 1.0, BarWidth = 0.7 },
+		Geometry = { Style = "Moto", Kit = "Supermoto", WheelDiameter = 0.58, TireWidth = 0.09, Wheelbase = 1.18, SeatHeight = 0.78, BarHeight = 1.0, BarWidth = 0.7, FrontTravel = 0.18, RearTravel = 0.16 },
 		Colors = { Frame = Color3.fromRGB(255, 200, 0), Accent = Color3.fromRGB(25, 25, 28), Rims = Color3.fromRGB(25, 25, 28) },
 	},
 	{
@@ -219,7 +221,7 @@ local list: { Bike } = {
 		Landing = 0.68,
 		AirControl = 1.1,
 		WheeliePop = 1.25,
-		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.64, RearWheelDiameter = 0.58, TireWidth = 0.075, Wheelbase = 1.24, SeatHeight = 0.82, BarHeight = 1.06, BarWidth = 0.76 },
+		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.64, RearWheelDiameter = 0.58, TireWidth = 0.075, Wheelbase = 1.24, SeatHeight = 0.82, BarHeight = 1.06, BarWidth = 0.76, FrontTravel = 0.2, RearTravel = 0.19 },
 		Colors = { Frame = Color3.fromRGB(60, 170, 90), Accent = Color3.fromRGB(20, 20, 22), Rims = Color3.fromRGB(25, 25, 28) },
 	},
 	{
@@ -255,7 +257,7 @@ local list: { Bike } = {
 		Landing = 0.7,
 		AirControl = 1.1,
 		WheeliePop = 1.25,
-		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.66, RearWheelDiameter = 0.62, TireWidth = 0.075, Wheelbase = 1.25, SeatHeight = 0.84, BarHeight = 1.07, BarWidth = 0.78 },
+		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.66, RearWheelDiameter = 0.62, TireWidth = 0.075, Wheelbase = 1.25, SeatHeight = 0.84, BarHeight = 1.07, BarWidth = 0.78, FrontTravel = 0.2, RearTravel = 0.2 },
 		Colors = { Frame = Color3.fromRGB(30, 90, 200), Accent = Color3.fromRGB(255, 255, 255), Rims = Color3.fromRGB(25, 25, 28) },
 	},
 	{
@@ -291,7 +293,7 @@ local list: { Bike } = {
 		Landing = 0.7,
 		AirControl = 1.1,
 		WheeliePop = 1.3,
-		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.68, TireWidth = 0.08, Wheelbase = 1.27, SeatHeight = 0.86, BarHeight = 1.08, BarWidth = 0.78 },
+		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.68, TireWidth = 0.08, Wheelbase = 1.27, SeatHeight = 0.86, BarHeight = 1.08, BarWidth = 0.78, FrontTravel = 0.2, RearTravel = 0.2 },
 		Colors = { Frame = Color3.fromRGB(28, 28, 30), Accent = Color3.fromRGB(255, 120, 20), Rims = Color3.fromRGB(28, 28, 30) },
 	},
 	{
@@ -327,7 +329,7 @@ local list: { Bike } = {
 		Landing = 0.66,
 		AirControl = 1.05,
 		WheeliePop = 1.25,
-		Geometry = { Style = "Moto", Kit = "Supermoto", WheelDiameter = 0.62, TireWidth = 0.1, Wheelbase = 1.26, SeatHeight = 0.84, BarHeight = 1.06, BarWidth = 0.78 },
+		Geometry = { Style = "Moto", Kit = "Supermoto", WheelDiameter = 0.62, TireWidth = 0.1, Wheelbase = 1.26, SeatHeight = 0.84, BarHeight = 1.06, BarWidth = 0.78, FrontTravel = 0.2, RearTravel = 0.2 },
 		Colors = { Frame = Color3.fromRGB(240, 240, 240), Accent = Color3.fromRGB(220, 30, 40), Rims = Color3.fromRGB(220, 30, 40) },
 	},
 	{
@@ -363,7 +365,7 @@ local list: { Bike } = {
 		Landing = 0.72,
 		AirControl = 1.1,
 		WheeliePop = 1.25,
-		Geometry = { Style = "Moto", Kit = "Enduro", WheelDiameter = 0.72, RearWheelDiameter = 0.68, TireWidth = 0.08, Wheelbase = 1.3, SeatHeight = 0.88, BarHeight = 1.1, BarWidth = 0.8 },
+		Geometry = { Style = "Moto", Kit = "Enduro", WheelDiameter = 0.72, RearWheelDiameter = 0.68, TireWidth = 0.08, Wheelbase = 1.3, SeatHeight = 0.88, BarHeight = 1.1, BarWidth = 0.8, FrontTravel = 0.23, RearTravel = 0.23 },
 		Colors = { Frame = Color3.fromRGB(245, 120, 20), Accent = Color3.fromRGB(20, 20, 22), Rims = Color3.fromRGB(25, 25, 28) },
 	},
 	{
@@ -389,7 +391,7 @@ local list: { Bike } = {
 		Pedals = false,
 		Brakes = "Radial 4-piston, 260 mm",
 		BrakeG = 1.0,
-		Suspension = "USD fork, mono shock",
+		Suspension = "130 mm USD fork, mono shock",
 		Tires = "110/70-17 / 140/70-17 street",
 		TireKind = "Road",
 		CdA = 0.52,
@@ -399,7 +401,7 @@ local list: { Bike } = {
 		Landing = 0.62,
 		AirControl = 0.95,
 		WheeliePop = 1.1,
-		Geometry = { Style = "Moto", Kit = "Street", WheelDiameter = 0.62, TireWidth = 0.11, Wheelbase = 1.32, SeatHeight = 0.82, BarHeight = 1.04, BarWidth = 0.74 },
+		Geometry = { Style = "Moto", Kit = "Street", WheelDiameter = 0.62, TireWidth = 0.11, Wheelbase = 1.32, SeatHeight = 0.82, BarHeight = 1.04, BarWidth = 0.74, FrontTravel = 0.13, RearTravel = 0.12 },
 		Colors = { Frame = Color3.fromRGB(20, 22, 26), Accent = Color3.fromRGB(0, 210, 255), Rims = Color3.fromRGB(20, 22, 26) },
 	},
 	{
@@ -435,7 +437,7 @@ local list: { Bike } = {
 		Landing = 0.72,
 		AirControl = 1.12,
 		WheeliePop = 1.3,
-		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.7, TireWidth = 0.085, Wheelbase = 1.3, SeatHeight = 0.88, BarHeight = 1.1, BarWidth = 0.8 },
+		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.7, TireWidth = 0.085, Wheelbase = 1.3, SeatHeight = 0.88, BarHeight = 1.1, BarWidth = 0.8, FrontTravel = 0.24, RearTravel = 0.24 },
 		Colors = { Frame = Color3.fromRGB(28, 28, 30), Accent = Color3.fromRGB(255, 120, 20), Rims = Color3.fromRGB(28, 28, 30) },
 	},
 	{
@@ -471,7 +473,7 @@ local list: { Bike } = {
 		Landing = 0.74,
 		AirControl = 1.15,
 		WheeliePop = 1.35,
-		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.72, RearWheelDiameter = 0.68, TireWidth = 0.085, Wheelbase = 1.33, SeatHeight = 0.9, BarHeight = 1.12, BarWidth = 0.8 },
+		Geometry = { Style = "Moto", Kit = "Dirt", WheelDiameter = 0.72, RearWheelDiameter = 0.68, TireWidth = 0.085, Wheelbase = 1.33, SeatHeight = 0.9, BarHeight = 1.12, BarWidth = 0.8, FrontTravel = 0.26, RearTravel = 0.26 },
 		Colors = { Frame = Color3.fromRGB(20, 120, 60), Accent = Color3.fromRGB(255, 255, 255), Rims = Color3.fromRGB(20, 20, 22) },
 	},
 	{
@@ -507,7 +509,7 @@ local list: { Bike } = {
 		Landing = 0.72,
 		AirControl = 1.1,
 		WheeliePop = 1.35,
-		Geometry = { Style = "Moto", Kit = "Enduro", WheelDiameter = 0.72, RearWheelDiameter = 0.68, TireWidth = 0.09, Wheelbase = 1.36, SeatHeight = 0.92, BarHeight = 1.12, BarWidth = 0.82 },
+		Geometry = { Style = "Moto", Kit = "Enduro", WheelDiameter = 0.72, RearWheelDiameter = 0.68, TireWidth = 0.09, Wheelbase = 1.36, SeatHeight = 0.92, BarHeight = 1.12, BarWidth = 0.82, FrontTravel = 0.28, RearTravel = 0.28 },
 		Colors = { Frame = Color3.fromRGB(120, 40, 220), Accent = Color3.fromRGB(255, 200, 40), Rims = Color3.fromRGB(30, 30, 32) },
 	},
 	{
@@ -533,7 +535,7 @@ local list: { Bike } = {
 		Pedals = false,
 		Brakes = "Radial 4-piston, 300 mm",
 		BrakeG = 1.05,
-		Suspension = "USD fork, linkage shock",
+		Suspension = "200 mm USD fork, linkage shock",
 		Tires = "120/70-17 / 160/60-17 slick",
 		TireKind = "Road",
 		CdA = 0.55,
@@ -543,7 +545,7 @@ local list: { Bike } = {
 		Landing = 0.66,
 		AirControl = 1.0,
 		WheeliePop = 1.3,
-		Geometry = { Style = "Moto", Kit = "Supermoto", WheelDiameter = 0.62, TireWidth = 0.12, Wheelbase = 1.38, SeatHeight = 0.88, BarHeight = 1.06, BarWidth = 0.8 },
+		Geometry = { Style = "Moto", Kit = "Supermoto", WheelDiameter = 0.62, TireWidth = 0.12, Wheelbase = 1.38, SeatHeight = 0.88, BarHeight = 1.06, BarWidth = 0.8, FrontTravel = 0.2, RearTravel = 0.19 },
 		Colors = { Frame = Color3.fromRGB(245, 245, 245), Accent = Color3.fromRGB(255, 40, 60), Rims = Color3.fromRGB(255, 40, 60) },
 	},
 	{
@@ -569,7 +571,7 @@ local list: { Bike } = {
 		Pedals = false,
 		Brakes = "Dual radial, 320 mm",
 		BrakeG = 1.05,
-		Suspension = "Inverted fork, mono shock",
+		Suspension = "120 mm inverted fork, mono shock",
 		Tires = "120/70-17 / 180/55-17",
 		TireKind = "Road",
 		CdA = 0.58,
@@ -579,7 +581,7 @@ local list: { Bike } = {
 		Landing = 0.62,
 		AirControl = 0.9,
 		WheeliePop = 1.25,
-		Geometry = { Style = "Moto", Kit = "Chopper", WheelDiameter = 0.66, TireWidth = 0.13, Wheelbase = 1.52, SeatHeight = 0.8, BarHeight = 1.08, BarWidth = 0.86 },
+		Geometry = { Style = "Moto", Kit = "Chopper", WheelDiameter = 0.66, TireWidth = 0.13, Wheelbase = 1.52, SeatHeight = 0.8, BarHeight = 1.08, BarWidth = 0.86, FrontTravel = 0.12, RearTravel = 0.1 },
 		Colors = { Frame = Color3.fromRGB(16, 16, 18), Accent = Color3.fromRGB(255, 96, 0), Rims = Color3.fromRGB(200, 202, 206) },
 		Effects = "Hellfire",
 	},

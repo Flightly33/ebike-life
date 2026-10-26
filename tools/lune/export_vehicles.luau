@@ -47,6 +47,11 @@ for _, bike in Bikes.List do
 		SeatTop = v(g.SeatTop),
 		ST = v(g.ST),
 		Bars = v(g.Bars),
+		Pivot = v(g.Pivot),
+		ShockTop = v(g.ShockTop),
+		ShockBottom = v(g.ShockBottom),
+		FrontTravel = geo.FrontTravel or 0.2,
+		RearTravel = geo.RearTravel or 0.2,
 		Colors = { Frame = c(bike.Colors.Frame), Accent = c(bike.Colors.Accent), Rims = c(bike.Colors.Rims) },
 	})
 end

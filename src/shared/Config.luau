@@ -31,8 +31,9 @@ Config.GAME_NAME = "E-Bike Life"
 Config.Physics = {
 	Gravity = 9.81, -- m/s², real
 	AirDensity = 1.2, -- kg/m³
-	StepHeight = 1.2, -- studs a wheel rolls up without stopping (curbs are 0.4)
-	SnapDistance = 0.5, -- studs the ground may drop away before the bike counts as airborne
+	StepHeight = 1.2, -- studs a wheel rolls up without stopping (kerbs are 0.625)
+	SnapDistance = 1.0, -- studs the ground may drop away before the bike counts as airborne (a kerb
+	-- drop isn't a jump: the wheels follow it down on the suspension)
 	MaxSteer = 0.55, -- rad of handlebar at walking pace
 	MinSteer = 0.07, -- rad at full speed (bikes turn by leaning at speed)
 	MaxRidePitch = 1.0, -- rad: a surface steeper than this (a quarter pipe's top) launches you along it

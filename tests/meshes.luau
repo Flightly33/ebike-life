@@ -70,7 +70,7 @@ for _, bike in Bikes.List do
 	local model = BikeModel.Build(bike, nil)
 	local list = meshes(model)
 	check(#list == #Manifest[bike.Id], string.format("%s: %d meshes placed", bike.Id, #list))
-	local welded, wheel, steer, crank = 0, 0, 0, 0
+	local welded, wheel, steer, crank, fork, swing = 0, 0, 0, 0, 0, 0
 	for _, part in list do
 		local weld = part:FindFirstChildOfClass("WeldConstraint")
 		if weld and weld.Part1 == part then
@@ -82,11 +82,16 @@ for _, bike in Bikes.List do
 				steer += 1
 			elseif p0.Name == "Crank" then
 				crank += 1
+			elseif p0.Name == "Fork" then
+				fork += 1
+			elseif p0.Name == "Swing" then
+				swing += 1
 			end
 		end
 	end
 	check(welded == #list, string.format("%s: every mesh welded (%d/%d)", bike.Id, welded, #list))
 	check(wheel > 0 and steer > 0 and (crank > 0) == bike.Pedals, string.format("%s: wheels %d, steering %d, cranks %d", bike.Id, wheel, steer, crank))
+	check(fork > 0 and swing > 0, string.format("%s: fork lowers %d and swingarm %d meshes ride the suspension", bike.Id, fork, swing))
 	local leftovers = 0
 	for _, d in model:GetDescendants() do
 		if d:IsA("Part") and d.Transparency < 1 and d.Name ~= "Underglow" and d.Name ~= "ExhaustPipe" and d.Name ~= "ExhaustTip" then
@@ -153,6 +158,97 @@ end
 MeshKit.Forget("flit_s")
 local fallback = BikeModel.Build(Bikes.Get("flit_s"), nil)
 check(#meshes(fallback) == 0, "a turned import falls back to the part-built bike")
+
+-- The suspension's joints, on the part-built bikes: put each Motor6D's Transform through the chain
+-- the way Roblox does (Part1 = Part0 * C0 * Transform * C1:Inverse()) and look where things end up
+folder.Parent = nil
+for _, bike in Bikes.List do
+	MeshKit.Forget(bike.Id)
+end
+local VIS = server.Require(Shared:WaitForChild("Config")).VISUAL_STUDS_PER_METER
+for _, bike in Bikes.List do
+	local model = BikeModel.Build(bike, nil)
+	local sus = BikeModel.SuspensionGeometry(bike)
+	local built: { [any]: any } = {}
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			built[d] = d.CFrame
+		end
+	end
+	local function solve(pose: any): { [any]: any }
+		local transforms = { ForkSlide = pose.Fork, SwingJoint = pose.Swing, ShockJoint = pose.ShockTop, ShockRodJoint = pose.ShockEnd }
+		local at: { [any]: any } = {}
+		local function place(part: any): any
+			if at[part] then
+				return at[part]
+			end
+			if part == model.PrimaryPart then
+				at[part] = built[part]
+				return at[part]
+			end
+			for _, child in part:GetChildren() do
+				if child:IsA("Motor6D") and child.Part1 == part then
+					at[part] = place(child.Part0) * child.C0 * (transforms[child.Name] or CFrame.identity) * child.C1:Inverse()
+					return at[part]
+				elseif child:IsA("WeldConstraint") and child.Part1 == part then
+					at[part] = place(child.Part0) * built[child.Part0]:ToObjectSpace(built[part])
+					return at[part]
+				end
+			end
+			at[part] = built[part]
+			return at[part]
+		end
+		for part in built do
+			place(part)
+		end
+		return at
+	end
+	local frontHub, rearHub = model:FindFirstChild("FrontHub", true), model:FindFirstChild("RearHub", true)
+	local worst, aligned, clear = 0, true, true
+	for _, c in { { 0, 0 }, { 0.3, 0.3 }, { 1, 0.5 }, { 0.5, 1 }, { 1, 1 } } do
+		local cf, cr = c[1] * sus.Travel[1], c[2] * sus.Travel[2]
+		local at = solve(BikeModel.SuspensionPose(sus, cf, cr))
+		worst = math.max(worst, math.abs(at[frontHub].Position.Y - (sus.Radius[1] + cf) * VIS), math.abs(at[rearHub].Position.Y - (sus.Radius[2] + cr) * VIS))
+		-- the shock's body and shaft point along one line
+		local body, shaft
+		for part in at do
+			if part.Name == "ShockBody" then
+				body = part
+			elseif part.Name == "ShockShaft" then
+				shaft = part
+			end
+		end
+		if body and shaft then
+			-- (tubes are cylinders along their X)
+			local a, b = at[body].RightVector, at[shaft].RightVector
+			if math.abs(a:Dot(b)) < 0.9999 then
+				aligned = false
+			end
+		end
+		-- the fork lowers stay below the crown
+		local crown
+		for part in at do
+			if part.Name == "Crown" then
+				crown = part
+			end
+		end
+		for part in at do
+			if part.Name == "ForkLeg" and crown then
+				local axis = at[crown].UpVector
+				local legTop = at[part].Position + at[part].RightVector * (part.Size.X / 2)
+				local legTop2 = at[part].Position - at[part].RightVector * (part.Size.X / 2)
+				local high = math.max(legTop:Dot(axis), legTop2:Dot(axis))
+				local crownLow = at[crown].Position:Dot(axis) - crown.Size.Y / 2
+				if high > crownLow + 0.01 then
+					clear = false
+				end
+			end
+		end
+	end
+	check(worst < 0.002, string.format("%s: compressed, each wheel rises by its compression (off by %.4f studs)", bike.Id, worst))
+	check(aligned, bike.Id .. ": the shock's body and shaft stay in line")
+	check(clear, bike.Id .. ": the fork lowers clear the crown at full travel")
+end
 
 for _, e in world.Errors do
 	print("  ERROR: " .. e)

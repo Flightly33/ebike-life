@@ -26,6 +26,7 @@
 local Config = require(script.Parent.Config)
 local BikeStats = require(script.Parent.BikeStats)
 local Modes = require(script.Parent.Modes)
+local Suspension = require(script.Parent.Suspension)
 
 local BikePhysics = {}
 
@@ -146,6 +147,10 @@ export type State = {
 	Flat: number, -- seconds of flat tyre left (police spike strip)
 	Loop: Loop?, -- riding a loop
 	LoopAngle: number, -- rad round it
+	-- the spring-damper suspension the chassis rides on (Shared/Suspension), built on the first step
+	Sus: Suspension.State?,
+	SusParams: Suspension.Params?,
+	SusSpec: Spec?, -- the spec SusParams were built from (tuning while riding rebuilds them)
 }
 
 local OFFROAD = { Grass = true, Dirt = true, Sand = true, Mud = true, Foam = true }
@@ -233,6 +238,9 @@ function BikePhysics.new(spec: Spec, ground: CFrame, battery: number?, seed: num
 		Flat = 0,
 		Loop = nil,
 		LoopAngle = 0,
+		Sus = nil,
+		SusParams = nil,
+		SusSpec = nil,
 	}
 end
 
@@ -248,14 +256,47 @@ function BikePhysics.Kmh(s: State): number
 	return s.AirVelocity.Magnitude / STUDS * 3.6
 end
 
--- The frame the bike model is drawn at (model origin = ground midpoint between the wheels)
+-- The frame the bike model is drawn at: the sprung chassis. The model's origin is the ground
+-- midpoint between the wheels with the suspension topped out, so on the ground line it sits lower
+-- by the sag and moves with the suspension (heave along the line's normal, pitch about it).
 function BikePhysics.GetCFrame(s: State, spec: Spec): CFrame
 	local base = CFrame.new(s.Position) * CFrame.fromEulerAnglesYXZ(0, s.Yaw, 0)
 	local pivot = Vector3.new(0, 0, spec.Wheelbase / 2) -- rear tyre contact
 	local wheelie = CFrame.new(pivot) * CFrame.Angles(s.Wheelie, 0, 0) * CFrame.new(-pivot)
 	local front = Vector3.new(0, 0, -spec.Wheelbase / 2)
 	local stoppie = CFrame.new(front) * CFrame.Angles(-s.Stoppie, 0, 0) * CFrame.new(-front)
-	return base * CFrame.Angles(s.Pitch, 0, 0) * CFrame.Angles(0, 0, s.Lean) * wheelie * stoppie
+	local frame = base * CFrame.Angles(s.Pitch, 0, 0)
+	local sus, params = s.Sus, s.SusParams
+	if sus and params then
+		local kind, a, b = Suspension.Pose(sus, params, not s.Grounded and not s.Loop)
+		if kind == "World" then
+			-- on the ground: the chassis' own height and pitch (the ground line under it can snap
+			-- over a kerb; the chassis doesn't)
+			frame = CFrame.new(s.Position.X, a * Config.STUDS_PER_METER, s.Position.Z) * CFrame.fromEulerAnglesYXZ(0, s.Yaw, 0) * CFrame.Angles(b, 0, 0)
+		else
+			frame = frame * CFrame.new(0, a * Config.VISUAL_STUDS_PER_METER, 0) * CFrame.Angles(b, 0, 0)
+		end
+	end
+	return frame * CFrame.Angles(0, 0, s.Lean) * wheelie * stoppie
+end
+
+-- The chassis' pitch in the world (rad, + nose up), riding its suspension
+function BikePhysics.ChassisPitch(s: State): number
+	local sus, params = s.Sus, s.SusParams
+	if sus and params then
+		local kind, _, b = Suspension.Pose(sus, params, not s.Grounded and not s.Loop)
+		return if kind == "World" then b else s.Pitch + b
+	end
+	return s.Pitch
+end
+
+-- Suspension compression at each wheel (m: 0 topped out .. travel bottomed), for the visuals
+function BikePhysics.Compression(s: State): (number, number)
+	local sus = s.Sus
+	if not sus then
+		return 0, 0
+	end
+	return sus.C[1], sus.C[2]
 end
 
 -- The box swept for collisions: the body above step height, aligned with the heading
@@ -316,6 +357,31 @@ end
 local function noise(s: State): number
 	local t = s.Time
 	return math.sin(1.7 * t + s.NoiseA) * 0.6 + math.sin(3.1 * t + s.NoiseB) * 0.4 + math.sin(0.53 * t + s.NoiseA * 0.5) * 0.35
+end
+
+-- The height (m, world) a wheel's axle rests at on the ground under it, from rays across the tyre's
+-- footprint: the wheel sits on the highest point its circle touches, so it rolls up a kerb edge
+-- instead of jumping it. Terrain roughness by surface is added to every sample. nil: nothing under it.
+-- `x` is the wheel's station along the ground line from its midpoint (studs, + forward).
+local SAMPLES = { -0.8, -0.4, 0, 0.4, 0.8 }
+local function wheelSupport(world: World, origin: Vector3, along: Vector3, dir: Vector3, x: number, radius: number, reach: number): number?
+	local best: number? = nil
+	local station = origin + along * x
+	for _, f in SAMPLES do
+		local at = station + dir * (f * radius)
+		local hit = world.Down(at + UP * (2 * radius + 1.5), 2 * radius + 1.5 + reach)
+		if hit then
+			local dx = (hit.Position - station):Dot(dir)
+			if math.abs(dx) < radius then
+				local height = hit.Position.Y + Suspension.Roughness(hit.Position, hit.Kind) * STUDS
+				local axle = height + math.sqrt(radius * radius - dx * dx)
+				if best == nil or axle > best then
+					best = axle
+				end
+			end
+		end
+	end
+	return if best then best / STUDS else nil
 end
 
 -- Horizontal move with collision. Returns the delta actually travelled and, if something was hit,
@@ -1152,6 +1218,9 @@ function BikePhysics.Step(s: State, spec: Spec, mode: Mode, input: Input, world:
 			push(events, "LoopStart")
 		end
 	end
+	local wasGround = s.Grounded or s.Loop ~= nil
+	local wasLoop = s.Loop ~= nil
+	local before, pitchBefore, speedBefore, fallBefore = s.Position, s.Pitch, s.Speed, s.VerticalSpeed
 	if s.Loop then
 		loopStep(s, spec, input, dt, events)
 	elseif s.Grounded then
@@ -1159,6 +1228,47 @@ function BikePhysics.Step(s: State, spec: Spec, mode: Mode, input: Input, world:
 	else
 		airStep(s, spec, input, world, dt, events)
 	end
+
+	-- the suspension under the chassis
+	if s.SusSpec ~= spec or not s.Sus then
+		local params = Suspension.Params(spec)
+		s.SusParams = params
+		s.SusSpec = spec
+		if not s.Sus then
+			s.Sus = Suspension.new(params)
+		end
+	end
+	local sus, params = s.Sus :: Suspension.State, s.SusParams :: Suspension.Params
+	local dir = heading(s.Yaw)
+	local along = dir * math.cos(s.Pitch) + UP * math.sin(s.Pitch)
+	local onGround = s.Grounded and not s.Loop
+	local support: { number? } = { nil, nil }
+	if onGround then
+		local half = spec.Wheelbase / 2
+		local reach = (spec.FrontTravel + spec.RearTravel) * STUDS + 2
+		support[1] = wheelSupport(world, s.Position, along, dir, half, spec.WheelRadius, reach)
+		support[2] = wheelSupport(world, s.Position, along, dir, -half, spec.RearWheelRadius, reach)
+	end
+	local loop = s.Loop
+	Suspension.Step(sus, params, {
+		Mode = if loop then "Loop" elseif s.Grounded then "Ground" else "Air",
+		WasGround = wasGround,
+		WasLoop = wasLoop,
+		Origin = s.Position / STUDS,
+		Move = (s.Position - before) / STUDS,
+		Heading = dir,
+		Pitch = s.Pitch,
+		PitchBefore = pitchBefore,
+		Speed = if s.Grounded or loop then s.Speed else 0,
+		Support = support,
+		LongAccel = if onGround then math.clamp((s.Speed - speedBefore) / dt, -25, 25) else 0,
+		Hop = if s.HopHeld then s.HopCharge else 0,
+		FrontOff = s.Wheelie > 0.03,
+		RearOff = s.Stoppie > 0.03,
+		LandingSpeed = if not wasGround and s.Grounded then fallBefore else nil,
+		LoopRadius = if loop then loop.Radius / STUDS else nil,
+	}, dt)
+
 	-- a barspin starts on a press made in the air, not a key already held at takeoff (a pad's hop
 	-- preload is the same button)
 	if s.Grounded or s.Loop then

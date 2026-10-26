@@ -3,7 +3,9 @@
 
 	Bikes: wheels spin with the bike's speed, bars turn with the rider's steering, pedals turn with
 	their cadence (from the bike's attributes; the local rider's bike uses its exact physics state),
-	and each bike's motor hums with its power.
+	and each bike's motor hums with its power. The fork lowers slide and the swingarm swings with the
+	suspension: the local bike draws its own suspension state, other bikes measure how far each wheel
+	sits from the ground under it (their chassis already comes sagged and pitched with their frame).
 	Cars: wheels spin; police cars in a pursuit flash their light bars, light the road red and blue
 	and run their siren.
 	Traffic lights follow the server clock (Shared/City/Layout.LightState).
@@ -18,15 +20,20 @@ local Bikes = require(Shared.Bikes)
 local BikeStats = require(Shared.BikeStats)
 local Config = require(Shared.Config)
 local Layout = require(Shared.City.Layout)
+local BikeModel = require(Shared.Models.BikeModel)
+local BikePhysics = require(Shared.BikePhysics)
 local CarModel = require(Shared.Models.CarModel)
 
 local BikeController = require(script.Parent.BikeController)
 local Sound = require(script.Parent.Sound)
+local World = require(script.Parent.World)
 
 local Visuals = {}
 
 local STUDS = Config.STUDS_PER_METER
+local VIS = Config.VISUAL_STUDS_PER_METER
 local TAU = math.pi * 2
+local MEASURE_RANGE = 300 -- studs from the camera: other bikes' suspension is measured within this
 
 type BikeRig = {
 	Root: BasePart,
@@ -35,6 +42,12 @@ type BikeRig = {
 	Steer: Motor6D?,
 	Barspin: number, -- 0..1 of a barspin (other riders' from the Barspin attribute)
 	Crank: Motor6D?,
+	Fork: Motor6D?,
+	Swing: Motor6D?,
+	ShockTop: Motor6D?,
+	ShockEnd: Motor6D?,
+	Sus: BikeModel.SuspensionGeo,
+	Comp: { number }, -- compression drawn at each wheel, m
 	WheelAngle: number,
 	CrankAngle: number,
 	RadiusM: number,
@@ -81,6 +94,12 @@ local function bikeRig(model: Model): BikeRig?
 		Steer = findMotor(model, "SteerJoint"),
 		Barspin = 0,
 		Crank = findMotor(model, "CrankSpin"),
+		Fork = findMotor(model, "ForkSlide"),
+		Swing = findMotor(model, "SwingJoint"),
+		ShockTop = findMotor(model, "ShockJoint"),
+		ShockEnd = findMotor(model, "ShockRodJoint"),
+		Sus = BikeModel.SuspensionGeometry(bike),
+		Comp = { 0, 0 },
 		WheelAngle = 0,
 		CrankAngle = 0,
 		RadiusM = spec.WheelRadiusM,
@@ -154,6 +173,45 @@ local function forwardSpeed(root: BasePart): number
 	return v:Dot(root.CFrame.LookVector)
 end
 
+-- Another rider's bike: how far each wheel's axle has risen from top-out, from the ground under it
+-- (along the chassis' normal, the way the suspension measures it), eased so a lost ray doesn't snap
+local function measureSuspension(rig: BikeRig, dt: number)
+	local frame = rig.Root.CFrame
+	local camera = Workspace.CurrentCamera
+	if camera and (camera.CFrame.Position - frame.Position).Magnitude > MEASURE_RANGE then
+		return
+	end
+	local up = frame.UpVector
+	local sus = rig.Sus
+	local ease = 1 - math.exp(-25 * dt)
+	for i = 1, 2 do
+		local travel, radius = sus.Travel[i], sus.Radius[i]
+		local axle = frame:PointToWorldSpace((if i == 1 then sus.FrontAxle else sus.RearAxle) * VIS)
+		local start = axle + up * (travel * VIS)
+		local hit = Workspace:Raycast(start, -up * ((travel + radius + 0.15) * VIS), World.Params())
+		local target = if hit then math.clamp(travel + radius - hit.Distance / VIS, 0, travel) else 0
+		rig.Comp[i] += (target - rig.Comp[i]) * ease
+	end
+end
+
+-- Draw the suspension (BikeModel.SuspensionPose: the fork lowers up the steering axis, the swingarm
+-- about its pivot, the shock's body and shaft turned to keep pointing at each other)
+local function poseSuspension(rig: BikeRig)
+	local pose = BikeModel.SuspensionPose(rig.Sus, rig.Comp[1], rig.Comp[2])
+	if rig.Fork then
+		rig.Fork.Transform = pose.Fork
+	end
+	if rig.Swing then
+		rig.Swing.Transform = pose.Swing
+	end
+	if rig.ShockTop then
+		rig.ShockTop.Transform = pose.ShockTop
+	end
+	if rig.ShockEnd then
+		rig.ShockEnd.Transform = pose.ShockEnd
+	end
+end
+
 local function updateBikes(dt: number)
 	local folder = Workspace:FindFirstChild("Bikes")
 	if not folder then
@@ -180,6 +238,7 @@ local function updateBikes(dt: number)
 			rig.Barspin = physics.BarSpin
 			local spec = BikeController.Spec
 			power = if spec and spec.MotorW > 0 then physics.MotorPower / spec.MotorW else 0
+			rig.Comp[1], rig.Comp[2] = BikePhysics.Compression(physics)
 		else
 			speed = forwardSpeed(rig.Root) / STUDS
 			rig.WheelAngle = (rig.WheelAngle + speed / rig.RadiusM * dt) % TAU
@@ -195,7 +254,9 @@ local function updateBikes(dt: number)
 			end
 			local p = model:GetAttribute("Power")
 			power = if type(p) == "number" then p else 0
+			measureSuspension(rig, dt)
 		end
+		poseSuspension(rig)
 		local spin = CFrame.Angles(-rig.WheelAngle, 0, 0)
 		if rig.Rear then
 			rig.Rear.Transform = spin

@@ -13,6 +13,7 @@ local Vector3, CFrame = roblox.Vector3, roblox.CFrame
 local Bikes = Loader.Require("ReplicatedStorage.Shared.Bikes")
 local BikeStats = Loader.Require("ReplicatedStorage.Shared.BikeStats")
 local BikePhysics = Loader.Require("ReplicatedStorage.Shared.BikePhysics")
+local Suspension = Loader.Require("ReplicatedStorage.Shared.Suspension")
 local Modes = Loader.Require("ReplicatedStorage.Shared.Modes")
 local Config = Loader.Require("ReplicatedStorage.Shared.Config")
 
@@ -32,7 +33,7 @@ end
 local DT = 1 / 60
 
 -- World: flat road at y = 0, optional kicker ramp (rising toward -Z), optional wall across -Z
-type Options = { RampStart: number?, RampLength: number?, RampHeight: number?, WallZ: number?, WallKind: string?, Grass: boolean?, DropZ: number?, DropHeight: number?, QuarterStart: number?, QuarterRadius: number?, QuarterAngle: number?, DeckZ: number?, DeckHeight: number? }
+type Options = { RampStart: number?, RampLength: number?, RampHeight: number?, WallZ: number?, WallKind: string?, Grass: boolean?, DropZ: number?, DropHeight: number?, QuarterStart: number?, QuarterRadius: number?, QuarterAngle: number?, DeckZ: number?, DeckHeight: number?, StepZ: number?, StepHeight: number? }
 
 local function makeWorld(opt: Options)
 	local function height(x: number, z: number): (number, string, any)
@@ -51,6 +52,10 @@ local function makeWorld(opt: Options)
 			if z <= start and z >= start - length then
 				return h * (start - z) / length, "Ramp", Vector3.new(0, 1, h / length).Unit
 			end
+		end
+		if opt.StepZ and opt.StepHeight and z <= opt.StepZ then
+			-- a kerb: a sharp step up (or down, negative) at StepZ
+			return opt.StepHeight, if opt.Grass then "Grass" else "Road", Vector3.new(0, 1, 0)
 		end
 		if opt.DeckZ and opt.DeckHeight and z <= opt.DeckZ then
 			return opt.DeckHeight, "Ramp", Vector3.new(0, 1, 0)
@@ -132,6 +137,19 @@ local function atMost(limit: number)
 	return function(_t: number, s: any)
 		if BikePhysics.Kmh(s) > limit then
 			s.Speed = limit / 3.6
+		end
+	end
+end
+
+-- run up at `limit` km/h, then let go of the throttle from `coastZ` on: capping the speed while the
+-- throttle is open reads as endless acceleration, which squats the suspension
+local function runUp(limit: number, coastZ: number, inp: any)
+	local cap = atMost(limit)
+	return function(t: number, s: any)
+		if s.Position.Z > coastZ then
+			cap(t, s)
+		else
+			inp.Throttle = 0
 		end
 	end
 end
@@ -663,6 +681,202 @@ do
 	check(peak < 60, "isn't fired into the sky")
 	check(fakie and landed and not crashed, "turns at the top and lands back on the face without a bail")
 	check(BikePhysics.Heading(state.Yaw).Z > 0.5, "rides back out facing the way it came")
+end
+
+print("== suspension: sag, kerbs, drops, dive, squat, landings, grass, wheelies, loops, hitches")
+do
+	local function comp(s: any): (number, number)
+		return BikePhysics.Compression(s)
+	end
+	local function stationary(spec: any, state: any)
+		ride(spec, state, Modes.Defaults.TURBO, flat, 3, input({}))
+	end
+	-- 1. at rest it settles at ~30% sag and stays still
+	local spec, state = spawn("hornet_6")
+	stationary(spec, state)
+	local cf, cr = comp(state)
+	print(string.format("  at rest: front %.0f mm of %.0f, rear %.0f mm of %.0f", cf * 1000, spec.FrontTravel * 1000, cr * 1000, spec.RearTravel * 1000))
+	check(math.abs(cf - 0.3 * spec.FrontTravel) < 0.012 and math.abs(cr - 0.3 * spec.RearTravel) < 0.012, "at rest each end sits at ~30% sag")
+	check(math.abs((state.Sus :: any).EV) < 0.01, "and the chassis is still")
+
+	-- 2. a kerb UP at 20 km/h: the front fork takes the hit first, then the rear, the chassis pitches
+	-- up then down, no takeoff or landing, and it ends up on top
+	local kerb = makeWorld({ StepZ = -120, StepHeight = 0.625 })
+	spec, state = spawn("hornet_6")
+	local peakF, peakR, peakFAt, peakRAt, maxTilt, minTilt = 0, 0, 0, 0, 0, 0
+	local airEvents = 0
+	local upInput = input({ Throttle = 1 })
+	local upRun = runUp(20, -100, upInput)
+	local events = ride(spec, state, Modes.Defaults.TURBO, kerb, 9, upInput, function(t, s)
+		upRun(t, s)
+		if s.Position.Z > -110 then
+			return -- the launch squat isn't the kerb
+		end
+		local f, r = comp(s)
+		if f > peakF then
+			peakF, peakFAt = f, t
+		end
+		if r > peakR then
+			peakR, peakRAt = r, t
+		end
+		local tilt = BikePhysics.ChassisPitch(s)
+		maxTilt = math.max(maxTilt, tilt)
+		minTilt = math.min(minTilt, tilt)
+	end)
+	for _, e in events do
+		if e.Kind == "Takeoff" or e.Kind == "Land" then
+			airEvents += 1
+		end
+	end
+	print(string.format("  kerb up: front peak %.0f mm at %.2f s, rear peak %.0f mm at %.2f s, pitch %+.1f / %+.1f deg", peakF * 1000, peakFAt, peakR * 1000, peakRAt, math.deg(maxTilt), math.deg(minTilt)))
+	check(peakF > 0.3 * spec.FrontTravel + 0.03 and peakR > 0.3 * spec.RearTravel + 0.03, "a kerb compresses both ends well past sag")
+	check(peakFAt < peakRAt, "the front takes the kerb before the rear")
+	check(maxTilt > math.rad(1.5) and minTilt < -math.rad(1), "the chassis pitches up over the kerb, then down")
+	check(airEvents == 0, "riding up a kerb is no jump")
+	check(math.abs(state.Position.Y - 0.625) < 0.05, "and it ends up on top")
+
+	-- 3. a kerb DOWN: the wheels drop and the chassis falls onto its springs; no jump, no landing
+	local drop = makeWorld({ StepZ = -120, StepHeight = -0.625 })
+	spec, state = spawn("hornet_6")
+	local lowF, highF = 1, 0
+	airEvents = 0
+	local downInput = input({ Throttle = 1 })
+	local downRun = runUp(20, -100, downInput)
+	events = ride(spec, state, Modes.Defaults.TURBO, drop, 9, downInput, function(t, s)
+		downRun(t, s)
+		if s.Position.Z < -110 then
+			local f = comp(s)
+			lowF = math.min(lowF, f)
+			highF = math.max(highF, f)
+		end
+	end)
+	for _, e in events do
+		if e.Kind == "Takeoff" or e.Kind == "Land" then
+			airEvents += 1
+		end
+	end
+	print(string.format("  kerb down: front from %.0f to %.0f mm", lowF * 1000, highF * 1000))
+	check(airEvents == 0, "a kerb drop is no jump: no takeoff, no landing (no fake shake or dust)")
+	check(lowF < 0.3 * spec.FrontTravel - 0.02 and highF > 0.3 * spec.FrontTravel + 0.02, "the fork extends off the edge, then compresses as the bike lands on it")
+
+	-- 4. braking dives the front, accelerating squats the rear
+	spec, state = spawn("hornet_6")
+	ride(spec, state, Modes.Defaults.TURBO, flat, 8, input({ Throttle = 1 }), atMost(45))
+	local restF, restR = comp(state)
+	local diveF, diveR = 0, 1
+	ride(spec, state, Modes.Defaults.TURBO, flat, 0.6, input({ Brake = 1 }), function(_, s)
+		local f, r = comp(s)
+		diveF = math.max(diveF, f)
+		diveR = math.min(diveR, r)
+	end)
+	print(string.format("  braking: front %.0f -> %.0f mm, rear %.0f -> %.0f mm", restF * 1000, diveF * 1000, restR * 1000, diveR * 1000))
+	check(diveF > restF + 0.02 and diveR < restR - 0.01, "hard braking dives the front and lifts the rear")
+	spec, state = spawn("hornet_6")
+	stationary(spec, state)
+	restF, restR = comp(state)
+	local squatR, squatF = 0, 1
+	ride(spec, state, Modes.Defaults.TURBO, flat, 0.5, input({ Throttle = 1 }), function(_, s)
+		local f, r = comp(s)
+		squatR = math.max(squatR, r)
+		squatF = math.min(squatF, f)
+	end)
+	print(string.format("  launch: rear %.0f -> %.0f mm, front %.0f -> %.0f mm", restR * 1000, squatR * 1000, restF * 1000, squatF * 1000))
+	check(squatR > restR + 0.01 and squatF < restF - 0.005, "full throttle squats the rear and lightens the front")
+
+	-- 5. a big jump's landing sinks deep into the travel but the bump stops hold
+	local kicker = makeWorld({ RampStart = -150, RampLength = 13, RampHeight = 5 })
+	spec, state = spawn("storm_xr")
+	local deepest, landed = 0, false
+	ride(spec, state, Modes.Defaults.TURBO, kicker, 10, input({ Throttle = 1 }), function(_, s, evs)
+		for _, e in evs do
+			if e.Kind == "Land" then
+				landed = true
+			end
+		end
+		if landed then
+			local f, r = comp(s)
+			deepest = math.max(deepest, f / spec.FrontTravel, r / spec.RearTravel)
+		end
+	end)
+	print(string.format("  big landing: deepest %.0f%% of travel", deepest * 100))
+	check(landed and deepest > 0.6, "a big landing uses most of the travel")
+	check(deepest < 1.15, "and the bump stops hold it")
+
+	-- 6. grass is bumpy, tarmac isn't: the wheels work hard on grass
+	local function jiggle(world: any): number
+		local sp, st = spawn("hornet_6")
+		ride(sp, st, Modes.Defaults.TURBO, world, 4, input({ Throttle = 1 }), atMost(30))
+		local samples, sum, sumSq = 0, 0, 0
+		ride(sp, st, Modes.Defaults.TURBO, world, 4, input({ Throttle = 1 }), function(t, s)
+			atMost(30)(t, s)
+			local f = comp(s)
+			samples += 1
+			sum += f
+			sumSq += f * f
+		end)
+		local mean = sum / samples
+		return math.sqrt(math.max(0, sumSq / samples - mean * mean))
+	end
+	local roadJiggle, grassJiggle = jiggle(flat), jiggle(makeWorld({ Grass = true }))
+	print(string.format("  fork movement at 30 km/h: road %.1f mm, grass %.1f mm (std dev)", roadJiggle * 1000, grassJiggle * 1000))
+	check(grassJiggle > 4 * roadJiggle and grassJiggle > 0.004, "on grass the suspension works over the bumps; on the road it's calm")
+
+	-- 7. a wheelie: the fork tops out, the rear takes all the weight and sinks past its static sag
+	spec, state = spawn("hornet_6")
+	stationary(spec, state)
+	restF, restR = comp(state)
+	ride(spec, state, Modes.Defaults.TURBO, flat, 6, input({ Throttle = 1 }), atMost(30))
+	ride(spec, state, Modes.Defaults.TURBO, flat, 1.5, input({ Throttle = 1, Wheelie = true }), atMost(30))
+	local wf, wr = comp(state)
+	print(string.format("  wheelie (%.0f deg): front %.0f mm, rear %.0f mm", math.deg(state.Wheelie), wf * 1000, wr * 1000))
+	check(state.Wheelie > 0.2 and wf < 0.02 and wr > restR + 0.01, "in a wheelie the fork tops out and the rear sinks")
+
+	-- 8. a loop's g-force loads the suspension, within its travel
+	do
+		local loopWorld = makeWorld({})
+		local entry = CFrame.lookAt(Vector3.new(0, 0, -80), Vector3.new(0, 0, -81))
+		local used = false
+		loopWorld.Loop = function(position, d)
+			if not used and math.abs(position.Z + 80) < 2 and d:Dot(entry.LookVector) > 0.8 then
+				used = true
+				return { Entry = entry, Radius = 16, Shift = 10 }
+			end
+			return nil
+		end
+		spec, state = spawn("storm_x")
+		local inLoop, maxIn = 0, 0
+		ride(spec, state, Modes.Defaults.TURBO, loopWorld, 10, input({ Throttle = 1 }), function(_, s)
+			if s.Loop then
+				local f, r = comp(s)
+				inLoop += 1
+				maxIn = math.max(maxIn, f / spec.FrontTravel, r / spec.RearTravel)
+			end
+		end)
+		print(string.format("  loop: deepest %.0f%% of travel", maxIn * 100))
+		check(inLoop > 0 and maxIn > 0.4 and maxIn < 1.15, "a loop's g-force compresses the suspension, within its travel")
+	end
+
+	-- 9. frame hitches (0.1 s steps) over grass and kerbs never blow it up
+	do
+		local rough = makeWorld({ Grass = true, StepZ = -60, StepHeight = 0.625 })
+		local sp, st = spawn("deathrider")
+		local ok = true
+		for _ = 1, 60 do
+			BikePhysics.Step(st, sp, Modes.Defaults.TURBO, input({ Throttle = 1 }), rough, 0.1)
+			local f, r = comp(st)
+			if f ~= f or r ~= r or f < -0.06 or r < -0.06 or f > sp.FrontTravel + 0.08 or r > sp.RearTravel + 0.08 then
+				ok = false
+			end
+		end
+		check(ok, "0.1 s frame hitches over grass and a kerb: the suspension stays sane")
+	end
+	-- 10. every bike settles (no bike's numbers make it oscillate or sink)
+	for _, bike in Bikes.List do
+		local sp, st = spawn(bike.Id)
+		stationary(sp, st)
+		local f, r = comp(st)
+		check(math.abs(f - 0.3 * sp.FrontTravel) < 0.015 and math.abs(r - 0.3 * sp.RearTravel) < 0.015 and math.abs((st.Sus :: any).EV) < 0.01, bike.Id .. " settles at its sag")
+	end
 end
 
 print("== walls")

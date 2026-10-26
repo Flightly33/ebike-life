@@ -268,7 +268,8 @@ local function step(dt: number)
 		BikeController.Stop()
 		return
 	end
-	BikeCamera.Rough = if s.Offroad then 1 elseif s.Surface == "Sidewalk" then 0.45 else 0.15
+	-- the chassis really moves on its suspension now: just a touch of buzz on top
+	BikeCamera.Rough = if s.Offroad then 0.25 elseif s.Surface == "Sidewalk" then 0.08 else 0.03
 	BikeCamera.Update(dt, cf, travelYaw, BikePhysics.Kmh(s), not s.Grounded)
 
 	sendClock += dt
