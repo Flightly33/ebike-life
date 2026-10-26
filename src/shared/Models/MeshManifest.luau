@@ -152,6 +152,26 @@ local M: { [string]: { Entry } } = {
 		{ Name = "Car_Van__Wheel_RR__Metal", Group = "Wheel_RR", Slot = "Metal", Center = Vector3.new(0.9610, 0.3500, 1.6500), Size = Vector3.new(0.1020, 0.4690, 0.4690) },
 		{ Name = "Car_Van__Wheel_RR__Tire", Group = "Wheel_RR", Slot = "Tire", Center = Vector3.new(0.9000, 0.3500, 1.6500), Size = Vector3.new(0.2072, 0.7000, 0.7000) },
 	},
+	["Kit_Lamp"] = {
+		{ Name = "Kit_Lamp__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 7.8950, -0.0000), Size = Vector3.new(2.2400, 15.7900, 2.2400) },
+	},
+	["Kit_Tree_Birch"] = {
+		{ Name = "Kit_Tree_Birch__Main__Birch", Group = "Main", Slot = "Birch", Center = Vector3.new(0.0000, 6.6764, 0.0142), Size = Vector3.new(5.0395, 13.6471, 5.0108) },
+		{ Name = "Kit_Tree_Birch__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 5.4000, -0.0143), Size = Vector3.new(0.9336, 8.4416, 0.9194) },
+		{ Name = "Kit_Tree_Birch__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(-0.3462, 14.0112, 0.0813), Size = Vector3.new(9.0388, 7.1927, 8.2587) },
+	},
+	["Kit_Tree_Broadleaf"] = {
+		{ Name = "Kit_Tree_Broadleaf__Main__Bark", Group = "Main", Slot = "Bark", Center = Vector3.new(0.1484, 5.6334, -0.0699), Size = Vector3.new(8.2054, 11.7332, 8.0441) },
+		{ Name = "Kit_Tree_Broadleaf__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(-0.4621, 11.3854, -0.2816), Size = Vector3.new(12.0255, 7.4594, 13.7544) },
+	},
+	["Kit_Tree_Conifer"] = {
+		{ Name = "Kit_Tree_Conifer__Main__Bark", Group = "Main", Slot = "Bark", Center = Vector3.new(0.2223, 6.9892, -0.0000), Size = Vector3.new(8.7708, 14.0215, 8.9900) },
+		{ Name = "Kit_Tree_Conifer__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0697, 8.4967, 0.0041), Size = Vector3.new(9.5841, 12.3900, 9.4453) },
+	},
+	["Kit_Window"] = {
+		{ Name = "Kit_Window__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.1400), Size = Vector3.new(5.7000, 7.2000, 0.3800) },
+		{ Name = "Kit_Window__Main__Stone", Group = "Main", Slot = "Stone", Center = Vector3.new(0.0000, -0.0150, -0.3350), Size = Vector3.new(6.8000, 8.9100, 0.7700) },
+	},
 	["cub_sm"] = {
 		{ Name = "cub_sm__Fork__Accent", Group = "Fork", Slot = "Accent", Center = Vector3.new(-0.0243, 0.4738, -0.6555), Size = Vector3.new(0.1885, 0.2843, 0.5039) },
 		{ Name = "cub_sm__Fork__Black", Group = "Fork", Slot = "Black", Center = Vector3.new(-0.0010, 0.4211, -0.5876), Size = Vector3.new(0.2060, 0.3420, 0.2505) },

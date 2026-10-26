@@ -50,6 +50,7 @@ function Props.Tree(parent: Instance, base: Vector3, rng: Random, size: number?)
 	local model = PartKit.Model(parent, "Tree")
 	local kind = rng:NextNumber()
 	local spin = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	model:SetAttribute("Species", if kind < 0.1 then "Conifer" elseif kind < 0.25 then "Birch" else "Broadleaf")
 	if kind < 0.1 then
 		-- conifer: flat, overlapping tiers narrowing to a point above a clear trunk
 		local height = 5 * s

@@ -24,6 +24,7 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import meshkit as K  # noqa: E402
 import emoto  # noqa: E402
+import citykit  # noqa: E402
 from meshkit import B, Vector as V  # noqa: E402,F401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +39,9 @@ TUBE = {"City": 0.055, "Folding": 0.065, "Cruiser": 0.055, "Cargo": 0.06, "Fat":
 
 # Fixed slots (colour + material in the game come from MeshKit.SLOTS on the Luau side)
 SLOT_COLORS = {
+    "Stone": (0.78, 0.76, 0.7),
+    "Bark": (0.3, 0.22, 0.16),
+    "Birch": (0.86, 0.85, 0.8),
     "Black": (0.10, 0.10, 0.11),
     "Dark": (0.20, 0.21, 0.23),
     "Metal": (0.75, 0.75, 0.77),
@@ -1252,6 +1256,23 @@ def render(ids, out_dir, kinds):
             for child in e.children:
                 child.hide_render = hidden
         is_car = vid in kinds
+        if vid.startswith("Kit_"):
+            kids = [c for c in empties[vid].children]
+            lo = Vector((min(c.location.x - c.dimensions.x / 2 for c in kids), min(c.location.y - c.dimensions.y / 2 for c in kids), min(c.location.z - c.dimensions.z / 2 for c in kids)))
+            hi = Vector((max(c.location.x + c.dimensions.x / 2 for c in kids), max(c.location.y + c.dimensions.y / 2 for c in kids), max(c.location.z + c.dimensions.z / 2 for c in kids)))
+            size = max((hi - lo).length, 1)
+            target = (lo + hi) / 2
+            floor.location = Vector((0, 0, lo.z))
+            floor.scale = (size, size, 1)
+            sun.rotation_euler = (math.radians(50), 0, math.radians(35))
+            cam.location = target + Vector((0.9, 1.6, 0.45)) * size * 0.95
+            cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
+            cam_data.lens = 45
+            scene.render.filepath = os.path.join(out_dir, f"{vid}_q.png")
+            bpy.ops.render.render(write_still=True)
+            floor.location = Vector((0, 0, 0))
+            floor.scale = (1, 1, 1)
+            continue
         bike_views = (
             ("side", (3.2, 0.6, 1.0), (0, 0, 0.55), 50),
             ("q", (2.2, 2.4, 1.4), (0, 0, 0.55), 50),
@@ -1297,6 +1318,10 @@ def main():
         car(kind, d)
         car_kinds.append(name)
         colors[name] = {"Paint": car_paint.get(kind, (0.62, 0.05, 0.06)), "Blue": (0.1, 0.3, 0.85), "Red": (0.6, 0.08, 0.08)}
+    if not only or any(name.startswith("Kit_") for name in only):
+        citykit.build_all()
+        for name in ("Kit_Window", "Kit_Tree_Broadleaf", "Kit_Tree_Birch", "Kit_Tree_Conifer", "Kit_Lamp"):
+            colors[name] = {"Paint": (0.55, 0.62, 0.3) if "Tree" in name else (0.9, 0.88, 0.82)}
     manifest = K.build_objects()
     os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
     total = 0

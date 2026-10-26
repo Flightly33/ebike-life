@@ -50,6 +50,10 @@ MeshKit.Slots = {
 	Orange = { Color = Color3.fromRGB(250, 120, 20), Material = SM },
 	Blue = { Color = Color3.fromRGB(30, 80, 200), Material = SM },
 	Red = { Color = Color3.fromRGB(170, 30, 30), Material = SM },
+	-- city kit
+	Stone = { Color = Color3.fromRGB(206, 200, 186), Material = Enum.Material.Limestone },
+	Bark = { Color = Color3.fromRGB(86, 64, 46), Material = Enum.Material.Wood },
+	Birch = { Color = Color3.fromRGB(226, 222, 212), Material = Enum.Material.Wood },
 } :: { [string]: Slot }
 
 -- Slots the player's paint (or a car's colour) decides
@@ -189,6 +193,36 @@ function MeshKit.Has(vehicleId: string): boolean
 	end
 	checked[vehicleId] = ok
 	return ok
+end
+
+-- The half turn Studio's importer gave the whole file (read from a vehicle with enough pieces):
+-- kits with only a couple of meshes can't read it themselves
+function MeshKit.ImportTurn(): number
+	for _, turn in turns do
+		if turn == 180 then
+			return 180
+		end
+	end
+	return 0
+end
+
+export type Piece = { Source: MeshPart, Entry: MeshManifest.Entry }
+
+-- The imported meshes of one vehicle or kit (nil unless all of them are there)
+function MeshKit.Pieces(vehicleId: string): { Piece }?
+	if not MeshKit.Has(vehicleId) then
+		return nil
+	end
+	local entries = MeshManifest[vehicleId]
+	local meshes = meshIndex()
+	local out: { Piece } = {}
+	for _, entry in entries do
+		local source = meshes[entry.Name]
+		if source then
+			table.insert(out, { Source = source, Entry = entry })
+		end
+	end
+	return out
 end
 
 -- Check a vehicle's import again next time (after re-importing)

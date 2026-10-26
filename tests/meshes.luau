@@ -11,6 +11,7 @@ local World = require("../tools/sim/World")
 local Sim = require("../tools/sim/Instance")
 local Vector3 = require("@lune/roblox").Vector3
 local CFrame = require("@lune/roblox").CFrame
+local Color3 = require("@lune/roblox").Color3
 
 local root = process.cwd
 if string.sub(root, -1) ~= "/" then
@@ -158,6 +159,71 @@ end
 MeshKit.Forget("flit_s")
 local fallback = BikeModel.Build(Bikes.Get("flit_s"), nil)
 check(#meshes(fallback) == 0, "a turned import falls back to the part-built bike")
+
+-- The city kit on a little street: windows, the three tree species, a lamp
+do
+	local CityKit = server.Require(Models:WaitForChild("CityKit"))
+	local Detail = server.Require(Shared:WaitForChild("City"):WaitForChild("Detail"))
+	local Props = server.Require(Shared:WaitForChild("City"):WaitForChild("Props"))
+	local street = Sim.New("Model")
+	street.Name = "City"
+	local face = CFrame.new(0, 0, -20)
+	Detail.Windows(street, face, 40, 0, 24, 12, { Width = 5, Height = 6.5, Spacing = 9, Frame = Color3.fromRGB(240, 236, 228) })
+	math.randomseed(5)
+	local rng: any = {
+		NextNumber = function(_, a: number?, b: number?): number
+			local lo, hi = a or 0, b or 1
+			return lo + math.random() * (hi - lo)
+		end,
+		NextInteger = function(_, a: number, b: number): number
+			return math.random(a, b)
+		end,
+	}
+	local species = {}
+	for i = 1, 40 do
+		Props.Tree(street, Vector3.new(i * 20, 0, 30), rng)
+	end
+	Props.Lamp(street, Vector3.new(0, 0, 60))
+	for _, d in street:GetDescendants() do
+		if d:IsA("Model") and d.Name == "Tree" then
+			species[d:GetAttribute("Species")] = true
+		end
+	end
+	local function count(name: string): number
+		local n = 0
+		for _, d in street:GetDescendants() do
+			if d.Name == name then
+				n += 1
+			end
+		end
+		return n
+	end
+	local frames, panes = count("WindowFrame"), count("Window")
+	local placed = CityKit.Apply(street)
+	check(species.Broadleaf and species.Birch and species.Conifer, "the street has all three tree species")
+	check(placed == frames + 40 + 1, string.format("the kit replaced every window, tree and lamp (%d of %d)", placed, frames + 41))
+	check(count("WindowFrame") == 0 and count("Sill") == 0, "frames and sills are gone")
+	check(count("Window") == panes, "the glass stays (it lights up at night)")
+	check(count("Leaves") == 0 and count("Trunk") == 40, "trees: leaves replaced, trunks kept as colliders")
+	check(count("Globe") == 1 and count("Pole") == 1 and count("Collar") == 0, "lamp: globe and pole kept, trim replaced")
+	-- each window surround sits on its frame: its casing over the frame's box, the glass behind the bars
+	local ok = true
+	for _, d in street:GetDescendants() do
+		if d:IsA("MeshPart") and d.Parent == street and d.Name == "Kit_Paint" then
+			local pane
+			for _, w in street:GetChildren() do
+				if w.Name == "Window" and (w.Position - d.Position).Magnitude < 1.5 then
+					pane = w
+				end
+			end
+			if not pane or math.abs(d.Size.X - (pane.Size.X + 0.7)) > 0.1 then
+				ok = false
+			end
+		end
+	end
+	check(ok, "each window surround is fitted to its window")
+	street:Destroy()
+end
 
 -- The suspension's joints, on the part-built bikes: put each Motor6D's Transform through the chain
 -- the way Roblox does (Part1 = Part0 * C0 * Transform * C1:Inverse()) and look where things end up

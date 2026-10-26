@@ -15,6 +15,7 @@ local PartKit = require(Shared.PartKit)
 local BikeModel = require(Shared.Models.BikeModel)
 local CarModel = require(Shared.Models.CarModel)
 local MeshKit = require(Shared.Models.MeshKit)
+local CityKit = require(Shared.Models.CityKit)
 
 local BikeService = require(script.Parent.BikeService)
 
@@ -61,6 +62,20 @@ function CityService.Init()
 	end
 	local cityModel = city :: Instance
 	swapInMeshes(cityModel)
+	-- the detailed city kit (windows, trees, lamps) in place of their part-built placeholders, a
+	-- few hundred a frame so start-up doesn't stall
+	task.spawn(function()
+		local n = 0
+		local placed = CityKit.Apply(cityModel, function()
+			n += 1
+			if n % 250 == 0 then
+				task.wait()
+			end
+		end)
+		if placed > 0 then
+			print(string.format("[CityKit] detailed %d windows, trees and lamps", placed))
+		end
+	end)
 	for _, d in cityModel:GetDescendants() do
 		if d:IsA("ProximityPrompt") and d.Name == "ChargerPrompt" then
 			local prompt = d
