@@ -67,6 +67,19 @@ function PartKit.Box(parent: Instance, name: string, size: Vector3, cframe: CFra
 	return p
 end
 
+-- A wedge (Roblox WedgePart: full height on its +Z face, a slope down to its -Z edge). `cframe` is the centre.
+function PartKit.Wedge(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material, opts: Opts?): WedgePart
+	local p = Instance.new("WedgePart")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cframe
+	p.Color = color
+	p.Material = material
+	apply(p, opts)
+	p.Parent = parent
+	return p
+end
+
 -- A cylinder whose axis runs along `cframe`'s X (right) vector
 function PartKit.Cylinder(parent: Instance, name: string, diameter: number, length: number, cframe: CFrame, color: Color3, material: Enum.Material, opts: Opts?): Part
 	local p = Instance.new("Part")

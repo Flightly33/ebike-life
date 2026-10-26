@@ -12,6 +12,8 @@ function Preview.Export(root: any): { any }
 			local mesh = d:FindFirstChildOfClass("SpecialMesh")
 			if mesh and mesh.MeshType.Name == "Sphere" then
 				shape = "Ellipsoid" -- a sphere mesh fills the part's box, unlike a Ball part
+			elseif d.ClassName == "WedgePart" then
+				shape = "Wedge"
 			elseif d.ClassName == "Part" then
 				shape = d.Shape.Name
 			elseif d.ClassName == "Seat" or d.ClassName == "SpawnLocation" then

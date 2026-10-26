@@ -1334,8 +1334,8 @@
   "CarScale": 2.857142857142857,
   "Cars": {
     "Hatch": {
-      "BodyHeight": 0.58,
-      "CabinHeight": 0.56,
+      "BodyHeight": 0.64,
+      "CabinHeight": 0.68,
       "CabinLength": 2.45,
       "Clearance": 0.16,
       "Hood": 0.24,
@@ -1348,8 +1348,8 @@
       "Width": 1.78
     },
     "Police": {
-      "BodyHeight": 0.62,
-      "CabinHeight": 0.5,
+      "BodyHeight": 0.7,
+      "CabinHeight": 0.6,
       "CabinLength": 2.45,
       "Clearance": 0.2,
       "Hood": 0.28,
@@ -1362,8 +1362,8 @@
       "Width": 1.95
     },
     "SUV": {
-      "BodyHeight": 0.78,
-      "CabinHeight": 0.62,
+      "BodyHeight": 0.8,
+      "CabinHeight": 0.72,
       "CabinLength": 2.95,
       "Clearance": 0.24,
       "Hood": 0.24,
@@ -1376,8 +1376,8 @@
       "Width": 1.95
     },
     "Sedan": {
-      "BodyHeight": 0.58,
-      "CabinHeight": 0.5,
+      "BodyHeight": 0.66,
+      "CabinHeight": 0.62,
       "CabinLength": 2.4,
       "Clearance": 0.17,
       "Hood": 0.28,
@@ -1390,8 +1390,8 @@
       "Width": 1.84
     },
     "Taxi": {
-      "BodyHeight": 0.58,
-      "CabinHeight": 0.5,
+      "BodyHeight": 0.66,
+      "CabinHeight": 0.62,
       "CabinLength": 2.4,
       "Clearance": 0.17,
       "Hood": 0.28,

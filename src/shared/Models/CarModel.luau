@@ -55,11 +55,11 @@ type Dims = {
 }
 
 local DIMS: { [string]: Dims } = {
-	Police = { Length = 5.1, Width = 1.95, BodyHeight = 0.62, Clearance = 0.2, CabinHeight = 0.5, CabinLength = 2.45, Wheelbase = 2.95, Wheel = 0.7, Hood = 0.28, Rake = 1.35, RearRake = 1.05, Trunk = true },
-	Sedan = { Length = 4.8, Width = 1.84, BodyHeight = 0.58, Clearance = 0.17, CabinHeight = 0.5, CabinLength = 2.4, Wheelbase = 2.8, Wheel = 0.66, Hood = 0.28, Rake = 1.4, RearRake = 1.1, Trunk = true },
-	Taxi = { Length = 4.8, Width = 1.84, BodyHeight = 0.58, Clearance = 0.17, CabinHeight = 0.5, CabinLength = 2.4, Wheelbase = 2.8, Wheel = 0.66, Hood = 0.28, Rake = 1.4, RearRake = 1.1, Trunk = true },
-	Hatch = { Length = 4.1, Width = 1.78, BodyHeight = 0.58, Clearance = 0.16, CabinHeight = 0.56, CabinLength = 2.45, Wheelbase = 2.6, Wheel = 0.62, Hood = 0.24, Rake = 1.3, RearRake = 0.35, Trunk = false },
-	SUV = { Length = 4.75, Width = 1.95, BodyHeight = 0.78, Clearance = 0.24, CabinHeight = 0.62, CabinLength = 2.95, Wheelbase = 2.85, Wheel = 0.76, Hood = 0.24, Rake = 1.05, RearRake = 0.25, Trunk = false },
+	Police = { Length = 5.1, Width = 1.95, BodyHeight = 0.7, Clearance = 0.2, CabinHeight = 0.6, CabinLength = 2.45, Wheelbase = 2.95, Wheel = 0.7, Hood = 0.28, Rake = 1.35, RearRake = 1.05, Trunk = true },
+	Sedan = { Length = 4.8, Width = 1.84, BodyHeight = 0.66, Clearance = 0.17, CabinHeight = 0.62, CabinLength = 2.4, Wheelbase = 2.8, Wheel = 0.66, Hood = 0.28, Rake = 1.4, RearRake = 1.1, Trunk = true },
+	Taxi = { Length = 4.8, Width = 1.84, BodyHeight = 0.66, Clearance = 0.17, CabinHeight = 0.62, CabinLength = 2.4, Wheelbase = 2.8, Wheel = 0.66, Hood = 0.28, Rake = 1.4, RearRake = 1.1, Trunk = true },
+	Hatch = { Length = 4.1, Width = 1.78, BodyHeight = 0.64, Clearance = 0.16, CabinHeight = 0.68, CabinLength = 2.45, Wheelbase = 2.6, Wheel = 0.62, Hood = 0.24, Rake = 1.3, RearRake = 0.35, Trunk = false },
+	SUV = { Length = 4.75, Width = 1.95, BodyHeight = 0.8, Clearance = 0.24, CabinHeight = 0.72, CabinLength = 2.95, Wheelbase = 2.85, Wheel = 0.76, Hood = 0.24, Rake = 1.05, RearRake = 0.25, Trunk = false },
 	Van = { Length = 5.3, Width = 2.0, BodyHeight = 0.9, Clearance = 0.22, CabinHeight = 1.0, CabinLength = 4.4, Wheelbase = 3.3, Wheel = 0.7, Hood = 0.12, Rake = 0.55, RearRake = 0.05, Trunk = false },
 }
 

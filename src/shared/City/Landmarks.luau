@@ -321,6 +321,82 @@ function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: 
 			PartKit.Box(model, "ChargeLED", Vector3.new(1.25, 0.4, 1.25), CFrame.new(post + Vector3.new(0, 3.4, 0)), Color3.fromRGB(40, 210, 110), NEON, DECOR)
 		end
 	end
+
+	-- Detail: glazing bars on the showroom glass, an OPEN sign, banners hung from the ceiling
+	for _, side in { -1, 1 } do
+		for k = 1, 3 do
+			local x = scx + side * (entrance / 2 + k * panelW / 4)
+			PartKit.Box(model, "GlazingBar", Vector3.new(0.5, sh, 1.3), CFrame.new(x, floorY + sh / 2, front), FLIGHTY_DARK, SMOOTH, DECOR)
+		end
+		PartKit.Box(model, "GlazingRail", Vector3.new(panelW, 0.5, 1.3), CFrame.new(scx + side * (entrance / 2 + panelW / 2), floorY + 3, front), FLIGHTY_DARK, SMOOTH, DECOR)
+		for k = 1, 3 do
+			PartKit.Box(model, "GlazingBar", Vector3.new(1.3, sh, 0.5), CFrame.new(scx + side * sw / 2, floorY + sh / 2, sz - sd / 2 + k * sd / 4), FLIGHTY_DARK, SMOOTH, DECOR)
+		end
+	end
+	local open = PartKit.Box(model, "OpenSign", Vector3.new(8, 3, 0.3), CFrame.new(scx + entrance / 2 + 10, floorY + 9, front - 1), Color3.fromRGB(10, 10, 12), SMOOTH, DECOR)
+	PartKit.Sign(open, Enum.NormalId.Front, "OPEN", Color3.fromRGB(255, 70, 60), nil, Enum.Font.GothamBlack, 20)
+	PartKit.Sign(open, Enum.NormalId.Back, "OPEN", Color3.fromRGB(255, 70, 60), nil, Enum.Font.GothamBlack, 20)
+	for k, text in { "0-60 IN SILENCE", "NO PEDALS. ALL TORQUE.", "RIDE ELECTRIC" } do
+		local banner = PartKit.Box(model, "Banner", Vector3.new(16, 7, 0.2), CFrame.new(scx - 60 + (k - 1) * 60, top - 6.5, sz + 10), if k % 2 == 1 then FLIGHTY_ORANGE else FLIGHTY_DARK, Enum.Material.Fabric, DECOR)
+		PartKit.Sign(banner, Enum.NormalId.Front, text, WHITE, nil, Enum.Font.FredokaOne, 14)
+		PartKit.Sign(banner, Enum.NormalId.Back, text, WHITE, nil, Enum.Font.FredokaOne, 14)
+		for _, e in { -7, 7 } do
+			PartKit.Box(model, "BannerWire", Vector3.new(0.1, 3, 0.1), CFrame.new(scx - 60 + (k - 1) * 60 + e, top - 1.5, sz + 10), Color3.fromRGB(40, 40, 44), Enum.Material.Metal, DECOR)
+		end
+	end
+	-- riding gear on mannequins by the helmet wall, a waiting row of chairs by the counter
+	for k = 0, 2 do
+		local base = Vector3.new(scx + sw / 2 - 12, floorY + 0.4, sz + 4 + k * 7)
+		local suit = ({ FLIGHTY_ORANGE, Color3.fromRGB(30, 30, 34), Color3.fromRGB(40, 110, 220) })[k + 1]
+		PartKit.Post(model, "MannequinBase", 2.4, 0.4, base, Color3.fromRGB(230, 230, 230), SMOOTH, DECOR)
+		PartKit.Box(model, "MannequinLegs", Vector3.new(1.6, 3.6, 0.9), CFrame.new(base + Vector3.new(0, 2.2, 0)), Color3.fromRGB(30, 30, 34), Enum.Material.Fabric, DECOR)
+		PartKit.Box(model, "Jersey", Vector3.new(2.2, 2.6, 1.1), CFrame.new(base + Vector3.new(0, 5.3, 0)), suit, Enum.Material.Fabric, DECOR)
+		PartKit.Ball(model, "Helmet", 1.8, base + Vector3.new(0, 7.4, 0), suit, SMOOTH, DECOR)
+	end
+	for k = 0, 3 do
+		local seat = Vector3.new(counterPos.X - 18 - k * 3.2, floorY + 0.4, front - 6)
+		PartKit.Box(model, "Chair", Vector3.new(2.6, 1.8, 2.6), CFrame.new(seat + Vector3.new(0, 0.9, 0)), Color3.fromRGB(240, 240, 240), SMOOTH, DECOR)
+		PartKit.Box(model, "ChairBack", Vector3.new(2.6, 2.4, 0.4), CFrame.new(seat + Vector3.new(0, 2.6, -1.1)), FLIGHTY_ORANGE, SMOOTH, DECOR)
+	end
+	-- the roof: solar panels in rows, aircon units
+	for row = 0, 3 do
+		for k = 0, 6 do
+			local p = Vector3.new(scx - sw / 2 + 24 + k * 24, top + 3.6, sz - sd / 2 + 16 + row * 18)
+			PartKit.Box(model, "SolarPanel", Vector3.new(20, 0.4, 12), CFrame.new(p + Vector3.new(0, 1.4, 0)) * CFrame.Angles(math.rad(-15), 0, 0), Color3.fromRGB(28, 40, 70), Enum.Material.Glass, DECOR)
+			PartKit.Box(model, "SolarLeg", Vector3.new(0.4, 1.6, 0.4), CFrame.new(p + Vector3.new(0, 0.6, -4)), Color3.fromRGB(150, 150, 154), Enum.Material.Metal, DECOR)
+		end
+	end
+	for k = 0, 1 do
+		local unit = Vector3.new(scx + sw / 2 - 20, top + 3, sz + 30 + k * 14)
+		PartKit.Box(model, "AirCon", Vector3.new(10, 5, 8), CFrame.new(unit + Vector3.new(0, 2.5, 0)), Color3.fromRGB(196, 198, 200), Enum.Material.Metal, DECOR)
+	end
+	-- workshop: parts racks with boxes, oil drums, a compressor, a wheel balancer
+	for r = 0, 2 do
+		local rack = Vector3.new(bayX - 50 + r * 7, floorY, bayZ + 30)
+		for _, e in { -2.6, 2.6 } do
+			PartKit.Box(model, "RackPost", Vector3.new(0.3, 12, 0.3), CFrame.new(rack + Vector3.new(e, 6, 0)), FLIGHTY_ORANGE, Enum.Material.Metal, DECOR)
+		end
+		for level = 0, 3 do
+			PartKit.Box(model, "RackShelf", Vector3.new(5.6, 0.2, 2.4), CFrame.new(rack + Vector3.new(0, 1 + level * 3.4, 0)), Color3.fromRGB(70, 72, 78), Enum.Material.Metal, DECOR)
+			for b = 0, 2 do
+				if rng:NextNumber() < 0.8 then
+					PartKit.Box(model, "PartsBox", Vector3.new(1.4, rng:NextNumber(1, 2.2), 1.8), CFrame.new(rack + Vector3.new(-1.8 + b * 1.8, 1.1 + level * 3.4 + 0.8, 0)), Color3.fromRGB(190, 150, 100), Enum.Material.Cardboard, DECOR)
+				end
+			end
+		end
+	end
+	for k = 0, 2 do
+		PartKit.Post(model, "OilDrum", 2.6, 3.8, Vector3.new(bayX - 54 + k * 2.9, floorY, bayZ - 34), ({ Color3.fromRGB(30, 80, 160), Color3.fromRGB(200, 40, 40), Color3.fromRGB(30, 80, 160) })[k + 1], Enum.Material.Metal, DECOR)
+	end
+	PartKit.Box(model, "Compressor", Vector3.new(3, 3, 5), CFrame.new(bayX - 30, floorY + 1.5, bayZ - 32), Color3.fromRGB(200, 40, 40), Enum.Material.Metal, DECOR)
+	PartKit.Cylinder(model, "CompressorTank", 2.6, 4.6, CFrame.new(bayX - 30, floorY + 3.6, bayZ - 32) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(200, 40, 40), Enum.Material.Metal, DECOR)
+	PartKit.Box(model, "Balancer", Vector3.new(3, 4, 3), CFrame.new(bayX - 30, floorY + 2, bayZ - 4), Color3.fromRGB(40, 44, 50), Enum.Material.Metal, DECOR)
+	PartKit.Cylinder(model, "BalancerWheel", 3.2, 0.9, CFrame.new(bayX - 30, floorY + 4.6, bayZ - 4), Color3.fromRGB(26, 26, 28), SMOOTH, DECOR)
+	-- a bike rack and bins by the forecourt
+	for k = 0, 4 do
+		local hoop = Vector3.new(scx - entrance / 2 - 20 - k * 4, floorY, front + 20)
+		PartKit.Box(model, "BikeRack", Vector3.new(0.4, 3, 2.6), CFrame.new(hoop + Vector3.new(0, 1.5, 0)), Color3.fromRGB(150, 154, 160), Enum.Material.Metal, DECOR)
+	end
 	return model
 end
 
@@ -330,32 +406,179 @@ end
 function Landmarks.Police(parent: Instance, block: LayoutModule.Block, rng: Random)
 	local model = PartKit.Model(parent, "PoliceStation")
 	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
-	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
-	PartKit.Box(model, "Lot", Vector3.new(x1 - x0, 0.3, z1 - z0), CFrame.new(cx, Y + 0.15, cz), Color3.fromRGB(86, 88, 92), Enum.Material.Asphalt)
-	local floorY = Y + 0.3
-	local bw, bd, bh = 170, 80, 36
-	local bz = z0 + 10 + bd / 2
+	local cx = (x0 + x1) / 2
+	local NEON = Enum.Material.Neon
+	local WHITE = Color3.fromRGB(255, 255, 255)
 	local navy = Color3.fromRGB(30, 50, 90)
-	PartKit.Box(model, "Building", Vector3.new(bw, bh, bd), CFrame.new(cx, floorY + bh / 2, bz), Color3.fromRGB(220, 222, 226), CONCRETE)
-	PartKit.Box(model, "Stripe", Vector3.new(bw + 0.6, 4, bd + 0.6), CFrame.new(cx, floorY + bh - 6, bz), navy, SMOOTH)
-	for f = 0, 1 do
-		PartKit.Box(model, "Windows", Vector3.new(bw + 0.4, 5, bd + 0.4), CFrame.new(cx, floorY + 8 + f * 13, bz), Color3.fromRGB(60, 80, 100), GLASS, DECOR)
+	local stone = Color3.fromRGB(214, 210, 200)
+	local brick = Color3.fromRGB(120, 70, 55)
+	local steel = Color3.fromRGB(150, 154, 160)
+	PartKit.Box(model, "Lot", Vector3.new(x1 - x0, 0.3, z1 - z0), CFrame.new(cx, Y + 0.15, (z0 + z1) / 2), Color3.fromRGB(86, 88, 92), Enum.Material.Asphalt)
+	local floorY = Y + 0.3
+
+	-- Main building: two storeys and a parapet, brick ground floor, stone upper floor, facing south (+Z)
+	local bw, bd = 150, 70
+	local storey = 15
+	local bh = storey * 2 + 4
+	local bx = cx - 40
+	local bz = z0 + 12 + bd / 2
+	local front = bz + bd / 2
+	PartKit.Box(model, "Building", Vector3.new(bw, bh, bd), CFrame.new(bx, floorY + bh / 2, bz), stone, CONCRETE)
+	PartKit.Box(model, "BrickBase", Vector3.new(bw + 0.6, storey, bd + 0.6), CFrame.new(bx, floorY + storey / 2, bz), brick, Enum.Material.Brick, DECOR)
+	PartKit.Box(model, "FloorBand", Vector3.new(bw + 1.2, 1.2, bd + 1.2), CFrame.new(bx, floorY + storey, bz), stone:Lerp(Color3.new(0, 0, 0), 0.15), CONCRETE, DECOR)
+	PartKit.Box(model, "Parapet", Vector3.new(bw + 1.6, 2.2, bd + 1.6), CFrame.new(bx, floorY + bh + 0.1, bz), stone:Lerp(Color3.new(0, 0, 0), 0.1), CONCRETE)
+	PartKit.Box(model, "Stripe", Vector3.new(bw + 1.4, 2.4, bd + 1.4), CFrame.new(bx, floorY + bh - 2.6, bz), navy, SMOOTH, DECOR)
+	PartKit.Box(model, "StripeCheck", Vector3.new(bw + 1.5, 0.6, bd + 1.5), CFrame.new(bx, floorY + bh - 1.2, bz), WHITE, SMOOTH, DECOR)
+	-- windows, one per bay, on every face (named Window so they light up at night)
+	local function windowsAlong(faceCF: CFrame, length: number)
+		local n = math.floor(length / 12)
+		for i = 0, n - 1 do
+			local u = -length / 2 + (i + 0.5) * length / n
+			for f = 0, 1 do
+				local y = floorY + 7.5 + f * storey
+				PartKit.Box(model, "WindowSurround", Vector3.new(6.6, 8.6, 0.4), faceCF * CFrame.new(u, y, 0.15), stone:Lerp(WHITE, 0.4), SMOOTH, DECOR)
+				PartKit.Box(model, "Window", Vector3.new(5.6, 7.6, 0.4), faceCF * CFrame.new(u, y, 0.3), Color3.fromRGB(60, 80, 100), GLASS, DECOR)
+				PartKit.Box(model, "Mullion", Vector3.new(0.3, 7.6, 0.5), faceCF * CFrame.new(u, y, 0.35), Color3.fromRGB(40, 44, 50), SMOOTH, DECOR)
+			end
+		end
 	end
-	local sign = PartKit.Box(model, "Sign", Vector3.new(60, 9, 1), CFrame.new(cx, floorY + bh + 5, bz + bd / 2 - 1), navy, SMOOTH)
-	PartKit.Sign(sign, Enum.NormalId.Back, "POLICE", Color3.fromRGB(255, 255, 255), nil, Enum.Font.GothamBlack, 10)
-	PartKit.Sign(sign, Enum.NormalId.Front, "POLICE", Color3.fromRGB(255, 255, 255), nil, Enum.Font.GothamBlack, 10)
-	PartKit.Box(model, "Entrance", Vector3.new(20, 14, 6), CFrame.new(cx, floorY + 7, bz + bd / 2 + 3), navy, SMOOTH)
-	PartKit.Post(model, "FlagPole", 0.6, 40, Vector3.new(cx + 40, floorY, bz + bd / 2 + 16), Color3.fromRGB(220, 220, 225), Enum.Material.Metal, NO_COLLIDE)
-	-- parked cruisers
-	for i = 0, 3 do
+	windowsAlong(CFrame.new(bx, 0, front) , bw)
+	windowsAlong(CFrame.new(bx, 0, bz - bd / 2) * CFrame.Angles(0, math.pi, 0), bw)
+	windowsAlong(CFrame.new(bx + bw / 2, 0, bz) * CFrame.Angles(0, math.pi / 2, 0), bd)
+	windowsAlong(CFrame.new(bx - bw / 2, 0, bz) * CFrame.Angles(0, -math.pi / 2, 0), bd)
+
+	-- Entrance: a stone portico on four columns, glass doors, steps and a ramp, the blue lamps
+	local ex = bx
+	PartKit.Box(model, "Portico", Vector3.new(40, 3, 16), CFrame.new(ex, floorY + storey + 1.5, front + 8), stone, CONCRETE)
+	PartKit.Box(model, "PorticoStripe", Vector3.new(40.4, 1, 16.4), CFrame.new(ex, floorY + storey + 0.6, front + 8), navy, SMOOTH, DECOR)
+	local porticoSign = PartKit.Box(model, "Sign", Vector3.new(34, 4.4, 0.6), CFrame.new(ex, floorY + storey + 5.2, front + 15.6), navy, SMOOTH)
+	PartKit.Sign(porticoSign, Enum.NormalId.Back, "POLICE", WHITE, nil, Enum.Font.GothamBlack, 10)
+	PartKit.Sign(porticoSign, Enum.NormalId.Front, "POLICE", WHITE, nil, Enum.Font.GothamBlack, 10)
+	for _, x in { -18, -7, 7, 18 } do
+		PartKit.Post(model, "Column", 2.4, storey, Vector3.new(ex + x, floorY, front + 14), stone:Lerp(WHITE, 0.3), Enum.Material.Marble)
+	end
+	PartKit.Box(model, "EntranceGlass", Vector3.new(16, 11, 0.5), CFrame.new(ex, floorY + 5.5, front + 0.3), Color3.fromRGB(120, 160, 190), GLASS, DECOR).Transparency = 0.4
+	for _, x in { -8, 0, 8 } do
+		PartKit.Box(model, "DoorFrame", Vector3.new(0.6, 11, 0.7), CFrame.new(ex + x, floorY + 5.5, front + 0.4), Color3.fromRGB(40, 44, 50), SMOOTH, DECOR)
+	end
+	for _, x in { -11, 11 } do
+		-- the classic blue lamp either side of the door
+		PartKit.Box(model, "LampBracket", Vector3.new(0.4, 0.4, 2), CFrame.new(ex + x, floorY + 9, front + 1), Color3.fromRGB(30, 30, 34), Enum.Material.Metal, DECOR)
+		local lamp = PartKit.Box(model, "BlueLamp", Vector3.new(1.6, 2.2, 1.6), CFrame.new(ex + x, floorY + 9, front + 2.2), Color3.fromRGB(40, 110, 255), NEON, DECOR)
+		local glow = Instance.new("PointLight")
+		glow.Color = Color3.fromRGB(80, 140, 255)
+		glow.Range = 14
+		glow.Brightness = 1.2
+		glow.Parent = lamp
+	end
+	for i = 1, 3 do
+		PartKit.Box(model, "Step", Vector3.new(26, i * 0.5, 2.2), CFrame.new(ex, floorY + i * 0.25, front + 20 - i * 2.2), Color3.fromRGB(200, 196, 188), CONCRETE)
+	end
+	PartKit.Ramp(model, "AccessRamp", Vector3.new(ex + 30, floorY, front + 18), Vector3.new(ex + 20, floorY + 1.5, front + 18), 6, Color3.fromRGB(200, 196, 188), CONCRETE)
+	for _, x in { -14, -9, 9, 14 } do
+		PartKit.Post(model, "Bollard", 1.4, 3, Vector3.new(ex + x, floorY, front + 26), Color3.fromRGB(40, 44, 50), Enum.Material.Metal)
+	end
+	-- the big rooftop sign, a radio mast, aircon, a rooftop helipad
+	local roofY = floorY + bh + 1.2
+	local sign = PartKit.Box(model, "Sign", Vector3.new(60, 9, 1), CFrame.new(bx, roofY + 5, front - 1), navy, SMOOTH)
+	PartKit.Sign(sign, Enum.NormalId.Back, "CITY POLICE", WHITE, nil, Enum.Font.GothamBlack, 10)
+	PartKit.Sign(sign, Enum.NormalId.Front, "CITY POLICE", WHITE, nil, Enum.Font.GothamBlack, 10)
+	PartKit.Box(model, "SignGlow", Vector3.new(61, 0.5, 1.4), CFrame.new(bx, roofY + 0.6, front - 1), Color3.fromRGB(60, 130, 255), NEON, DECOR)
+	local mast = Vector3.new(bx - bw / 2 + 14, roofY, bz - bd / 2 + 12)
+	PartKit.Post(model, "RadioMast", 1, 46, mast, steel, Enum.Material.Metal, DECOR)
+	for k = 1, 4 do
+		PartKit.Box(model, "MastBrace", Vector3.new(6 - k, 0.3, 0.3), CFrame.new(mast + Vector3.new(0, k * 9, 0)), steel, Enum.Material.Metal, DECOR)
+		PartKit.Box(model, "MastAntenna", Vector3.new(0.4, 4, 0.4), CFrame.new(mast + Vector3.new((6 - k) / 2, k * 9 + 2, 0)), Color3.fromRGB(230, 230, 230), SMOOTH, DECOR)
+	end
+	PartKit.Ball(model, "MastBeacon", 1.4, mast + Vector3.new(0, 46.5, 0), Color3.fromRGB(255, 40, 40), NEON, DECOR)
+	for k = 0, 2 do
+		local unit = Vector3.new(bx - 30 + k * 16, roofY, bz - bd / 2 + 14)
+		PartKit.Box(model, "AirCon", Vector3.new(10, 5, 7), CFrame.new(unit + Vector3.new(0, 2.5, 0)), Color3.fromRGB(196, 198, 200), Enum.Material.Metal, DECOR)
+		PartKit.Cylinder(model, "AirConFan", 5, 0.3, CFrame.new(unit + Vector3.new(0, 5.1, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(60, 62, 66), Enum.Material.Metal, DECOR)
+	end
+	local pad = Vector3.new(bx + bw / 2 - 26, roofY, bz)
+	PartKit.Post(model, "Helipad", 40, 0.4, pad, Color3.fromRGB(60, 62, 66), Enum.Material.Asphalt)
+	PartKit.Post(model, "HelipadRing", 34, 0.45, pad, Color3.fromRGB(240, 200, 40), SMOOTH, DECOR)
+	PartKit.Post(model, "HelipadInner", 32, 0.5, pad, Color3.fromRGB(60, 62, 66), Enum.Material.Asphalt, DECOR)
+	for _, x in { -4, 4 } do
+		PartKit.Box(model, "HelipadH", Vector3.new(1.6, 0.1, 13), CFrame.new(pad + Vector3.new(x, 0.55, 0)), WHITE, SMOOTH, DECOR)
+	end
+	PartKit.Box(model, "HelipadH", Vector3.new(8, 0.1, 1.6), CFrame.new(pad + Vector3.new(0, 0.55, 0)), WHITE, SMOOTH, DECOR)
+	-- CCTV on the corners
+	for _, corner in { Vector3.new(-1, 0, 1), Vector3.new(1, 0, 1) } do
+		local at = Vector3.new(bx + corner.X * (bw / 2 + 0.5), floorY + bh - 6, front + 0.5)
+		PartKit.Box(model, "CCTVArm", Vector3.new(0.3, 0.3, 2), CFrame.new(at + Vector3.new(0, 0, 1)), WHITE, SMOOTH, DECOR)
+		PartKit.Box(model, "CCTV", Vector3.new(1, 1, 2.2), CFrame.new(at + Vector3.new(corner.X * 0.4, -0.5, 2.2)) * CFrame.Angles(math.rad(-20), 0, 0), WHITE, SMOOTH, DECOR)
+	end
+
+	-- Vehicle garage (sally port) on the east with three roller doors, and the impound yard behind a fence
+	local gx = bx + bw / 2 + 32
+	local gw, gd, gh = 60, 56, 20
+	local gz = z0 + 12 + gd / 2
+	PartKit.Box(model, "Garage", Vector3.new(gw, gh, gd), CFrame.new(gx, floorY + gh / 2, gz), Color3.fromRGB(170, 172, 176), Enum.Material.Concrete)
+	PartKit.Box(model, "GarageStripe", Vector3.new(gw + 0.6, 2, gd + 0.6), CFrame.new(gx, floorY + gh - 2, gz), navy, SMOOTH, DECOR)
+	for k = -1, 1 do
+		local dx = gx + k * 19
+		PartKit.Box(model, "RollerDoor", Vector3.new(15, 13, 0.4), CFrame.new(dx, floorY + 6.5, gz + gd / 2 + 0.2), Color3.fromRGB(205, 208, 212), Enum.Material.CorrodedMetal, DECOR)
+		PartKit.Box(model, "DoorHead", Vector3.new(16, 1, 1), CFrame.new(dx, floorY + 13.5, gz + gd / 2 + 0.5), Color3.fromRGB(60, 64, 70), Enum.Material.Metal, DECOR)
+		PartKit.Box(model, "BayNumber", Vector3.new(3, 3, 0.2), CFrame.new(dx, floorY + 16, gz + gd / 2 + 0.3), Color3.fromRGB(240, 200, 40), SMOOTH, DECOR)
+	end
+	-- impound yard: chain-link on posts round the north-east corner, impounded bikes inside
+	local yx0, yx1 = gx + gw / 2 + 8, x1 - 6
+	local yz0, yz1 = z0 + 6, z0 + 90
+	local function fence(a: Vector3, b: Vector3)
+		local len = (b - a).Magnitude
+		local mid = (a + b) / 2
+		local cf = CFrame.lookAt(mid, b)
+		PartKit.Box(model, "Fence", Vector3.new(0.2, 10, len), cf * CFrame.new(0, 5, 0), Color3.fromRGB(150, 156, 160), Enum.Material.DiamondPlate, { Transparency = 0.45 })
+		PartKit.Box(model, "FenceRail", Vector3.new(0.4, 0.4, len), cf * CFrame.new(0, 10, 0), steel, Enum.Material.Metal, DECOR)
+		for t = 0, math.floor(len / 10) do
+			PartKit.Post(model, "FencePost", 0.5, 10.5, a + (b - a).Unit * math.min(t * 10, len), steel, Enum.Material.Metal, DECOR)
+		end
+	end
+	if yx1 - yx0 > 20 then
+		fence(Vector3.new(yx0, floorY, yz0), Vector3.new(yx0, floorY, yz1))
+		fence(Vector3.new(yx0, floorY, yz1), Vector3.new(yx1 - 16, floorY, yz1))
+		fence(Vector3.new(yx1, floorY, yz1), Vector3.new(yx1, floorY, yz0))
+		fence(Vector3.new(yx1, floorY, yz0), Vector3.new(yx0, floorY, yz0))
+		local yardSign = PartKit.Box(model, "YardSign", Vector3.new(12, 3, 0.3), CFrame.new((yx0 + yx1) / 2 - 8, floorY + 6, yz1 + 0.4), WHITE, SMOOTH, DECOR)
+		PartKit.Sign(yardSign, Enum.NormalId.Back, "IMPOUND - NO ENTRY", Color3.fromRGB(180, 20, 20), nil, Enum.Font.GothamBlack, 20)
+		for k, id in { "trail_t", "hornet_6", "flit_s" } do
+			local spec = Bikes.Get(id)
+			if spec then
+				local impounded = BikeModel.Build(spec, nil, { Static = true })
+				PartKit.Scale(impounded, 1 / Config.WORLD_SCALE)
+				PartKit.PlaceStatic(impounded, CFrame.new(yx0 + 10, floorY, yz0 + 14 + (k - 1) * 14) * CFrame.Angles(0, math.rad(90), math.rad(-8)))
+				impounded.Name = "Impounded_" .. id
+				impounded.Parent = model
+			end
+		end
+	end
+
+	-- Car park: marked bays, cruisers, a barrier at the gate, the gatehouse, a flag
+	for i = 0, 4 do
 		local car = CarModel.Build("Police", { Static = true })
 		PartKit.Scale(car, 1 / Config.WORLD_SCALE) -- vehicles are true size; the city shrinks later
 		PartKit.PlaceStatic(car, CFrame.new(x0 + 30 + i * 26, floorY, z1 - 40) * CFrame.Angles(0, math.pi, 0))
 		car.Parent = model
-		PartKit.Box(model, "Bay", Vector3.new(0.4, 0.05, 24), CFrame.new(x0 + 17 + i * 26, floorY + 0.03, z1 - 40), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
+		PartKit.Box(model, "Bay", Vector3.new(0.4, 0.05, 24), CFrame.new(x0 + 17 + i * 26, floorY + 0.03, z1 - 40), WHITE, SMOOTH, DECOR)
 	end
-	for i = 0, 2 do
-		Props.Tree(model, Vector3.new(x1 - 20 - i * 30, floorY, z1 - 12), rng, 0.8)
+	PartKit.Box(model, "Bay", Vector3.new(0.4, 0.05, 24), CFrame.new(x0 + 17 + 5 * 26, floorY + 0.03, z1 - 40), WHITE, SMOOTH, DECOR)
+	local bayText = PartKit.Box(model, "BayText", Vector3.new(24, 0.05, 4), CFrame.new(x0 + 82, floorY + 0.03, z1 - 24), Color3.fromRGB(86, 88, 92), Enum.Material.Asphalt, DECOR)
+	PartKit.Sign(bayText, Enum.NormalId.Top, "POLICE ONLY", WHITE, nil, Enum.Font.GothamBlack, 10)
+	local gate = Vector3.new(x1 - 30, floorY, z1 - 8)
+	PartKit.Box(model, "Gatehouse", Vector3.new(10, 10, 8), CFrame.new(gate + Vector3.new(-12, 5, -4)), stone, CONCRETE)
+	PartKit.Box(model, "Window", Vector3.new(10.2, 4, 5), CFrame.new(gate + Vector3.new(-12, 6, -4)), Color3.fromRGB(60, 80, 100), GLASS, DECOR)
+	PartKit.Box(model, "GatehouseRoof", Vector3.new(12, 0.8, 10), CFrame.new(gate + Vector3.new(-12, 10.4, -4)), navy, SMOOTH, DECOR)
+	PartKit.Box(model, "BarrierPost", Vector3.new(1.4, 4, 1.4), CFrame.new(gate + Vector3.new(-6, 2, 0)), Color3.fromRGB(240, 200, 40), SMOOTH, DECOR)
+	local arm = PartKit.Box(model, "BarrierArm", Vector3.new(22, 0.6, 0.6), CFrame.new(gate + Vector3.new(5, 3.6, 0)) * CFrame.Angles(0, 0, math.rad(70)), WHITE, SMOOTH, DECOR)
+	local _ = arm
+	PartKit.Post(model, "FlagPole", 0.6, 40, Vector3.new(ex + 40, floorY, front + 22), Color3.fromRGB(220, 220, 225), Enum.Material.Metal, NO_COLLIDE)
+	PartKit.Box(model, "Flag", Vector3.new(0.2, 7, 11), CFrame.new(ex + 40, floorY + 35.5, front + 27.6), navy, Enum.Material.Fabric, DECOR)
+	-- a strip of lawn with trees and a low wall along the street
+	PartKit.Box(model, "Lawn", Vector3.new(bw - 50, 0.2, 10), CFrame.new(bx - 20, floorY + 0.1, front + 34), Color3.fromRGB(80, 140, 70), Enum.Material.Grass, DECOR)
+	for i = 0, 3 do
+		Props.Tree(model, Vector3.new(bx - 60 + i * 26, floorY, front + 34), rng, 0.8)
 	end
 	return model
 end

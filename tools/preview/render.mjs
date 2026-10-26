@@ -53,7 +53,15 @@ await page.evaluate((parts) => {
 	const cyl = new T.CylinderGeometry(0.5, 0.5, 1, 20);
 	cyl.rotateZ(-Math.PI / 2); // Roblox cylinders run along X
 	const sphere = new T.SphereGeometry(0.5, 18, 12);
-	const geos = { Block: box, Cylinder: cyl, Ball: sphere, Ellipsoid: sphere };
+	// a Roblox WedgePart: full height on its +Z face, sloping down to the bottom of its -Z face
+	const wedge = new T.BufferGeometry();
+	{
+		const a = [-0.5, -0.5, -0.5], b = [0.5, -0.5, -0.5], c = [0.5, -0.5, 0.5], d = [-0.5, -0.5, 0.5], e = [0.5, 0.5, 0.5], f = [-0.5, 0.5, 0.5];
+		const tris = [a, c, b, a, d, c, d, f, e, d, e, c, a, b, e, a, e, f, a, f, d, b, c, e];
+		wedge.setAttribute("position", new T.Float32BufferAttribute(tris.flat(), 3));
+		wedge.computeVertexNormals();
+	}
+	const geos = { Block: box, Cylinder: cyl, Ball: sphere, Ellipsoid: sphere, Wedge: wedge };
 
 	const groups = {};
 	const m4 = new T.Matrix4();

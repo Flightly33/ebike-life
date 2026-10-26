@@ -2,31 +2,16 @@
 	Layout: the city as data. The Builder turns it into parts, the AI drivers route on its road graph,
 	and the minimap draws it. Pure (no instances), deterministic.
 
-	A 7x7 street grid 360 studs apart (lines at -1080 .. 1080) with two avenues crossing at the
-	origin, a ring highway around it (a rounded square, half-size 1560) joined to the avenues by four
-	country roads, and farmland in between. Blocks are assigned districts:
-
-	         x: -1080   -720   -360     0     360    720   1080
-	   z -1080  +------+------+------+------+------+------+
-	            |Suburb|Suburb| Mid  | Mid  | Ind. | Ind. |
-	   z  -720  +------+------+------+------+------+------+
-	            |Suburb| Park | Down | Down | Down | Ind. |
-	   z  -360  +------+------+------+------+------+------+
-	            |Suburb| Park | Down | Down | Down | Mid  |
-	   z     0  +------+------+------+------+------+------+
-	            | Loop | Jump | Fly. |Plaza | Mid  | Mid  |
-	   z   360  +------+------+------+------+------+------+
-	            |Suburb|Suburb| Mid  | Mid  |Police| Mid  |
-	   z   720  +------+------+------+------+------+------+
-	            |Suburb|Suburb|Suburb|Suburb|Suburb|Suburb|
-	   z  1080  +------+------+------+------+------+------+
-
-	Fly. = Flighty Mechanics (dealership, spawn). Loop = the jump park's loop block. Heights: grass at 0, road surface at ROAD_Y, curbs,
-	pavements and blocks at CURB_Y.
+	A 9x9 street grid 360 studs apart (lines at -1440 .. 1440) with two avenues crossing at the
+	origin, a ring highway around it (a rounded square, half-size 1920) joined to the avenues by four
+	country roads, and farmland in between. Blocks are assigned districts (DISTRICTS below, row = z
+	from north): the original 6x6 core (Downtown, Park, the Jump and Loop parks, Flighty Mechanics,
+	the Plaza, Police) with a ring of suburbs, midtown and industry around it. Workspace streaming
+	keeps only the blocks near each player loaded.
 
 	Everything is authored in Roblox's standard units (1 stud = 0.28 m, real-world sizes) and built at
-	`K` times that size: the game uses K = Config.WORLD_SCALE (0.8), which puts the city at the same
-	scale as Roblox avatars and the bikes; the builders use Layout.Design (K = 1) and the Builder
+	`K` times that size: the game uses K = Config.WORLD_SCALE (1.25), a little over life size
+	next to the avatars and the bikes; the builders use Layout.Design (K = 1) and the Builder
 	shrinks the finished city by WORLD_SCALE.
 ]]
 
@@ -76,28 +61,30 @@ local function make(K: number)
 
 	Layout.ROAD_Y = 0.2 * K
 	Layout.CURB_Y = 0.7 * K
-	Layout.GRID_MIN = -1080 * K
+	Layout.GRID_MIN = -1440 * K
 	Layout.GRID_STEP = 360 * K
-	Layout.GRID_COUNT = 7 -- lines per axis
-	Layout.AVENUE_INDEX = 3 -- x = 0 and z = 0
+	Layout.GRID_COUNT = 9 -- lines per axis
+	Layout.AVENUE_INDEX = 4 -- x = 0 and z = 0
 	Layout.AVENUE_WIDTH = 50 * K -- 4 lanes of 12.5
 	Layout.STREET_WIDTH = 26 * K -- 2 lanes of 13
 	Layout.AVENUE_SIDEWALK = 14 * K
 	Layout.STREET_SIDEWALK = 12 * K
-	Layout.RING_HALF = 1560 * K
+	Layout.RING_HALF = 1920 * K
 	Layout.RING_RADIUS = 360 * K
 	Layout.RING_WIDTH = 50 * K
 	Layout.RURAL_WIDTH = 26 * K
-	Layout.WORLD_HALF = 2300 * K
+	Layout.WORLD_HALF = 2700 * K
 
 
 	local DISTRICTS: { { District } } = {
-		{ "Suburb", "Suburb", "Midtown", "Midtown", "Industrial", "Industrial" },
-		{ "Suburb", "Park", "Downtown", "Downtown", "Downtown", "Industrial" },
-		{ "Suburb", "Park", "Downtown", "Downtown", "Downtown", "Midtown" },
-		{ "Jump", "Jump", "Dealership", "Plaza", "Midtown", "Midtown" },
-		{ "Suburb", "Suburb", "Midtown", "Midtown", "Police", "Midtown" },
-		{ "Suburb", "Suburb", "Suburb", "Suburb", "Suburb", "Suburb" },
+		{ "Suburb", "Suburb", "Suburb", "Midtown", "Midtown", "Industrial", "Industrial", "Industrial" },
+		{ "Suburb", "Suburb", "Suburb", "Midtown", "Midtown", "Industrial", "Industrial", "Industrial" },
+		{ "Suburb", "Suburb", "Park", "Downtown", "Downtown", "Downtown", "Industrial", "Industrial" },
+		{ "Suburb", "Suburb", "Park", "Downtown", "Downtown", "Downtown", "Midtown", "Midtown" },
+		{ "Suburb", "Jump", "Jump", "Dealership", "Plaza", "Midtown", "Midtown", "Midtown" },
+		{ "Suburb", "Suburb", "Suburb", "Midtown", "Midtown", "Police", "Midtown", "Suburb" },
+		{ "Suburb", "Suburb", "Suburb", "Suburb", "Suburb", "Suburb", "Suburb", "Suburb" },
+		{ "Suburb", "Suburb", "Suburb", "Suburb", "Suburb", "Suburb", "Suburb", "Suburb" },
 	}
 
 	function Layout.Line(index: number): number
@@ -416,9 +403,9 @@ local function make(K: number)
 		Police = lotCenter(police),
 		JumpPark = lotCenter(jump),
 		Plaza = lotCenter(plaza),
-		Downtown = lotCenter(Layout.BlockAt(3, 1)),
-		Park = lotCenter(Layout.BlockAt(1, 1)),
-		Industrial = lotCenter(Layout.BlockAt(5, 0)),
+		Downtown = lotCenter(Layout.BlockAt(4, 2)),
+		Park = lotCenter(Layout.BlockAt(2, 2)),
+		Industrial = lotCenter(Layout.BlockAt(6, 1)),
 		Countryside = Vector3.new(0, Layout.ROAD_Y, -Layout.RING_HALF + 40 * K),
 	}
 
@@ -438,16 +425,16 @@ local function make(K: number)
 		Vector3.new(dealership.LotMaxX - 20 * K, Layout.CURB_Y, dealership.LotMaxZ - 20 * K),
 		Vector3.new(plaza.LotMinX + 20 * K, Layout.CURB_Y, plaza.LotMaxZ - 20 * K),
 		Vector3.new(jump.LotMaxX - 15 * K, Layout.CURB_Y, jump.LotMaxZ - 15 * K),
-		Vector3.new(Layout.BlockAt(1, 1).LotMaxX - 15 * K, Layout.CURB_Y, Layout.BlockAt(1, 1).LotMaxZ - 15 * K),
-		Vector3.new(Layout.BlockAt(3, 1).LotMinX + 15 * K, Layout.CURB_Y, Layout.BlockAt(3, 1).LotMaxZ - 8 * K),
-		Vector3.new(Layout.BlockAt(5, 0).LotMinX + 20 * K, Layout.CURB_Y, Layout.BlockAt(5, 0).LotMaxZ - 20 * K),
-		Vector3.new(Layout.BlockAt(0, 4).LotMaxX - 15 * K, Layout.CURB_Y, Layout.BlockAt(0, 4).LotMinZ + 15 * K),
+		Vector3.new(Layout.BlockAt(2, 2).LotMaxX - 15 * K, Layout.CURB_Y, Layout.BlockAt(2, 2).LotMaxZ - 15 * K),
+		Vector3.new(Layout.BlockAt(4, 2).LotMinX + 15 * K, Layout.CURB_Y, Layout.BlockAt(4, 2).LotMaxZ - 8 * K),
+		Vector3.new(Layout.BlockAt(6, 1).LotMinX + 20 * K, Layout.CURB_Y, Layout.BlockAt(6, 1).LotMaxZ - 20 * K),
+		Vector3.new(Layout.BlockAt(1, 5).LotMaxX - 15 * K, Layout.CURB_Y, Layout.BlockAt(1, 5).LotMinZ + 15 * K),
 		Vector3.new(police.LotMinX + 20 * K, Layout.CURB_Y, police.LotMinZ + 20 * K),
 		Vector3.new(40 * K, Layout.ROAD_Y, -Layout.RING_HALF + 70 * K), -- country stop on the north road
 	}
 
 	-- Where pursuing cops enter the map
-	Layout.PoliceSpawn = gridNode[4][4]
+	Layout.PoliceSpawn = gridNode[5][5]
 
 	return Layout
 end

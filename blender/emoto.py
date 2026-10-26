@@ -35,6 +35,23 @@ Y = Vector((0, 1, 0))
 Z = Vector((0, 0, 1))
 
 
+# Each bike is modelled on one real light e-moto family, so the line-up reads as different bikes:
+#   Bee   - Sur-Ron Light Bee: raw silver forged spars, slim graphic side covers, MX shrouds
+#   Sting - Talaria Sting: black frame, big angular side panels over the battery with vent slats
+#   Storm - Sur-Ron Storm / Ultra Bee: full MX plastics, big louvred shrouds, side number boards
+#   Box   - Segway X160/X260: black frame round an exposed ribbed battery box, small shrouds
+#   Cafe  - street scrambler: teardrop tank, plain dark covers, brown bench seat, cast wheels
+FAMILY = {
+    "flit_mini": "Bee", "trail_t": "Bee", "ridge_x": "Bee", "cub_sm": "Bee",
+    "hornet_6": "Sting", "hornet_6sm": "Sting",
+    "storm_x": "Storm", "storm_xr": "Storm", "viper_sm": "Storm",
+    "scout_e": "Box", "halo_gt": "Box",
+    "flit_s": "Cafe", "nova_n": "Cafe", "deathrider": "Cafe",
+}
+FRAME_SLOT = {"Bee": "Metal", "Sting": "Black", "Storm": "Dark", "Box": "Black", "Cafe": "Black"}
+CAST_WHEELS = ("flit_s", "nova_n", "viper_sm")
+
+
 def yz(v):
     return (v.y, v.z)
 
@@ -56,7 +73,8 @@ def build(k, P, cockpit, caliper_unused=None):
     SW = lambda slot, bm: K.put("Swing", slot, bm)  # noqa: E731
     fwd_perp = Vector((0, AX.z, -AX.y)).normalized()
     rot_steer = K.frame_rot(X, fwd_perp, AX)
-    alu = "Dark"
+    fam = FAMILY.get(k["Id"], "Bee")
+    alu = FRAME_SLOT[fam]
 
     # the front tyre at full travel: the frame and bodywork keep clear of it (and at ride height, on
     # the little pit bikes where there's no room for more)
@@ -120,7 +138,18 @@ def build(k, P, cockpit, caliper_unused=None):
     bat_top = rear_top.z + 0.02
     bat_bot = m.z + 0.105
     bat_c = Vector((0, (bat_front + bat_rear) / 2, (bat_top + bat_bot) / 2))
-    F("Dark", K.rbox(bat_c, (0.17, bat_front - bat_rear, bat_top - bat_bot), 0.02))
+    if fam == "Box":
+        bw = 2 * xs + 0.06
+        F("Dark", K.rbox(bat_c, (bw, bat_front - bat_rear, bat_top - bat_bot), 0.025))
+        for i in range(6):
+            z = bat_bot + (bat_top - bat_bot) * (0.18 + i * 0.13)
+            for side in (-1, 1):
+                F("Black", K.rbox(Vector((side * (bw / 2 + 0.002), bat_c.y, z)), (0.006, (bat_front - bat_rear) * 0.82, 0.012), 0.002))
+        for side in (-1, 1):
+            F("Accent", K.rbox(Vector((side * (bw / 2 + 0.004), bat_c.y, bat_top - 0.02)), (0.004, (bat_front - bat_rear) * 0.9, 0.012), 0.002))
+            F("White", K.rbox(Vector((side * (bw / 2 + 0.006), bat_c.y + 0.03, bat_bot + 0.035)), (0.003, 0.09, 0.02), 0.002))
+    else:
+        F("Dark", K.rbox(bat_c, (0.17, bat_front - bat_rear, bat_top - bat_bot), 0.02))
     F("Metal", K.rbox(Vector((0, bat_rear + 0.06, bat_top + 0.005)), (0.07, 0.03, 0.012), 0.004))  # latch
 
     # side covers inside the frame loops, bulging a little, with graphics
@@ -137,7 +166,8 @@ def build(k, P, cockpit, caliper_unused=None):
     outline = K.spline2d(cover, 5)
     cy = sum(p[0] for p in cover) / len(cover)
     cz = sum(p[1] for p in cover) / len(cover)
-    for side in (-1, 1):
+    cover_slot = "Black" if fam == "Cafe" else "Frame"
+    for side in ((-1, 1) if fam != "Box" else ()):
         x0 = side * (xs + 0.008)
         piece = K.side_prism(outline, min(x0, x0 + side * 0.012), max(x0, x0 + side * 0.012), 0.004)
 
@@ -145,9 +175,25 @@ def build(k, P, cockpit, caliper_unused=None):
             d = math.hypot((co.y - cy) / 0.22, (co.z - cz) / 0.16)
             return X * side * max(0.0, 0.012 * (1 - d * d))
 
-        F("Frame", K.displace(piece, bulge))
-        # two graphic stripes and a logo badge
+        F(cover_slot, K.displace(piece, bulge))
         gx = side * (xs + 0.032)
+        if fam == "Cafe":
+            F("Chrome", K.disc(Vector((gx, cy + 0.02, cz + 0.02)), X, 0.03, 0.004, 28))
+            F("Accent", K.disc(Vector((gx + side * 0.002, cy + 0.02, cz + 0.02)), X, 0.022, 0.004, 24))
+            continue
+        if fam == "Sting":
+            # the big angular panel over the lower half, with vent slats
+            panel = [(down[1].y + 0.01, down[1].z + 0.05), (rear_top.y + 0.03, rear_top.z - 0.08), (cradle_rear.y + 0.03, m.z + 0.12), (down[2].y + 0.0, m.z + 0.13)]
+            px = side * (xs + 0.03)
+            F("Frame", K.side_prism(panel, min(px, px + side * 0.01), max(px, px + side * 0.01), 0.004))
+            for i in range(4):
+                f = 0.25 + i * 0.13
+                vy = panel[0][0] + (panel[1][0] - panel[0][0]) * f
+                vz = panel[0][1] + (panel[1][1] - panel[0][1]) * f - 0.05
+                F("Black", K.rbox(Vector((px + side * 0.011, vy, vz)), (0.004, 0.012, 0.07), 0.002))
+            F("Accent", K.side_prism([(p[0], p[1]) for p in panel[:2]] + [(panel[1][0], panel[1][1] - 0.012), (panel[0][0], panel[0][1] - 0.012)], min(px, px + side * 0.0125), max(px, px + side * 0.0125)))
+            continue
+        # two graphic stripes and a logo badge
         stripe = [(cover[0][0] - 0.01, cover[0][1] - 0.03), (cover[2][0] + 0.06, cover[2][1] - 0.06), (cover[2][0] + 0.06, cover[2][1] - 0.085), (cover[0][0] - 0.03, cover[0][1] - 0.06)]
         F("Accent", K.side_prism(stripe, min(gx, gx + side * 0.002), max(gx, gx + side * 0.002)))
         stripe2 = [(cover[6][0] - 0.02, cover[6][1] + 0.02), (cover[4][0] + 0.1, cover[4][1] + 0.05), (cover[4][0] + 0.1, cover[4][1] + 0.035), (cover[6][0] - 0.03, cover[6][1] + 0.005)]
@@ -156,9 +202,23 @@ def build(k, P, cockpit, caliper_unused=None):
 
     # shrouds flaring from the head stock, angled out like a real MX bike's
     shroud = [(top_front.y + 0.035, top_front.z + 0.005), (HB.y - 0.035, HB.z - 0.06), (down[0].y - 0.0, down[0].z - 0.05), (down[0].y - 0.07, down[0].z - 0.11), (mid_top.y + 0.06, mid_top.z - 0.07), (mid_top.y + 0.05, mid_top.z + 0.0)]
+    if fam == "Storm":
+        # big louvred MX shrouds reaching further down and back
+        sc_y = sum(p[0] for p in shroud) / len(shroud)
+        sc_z = sum(p[1] for p in shroud) / len(shroud)
+        shroud = [(sc_y + (p[0] - sc_y) * 1.35 - 0.02, sc_z + (p[1] - sc_z) * 1.35 - 0.02) for p in shroud]
+    elif fam == "Box":
+        sc_y = sum(p[0] for p in shroud) / len(shroud)
+        sc_z = sum(p[1] for p in shroud) / len(shroud)
+        shroud = [(sc_y + (p[0] - sc_y) * 0.75, sc_z + (p[1] - sc_z) * 0.75) for p in shroud]
     outline_s = K.spline2d(shroud, 3)
-    for side in (-1, 1):
+    for side in ((-1, 1) if fam != "Cafe" else ()):
         flare = math.radians(10)
+        if fam == "Storm":
+            for i in range(4):
+                ly = shroud[4][0] + (shroud[1][0] - shroud[4][0]) * (0.3 + i * 0.13)
+                lz = shroud[4][1] + (shroud[1][1] - shroud[4][1]) * (0.3 + i * 0.13)
+                F("Black", K.rbox(Vector((side * (xs + 0.04 + max(0.0, ly - shroud[5][0]) * math.sin(flare)), ly, lz)), (0.004, 0.01, 0.06), 0.002))
 
         def tilt(co, side=side):
             return X * side * (xs + 0.03 + max(0.0, co.y - shroud[5][0]) * math.sin(flare))
@@ -170,7 +230,16 @@ def build(k, P, cockpit, caliper_unused=None):
     # top cover over the battery, running from the head stock into the seat
     tank_f = HT + Vector((0, -0.045, -0.04))
     tank_r = Vector((0, rear_top.y + 0.1, sh - 0.045))
-    F("Frame", K.loft([(tank_f, 0.06, 0.03, 3), (tank_f + (tank_r - tank_f) * 0.25 + Z * 0.02, 0.1, 0.045, 3.5), (tank_f + (tank_r - tank_f) * 0.7 + Z * 0.012, 0.11, 0.045, 3.5), (tank_r, 0.085, 0.028, 3)], 28, True, axis="Y"))
+    if fam == "Cafe":
+        # a teardrop tank, fat and round, then tapering into the seat
+        F("Frame", K.loft([(tank_f + Z * 0.01, 0.07, 0.04, 2.2), (tank_f + (tank_r - tank_f) * 0.3 + Z * 0.05, 0.14, 0.075, 2.2), (tank_f + (tank_r - tank_f) * 0.65 + Z * 0.035, 0.13, 0.065, 2.2), (tank_r, 0.075, 0.03, 2.2)], 32, True, axis="Y"))
+        F("Chrome", K.disc(tank_f + (tank_r - tank_f) * 0.3 + Z * 0.125, Z, 0.03, 0.008, 24))
+    elif fam == "Sting":
+        F("Frame", K.loft([(tank_f, 0.06, 0.035, 6), (tank_f + (tank_r - tank_f) * 0.25 + Z * 0.025, 0.11, 0.05, 6), (tank_f + (tank_r - tank_f) * 0.7 + Z * 0.015, 0.115, 0.05, 6), (tank_r, 0.085, 0.03, 6)], 28, True, axis="Y"))
+    elif fam == "Storm":
+        F("Frame", K.loft([(tank_f, 0.07, 0.04, 3.5), (tank_f + (tank_r - tank_f) * 0.25 + Z * 0.03, 0.125, 0.06, 3.5), (tank_f + (tank_r - tank_f) * 0.7 + Z * 0.015, 0.125, 0.055, 3.5), (tank_r, 0.09, 0.03, 3)], 28, True, axis="Y"))
+    else:
+        F("Frame", K.loft([(tank_f, 0.06, 0.03, 3), (tank_f + (tank_r - tank_f) * 0.25 + Z * 0.02, 0.1, 0.045, 3.5), (tank_f + (tank_r - tank_f) * 0.7 + Z * 0.012, 0.11, 0.045, 3.5), (tank_r, 0.085, 0.028, 3)], 28, True, axis="Y"))
     F("Black", K.disc(tank_f + (tank_r - tank_f) * 0.3 + Z * 0.068, Z, 0.022, 0.01, 20))  # charge port lid
     for side in (-1, 1):
         mid = tank_f + (tank_r - tank_f) * 0.55
@@ -185,8 +254,11 @@ def build(k, P, cockpit, caliper_unused=None):
         p = seat_f + (seat_b - seat_f) * f
         hw = 0.06 + 0.055 * min(1.0, f * 3) - 0.015 * max(0.0, f - 0.85) / 0.15
         hh = 0.03 + 0.016 * min(1.0, f * 2.5)
+        if fam == "Cafe":
+            hw += 0.012
+            hh += 0.03 * max(0.0, f - 0.7) / 0.3  # the tail hump
         secs.append((p, hw, hh, 3.2))
-    F("Leather", K.loft(secs, 28, True, axis="Y"))
+    F("Brown" if fam == "Cafe" else "Leather", K.loft(secs, 28, True, axis="Y"))
     base = [(p - Z * (hh * 0.7), hw * 0.98, hh * 0.45, 4) for p, hw, hh, _ in secs]
     F("Black", K.loft(base, 20, True, axis="Y"))
     for i in range(1, 9):
@@ -212,7 +284,7 @@ def build(k, P, cockpit, caliper_unused=None):
         for side in (-1, 1):
             F("Black", K.cyl(hanger + X * side * 0.05 - Z * 0.03, hanger + X * side * 0.12 - Z * 0.03, 0.006, 0.006, 8))
             F("NeonAmber", K.sphere(hanger + X * side * 0.13 - Z * 0.03, 0.014, 10, 6))
-    if kit == "Supermoto":
+    if kit == "Supermoto" or fam == "Storm":
         for side in (-1, 1):
             board = K.spline2d([(rf0.y - 0.02, sh - 0.07), (rf1.y + 0.12, over_tyre - 0.03), (rf1.y + 0.1, over_tyre - 0.16), (rf0.y - 0.08, sh - 0.2)], 4)
             F("White", K.side_prism(board, side * 0.1 - 0.003, side * 0.1 + 0.003, 0.002))
@@ -307,8 +379,14 @@ def build(k, P, cockpit, caliper_unused=None):
         for e in range(4):
             F("Metal", K.rbox(peg + Y * (-0.022 + e * 0.0147) + Z * 0.01, (0.1, 0.004, 0.006), 0.001))  # teeth
         F("Metal", K.cyl(peg - X * side * 0.05 + Y * 0.0, peg - X * side * 0.05 + Y * 0.0 - Z * 0.015, 0.006, 0.006, 8))
-    F("Dark", K.sweep([pv + Vector((-0.1, -0.05, -0.16)), pv + Vector((-0.2, 0.05, -0.32)), pv + Vector((-0.24, 0.1, -pv.z + 0.015))], 0.009, 8))
-    F("Dark", K.rbox(pv + Vector((-0.24, 0.1, -pv.z + 0.008)), (0.03, 0.045, 0.01), 0.003))
+    # side stand: pivots on a lug off the left footpeg mount, outboard of the chain line (x = -0.09),
+    # and swings down and forward from there, so it never crosses the chain
+    lug = pv + Vector((-0.135, 0.06, -0.06))
+    F(alu, K.bar(pv + Vector((-0.08, 0.04, -0.035)), lug + X * 0.01, 0.022, 0.03, 0.005, up=Z))
+    F("Metal", K.cyl(lug - X * 0.012, lug + X * 0.012, 0.009, 0.009, 8))
+    F("Dark", K.sweep([lug, pv + Vector((-0.19, 0.12, -0.3)), pv + Vector((-0.235, 0.16, -pv.z + 0.015))], 0.009, 8))
+    F("Dark", K.rbox(pv + Vector((-0.235, 0.165, -pv.z + 0.008)), (0.03, 0.045, 0.01), 0.003))
+    F("Metal", K.cyl(lug + Vector((-0.004, -0.02, -0.04)), lug + Vector((-0.004, 0.05, -0.12)), 0.0025, 0.0025, 6))  # return spring
 
     # rear brake line: caliper, along the swingarm, up the frame to the left lever
     lever = P["Bars"] - X * (k["BarWidth"] / 2 - 0.16)
@@ -444,12 +522,13 @@ def build(k, P, cockpit, caliper_unused=None):
             S("Black", K.sweep([inner + Z * 0.02, inner + Z * 0.05 - Y * 0.04, HT + fwd_perp * 0.05 + Z * 0.02], 0.003, 6))
 
     # ------------------------------------------------------------------ wheels
-    wheel("Front", FA, Rf * 2, tw, knobby, -1, 0.22, False)
-    wheel("Rear", RA, Rr * 2, tw, knobby, 1, 0.2, True)
+    cast = k["Id"] in CAST_WHEELS
+    wheel("Front", FA, Rf * 2, tw, knobby, -1, 0.22, False, cast)
+    wheel("Rear", RA, Rr * 2, tw, knobby, 1, 0.2, True, cast)
     return grips
 
 
-def wheel(group, axle, D, tw, knobby, rotor_side, rotor_d, sprocket):
+def wheel(group, axle, D, tw, knobby, rotor_side, rotor_d, sprocket, cast=False):
     """A moto wheel: tyre (knobby or road), rim with a lock, 36 laced spokes with nipples, hub, wavy rotor."""
     put = lambda slot, bm: K.put(group, slot, bm)  # noqa: E731
     th = max(tw, D * 0.135)  # tyre section height
@@ -508,9 +587,18 @@ def wheel(group, axle, D, tw, knobby, rotor_side, rotor_d, sprocket):
     # hub: flanges, the brake mount on one side, sprocket carrier on the rear
     hub_r = 0.05
     put("Metal", K.lathe(axle, X, [(-0.09, 0), (-0.09, 0.018), (-0.065, 0.026), (-0.058, 0.062), (-0.05, 0.066), (-0.046, 0.04), (0.046, 0.04), (0.05, 0.066), (0.058, 0.062), (0.065, 0.026), (0.09, 0.018), (0.09, 0)], 36))
-    # 36 spokes laced three-cross, with nipples at the rim
-    per_side = 18
-    for side in (-1, 1):
+    # 36 spokes laced three-cross, with nipples at the rim (or a cast wheel's five split spokes)
+    per_side = 0 if cast else 18
+    if cast:
+        put("Rims", K.lathe(axle, X, [(-0.05, hub_r + 0.005), (-0.05, hub_r + 0.02), (0.05, hub_r + 0.02), (0.05, hub_r + 0.005)], 36))
+        for i in range(5):
+            for e in (-1, 1):
+                t = 2 * math.pi * i / 5 + e * 0.13
+                t_hub = 2 * math.pi * i / 5 + e * 0.05
+                p_hub = axle + Vector((0, (hub_r + 0.012) * math.cos(t_hub), (hub_r + 0.012) * math.sin(t_hub)))
+                p_rim = axle + Vector((0, (rim_r - 0.024) * math.cos(t), (rim_r - 0.024) * math.sin(t)))
+                put("Rims", K.bar(p_hub, p_rim, 0.022, 0.014, 0.004, up=X))
+    for side in ((-1, 1) if not cast else ()):
         for i in range(per_side):
             t = 2 * math.pi * i / per_side + (math.pi / per_side if side > 0 else 0)
             dlace = 1 if i % 2 == 0 else -1

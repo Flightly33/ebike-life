@@ -134,7 +134,7 @@ Config.Hop = {
 
 Config.Battery = {
 	-- Game time is compressed: a full battery lasts minutes, not hours (real Wh, real watts, x this)
-	DrainScale = 8,
+	DrainScale = 3, -- the owner asked for longer rides: ~2.7x the old 8
 	LowPower = 0.2, -- below 20% the controller limits power...
 	LowPowerCap = 0.7, -- ...to 70%
 	CriticalPower = 0.05,

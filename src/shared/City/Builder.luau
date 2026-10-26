@@ -100,8 +100,8 @@ local function streetscape(city: Instance, rng: Random)
 end
 
 -- Street names for the grid lines (x = Line(i) runs north-south, z = Line(j) runs east-west)
-local NS_NAMES = { "Maple Ave", "Cedar Ave", "Birch Ave", "Flightly Blvd", "Elm Ave", "Aspen Ave", "Willow Ave" }
-local EW_NAMES = { "1st St", "2nd St", "3rd St", "Volt Ave", "5th St", "6th St", "7th St" }
+local NS_NAMES = { "Oak Ave", "Maple Ave", "Cedar Ave", "Birch Ave", "Flightly Blvd", "Elm Ave", "Aspen Ave", "Willow Ave", "Pine Ave" }
+local EW_NAMES = { "1st St", "2nd St", "3rd St", "4th St", "Volt Ave", "6th St", "7th St", "8th St", "9th St" }
 
 local BUSY: { [string]: boolean } = { Downtown = true, Midtown = true, Plaza = true, Dealership = true, Police = true }
 
@@ -222,7 +222,7 @@ function Builder.Build(): Model
 		elseif district == "Plaza" then
 			Landmarks.Plaza(blocks, block, rng)
 		elseif district == "Jump" then
-			if block.Bx == 0 then
+			if block.Bx == 1 then
 				Landmarks.LoopPark(blocks, block, rng)
 			else
 				Landmarks.JumpPark(blocks, block, rng)
