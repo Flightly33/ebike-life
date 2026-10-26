@@ -205,7 +205,7 @@ def loft(sections, seg=20, caps=True, axis="Y"):
     return bm
 
 
-def sweep(points, r, seg=12, closed=False, profile=None, samples=6):
+def sweep(points, r, seg=12, closed=False, profile=None, samples=6, n=2.0):
     """
     A smooth tube through `points` (a Catmull-Rom spline, so bends are rounded). `profile` (w, h)
     makes an elliptical section instead of a round one, with h along the frame's 'up' (+Z bias).
@@ -250,7 +250,8 @@ def sweep(points, r, seg=12, closed=False, profile=None, samples=6):
         ring = []
         for j in range(seg):
             t = 2 * math.pi * j / seg
-            ring.append(bm.verts.new(p + side * (w * math.cos(t)) + upv * (h * math.sin(t))))
+            sx, sy = superellipse(w, h, n, t)
+            ring.append(bm.verts.new(p + side * sx + upv * sy))
         rings.append(ring)
     n = len(rings)
     for k in range(n if closed else n - 1):
@@ -261,6 +262,103 @@ def sweep(points, r, seg=12, closed=False, profile=None, samples=6):
         for ring in (rings[0], rings[-1]):
             f = bm.faces.new(ring)
             bmesh.ops.triangulate(bm, faces=[f])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return bm
+
+
+def spline2d(points, samples=6, closed=True):
+    """A smooth closed (or open) Catmull-Rom curve through 2D points [(u, v), ...]."""
+    pts = [Vector((p[0], p[1], 0)) for p in points]
+    count = len(pts)
+    out = []
+    span = count if closed else count - 1
+    for k in range(span):
+        p0 = pts[(k - 1) % count] if (closed or k > 0) else pts[0] * 2 - pts[1]
+        p1 = pts[k]
+        p2 = pts[(k + 1) % count]
+        p3 = pts[(k + 2) % count] if (closed or k + 2 < count) else p2 * 2 - p1
+        for s in range(samples):
+            t = s / samples
+            t2, t3 = t * t, t * t * t
+            p = 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+            out.append((p.x, p.y))
+    if not closed:
+        out.append((pts[-1].x, pts[-1].y))
+    return out
+
+
+def prism(poly, depth, origin, ax_u, ax_v, ax_w, bevel=0.0, seg=2, bevel_angle=25):
+    """
+    Extrude a 2D outline [(u, v), ...] (counter-clockwise or not) from `origin` along ax_w by
+    `depth`, where u runs along ax_u and v along ax_v. Sharp edges (over bevel_angle degrees) are
+    rounded by `bevel`. Concave outlines are fine (ear-clipped caps).
+    """
+    ax_u, ax_v, ax_w = Vector(ax_u).normalized(), Vector(ax_v).normalized(), Vector(ax_w).normalized()
+    origin = Vector(origin)
+    # drop repeated points (a closed spline can end where it starts)
+    clean = []
+    for u, v in poly:
+        if not clean or (abs(clean[-1][0] - u) > 1e-6 or abs(clean[-1][1] - v) > 1e-6):
+            clean.append((u, v))
+    if len(clean) > 2 and abs(clean[0][0] - clean[-1][0]) < 1e-6 and abs(clean[0][1] - clean[-1][1]) < 1e-6:
+        clean.pop()
+    bm = bmesh.new()
+    a = [bm.verts.new(origin + ax_u * u + ax_v * v) for u, v in clean]
+    b = [bm.verts.new(origin + ax_u * u + ax_v * v + ax_w * depth) for u, v in clean]
+    count = len(clean)
+    bm.faces.new(a)
+    bm.faces.new(list(reversed(b)))
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((a[i], a[j], b[j], b[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    ngons = [f for f in bm.faces if len(f.verts) > 4]
+    if ngons:
+        bmesh.ops.triangulate(bm, faces=ngons, quad_method="BEAUTY", ngon_method="EAR_CLIP")
+    if bevel > 0:
+        sharp = [e for e in bm.edges if e.is_manifold and e.calc_face_angle(0) > math.radians(bevel_angle)]
+        if sharp:
+            bmesh.ops.bevel(bm, geom=sharp, offset=bevel, segments=seg, profile=0.5, affect="EDGES", clamp_overlap=True)
+    return bm
+
+
+def side_prism(poly_yz, x0, x1, bevel=0.0, seg=2):
+    """A side-profile outline [(y, z), ...] (Blender: y forward, z up) extruded across x0..x1."""
+    return prism(poly_yz, x1 - x0, Vector((x0, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1)), Vector((1, 0, 0)), bevel, seg)
+
+
+def displace(bm, fn):
+    """Move every vertex: co -> co + fn(co)."""
+    for v in bm.verts:
+        v.co = v.co + fn(v.co)
+    return bm
+
+
+def petal_disc(center, axis, r_out, r_in, waves, depth, thickness, seg=120):
+    """A brake rotor with a wavy ("petal") outer edge: an annulus r_in..r_out(t), `thickness` thick."""
+    axis = Vector(axis).normalized()
+    a = Vector((1, 0, 0)) if abs(axis.x) < 0.9 else Vector((0, 1, 0))
+    u = axis.cross(a).normalized()
+    v = axis.cross(u).normalized()
+    bm = bmesh.new()
+    rings = {}
+    for side in (-1, 1):
+        off = axis * (thickness / 2 * side)
+        outer, inner = [], []
+        for i in range(seg):
+            t = 2 * math.pi * i / seg
+            radial = u * math.cos(t) + v * math.sin(t)
+            r = r_out - depth * (0.5 - 0.5 * math.cos(waves * t))
+            outer.append(bm.verts.new(center + off + radial * r))
+            inner.append(bm.verts.new(center + off + radial * r_in))
+        rings[side] = (outer, inner)
+    (o0, i0), (o1, i1) = rings[-1], rings[1]
+    for i in range(seg):
+        j = (i + 1) % seg
+        bm.faces.new((o0[i], o0[j], i0[j], i0[i]))
+        bm.faces.new((o1[j], o1[i], i1[i], i1[j]))
+        bm.faces.new((o0[j], o0[i], o1[i], o1[j]))
+        bm.faces.new((i0[i], i0[j], i1[j], i1[i]))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     return bm
 

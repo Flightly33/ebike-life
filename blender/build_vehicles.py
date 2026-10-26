@@ -23,6 +23,7 @@ from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import meshkit as K  # noqa: E402
+import emoto  # noqa: E402
 from meshkit import B, Vector as V  # noqa: E402,F401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -655,6 +656,9 @@ def cranks(k, P, q, ring_r):
 def moto_bike(k, P):
     style = k["Style"]
     moped = style == "Moped"
+    if not moped:
+        # the light e-motos are modelled in detail in emoto.py
+        return emoto.build(k, P, cockpit)
     RA, FA, HB, HT, BB, AX = P["RA"], P["FA"], P["HB"], P["HT"], P["BB"], P["AX"]
     tw = k["TireWidth"]
     seat_h = k["SeatHeight"]
