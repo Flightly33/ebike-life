@@ -39,6 +39,11 @@
         "$path": "map/City.rbxm"
       }
     },
+    "MaterialService": {
+      "$properties": {
+        "Use2022Materials": true
+      }
+    },
     "Lighting": {
       "$properties": {
         "Technology": "Future",

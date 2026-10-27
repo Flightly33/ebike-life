@@ -26,6 +26,7 @@
 local Bikes = require(script.Parent.Parent.Bikes)
 local Config = require(script.Parent.Parent.Config)
 local Paints = require(script.Parent.Parent.Paints)
+local Realism = require(script.Parent.Parent.Realism)
 local PartKit = require(script.Parent.Parent.PartKit)
 local MeshKit = require(script.Parent.MeshKit)
 
@@ -1089,6 +1090,7 @@ build = function(bike: Bikes.Bike, choice: PaintChoice?, options: Options?): Mod
 		model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	end
 	BikeModel.ApplyPaint(model, bike, choice)
+	Realism.Apply(model, "Vehicle")
 	return model
 end
 

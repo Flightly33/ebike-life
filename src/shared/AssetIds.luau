@@ -49,4 +49,27 @@ function AssetIds.Resolve(id: string?): string?
 	return "rbxassetid://" .. id
 end
 
+-- Optional photo-scanned PBR textures (Creator Store "PBR texture" or "MaterialVariant" packs you
+-- have checked, or your own uploads). Each set replaces one Roblox material everywhere it's used
+-- (roads, pavements, brick, roofs...): Shared/Materials makes a MaterialVariant from it at startup.
+-- Leave a set's ColorMap empty to keep Roblox's own 2022 material, which is already photo-based.
+export type TextureSet = { ColorMap: string, NormalMap: string, RoughnessMap: string, MetalnessMap: string, StudsPerTile: number }
+local function set(studsPerTile: number): TextureSet
+	return { ColorMap = "", NormalMap = "", RoughnessMap = "", MetalnessMap = "", StudsPerTile = studsPerTile }
+end
+AssetIds.Materials = {
+	Asphalt = set(24), -- roads
+	Concrete = set(16), -- pavements, kerbs, walls
+	Pavement = set(12),
+	Brick = set(10),
+	Plaster = set(16),
+	RoofShingles = set(10),
+	ClayRoofTiles = set(10),
+	Grass = set(20),
+	WoodPlanks = set(12), -- ramps, kickers
+	Wood = set(12),
+	Ground = set(20), -- dirt
+	Metal = set(8),
+} :: { [string]: TextureSet }
+
 return AssetIds

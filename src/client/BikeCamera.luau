@@ -201,19 +201,21 @@ function BikeCamera.Shake(amount: number)
 end
 
 -- First person: the eye in the rider's head, riding with the bike
--- Body cam: a camera clipped to the rider's chest, tilted down so the hands, forearms, bars and
--- the front of the bike sit in the lower part of the frame (the head is hidden, the arms are not)
-local BODYCAM_TILT = 0.36 -- radians below the bike's pitch
+-- Body cam: the rider's own eyes (the head and hat are hidden), tilted down so the hands,
+-- forearms, bars and the front of the bike fill the bottom of the frame. Its field of view is the
+-- player's setting (Menus > Settings), wide by default.
+local BODYCAM_TILT = 0.3 -- radians below the bike's pitch
+BikeCamera.BodyCamFov = 90
 local function firstPerson(dt: number, bike: CFrame, kmh: number, airborne: boolean)
 	local camera = Workspace.CurrentCamera
 	local character = Players.LocalPlayer.Character
-	local torso = character and (character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso"))
+	local head = character and character:FindFirstChild("Head")
 	local eye: Vector3
-	if torso and torso:IsA("BasePart") then
-		-- the top of the sternum, just ahead of the chest
-		eye = (torso.CFrame * CFrame.new(0, torso.Size.Y * 0.42, -torso.Size.Z * 0.5 - 0.35)).Position
+	if head and head:IsA("BasePart") then
+		-- between the eyes, a little forward of the (hidden) face
+		eye = (head.CFrame * CFrame.new(0, head.Size.Y * 0.1, -head.Size.Z * 0.35)).Position
 	else
-		eye = (bike * CFrame.new(0, 4.6 * SIZE, -0.2)).Position
+		eye = (bike * CFrame.new(0, 5.4 * SIZE, 0.6)).Position
 	end
 	-- recentre the look while riding
 	if kmh > 6 and os.clock() - lastLook > RECENTER_DELAY + 0.6 then
@@ -248,7 +250,7 @@ local function firstPerson(dt: number, bike: CFrame, kmh: number, airborne: bool
 	end
 	camera.CFrame = cf
 	camera.Focus = cf * CFrame.new(0, 0, -8)
-	camera.FieldOfView += (88 + math.clamp(kmh / 90, 0, 1) * 10 - camera.FieldOfView) * ease(3, dt)
+	camera.FieldOfView += (BikeCamera.BodyCamFov + math.clamp(kmh / 90, 0, 1) * 8 - camera.FieldOfView) * ease(3, dt)
 end
 
 --[[

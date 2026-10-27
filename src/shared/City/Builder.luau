@@ -12,6 +12,7 @@ local Buildings = require(script.Parent.Buildings)
 local Landmarks = require(script.Parent.Landmarks)
 local Countryside = require(script.Parent.Countryside)
 local Detail = require(script.Parent.Detail)
+local Realism = require(script.Parent.Parent.Realism)
 local PartKit = require(script.Parent.Parent.PartKit)
 local Config = require(script.Parent.Parent.Config)
 
@@ -237,6 +238,8 @@ function Builder.Build(): Model
 	chargers(city)
 	Countryside.Build(city, rng)
 	spawnPoint(city)
+	-- real-world materials by role (roofs, tyres, glass...)
+	Realism.Apply(city)
 	-- Built at Roblox's standard scale; shrink to the avatar scale the game runs at
 	PartKit.Scale(city, Config.WORLD_SCALE)
 	return city

@@ -32,6 +32,7 @@ export type Settings = {
 	Music: number, -- 0..1
 	Sounds: number, -- 0..1
 	Hints: boolean,
+	Fov: number, -- body cam field of view, degrees
 }
 
 export type Data = {
@@ -65,7 +66,7 @@ function Profile.Default(): Data
 		Modes = Modes.Sanitize(nil),
 		Mode = "TOUR",
 		Stats = { BestWheelie = 0, LongestAir = 0, Distance = 0, Escapes = 0, Busts = 0, Flips = 0, MaxStars = 0, Earned = 0 },
-		Settings = { Units = "kmh", Music = 0.5, Sounds = 0.8, Hints = true },
+		Settings = { Units = "kmh", Music = 0.5, Sounds = 0.8, Hints = true, Fov = 90 },
 		BoostUntil = 0,
 	}
 end
@@ -145,6 +146,7 @@ function Profile.Sanitize(saved: any): Data
 		data.Settings.Music = num(s.Music, 0.5, 0, 1)
 		data.Settings.Sounds = num(s.Sounds, 0.8, 0, 1)
 		data.Settings.Hints = s.Hints ~= false
+		data.Settings.Fov = num(s.Fov, 90, 60, 120)
 	end
 	data.BoostUntil = num(saved.BoostUntil, 0, 0)
 	return data

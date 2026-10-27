@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Economy = require(Shared.Economy)
 local Remotes = require(Shared.Remotes)
 
+local BikeCamera = require(script.Parent.BikeCamera)
 local BikeController = require(script.Parent.BikeController)
 local Sound = require(script.Parent.Sound)
 local State = require(script.Parent.State)
@@ -201,6 +202,7 @@ function UI.Init()
 	State.Changed:Connect(function()
 		Hud.SetRiding(BikeController.Active)
 		Sound.SetVolume("SFX", State.Settings().Sounds)
+		BikeCamera.BodyCamFov = State.Settings().Fov or 90
 	end)
 
 	RunService.RenderStepped:Connect(function(dt)

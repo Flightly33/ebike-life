@@ -16,6 +16,7 @@
 ]]
 
 local Config = require(script.Parent.Parent.Config)
+local Realism = require(script.Parent.Parent.Realism)
 local PartKit = require(script.Parent.Parent.PartKit)
 local MeshKit = require(script.Parent.MeshKit)
 
@@ -496,6 +497,7 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 			end
 		end
 	end
+	Realism.Apply(model, "Vehicle", paint)
 	return model
 end
 

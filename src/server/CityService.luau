@@ -16,6 +16,7 @@ local BikeModel = require(Shared.Models.BikeModel)
 local CarModel = require(Shared.Models.CarModel)
 local MeshKit = require(Shared.Models.MeshKit)
 local CityKit = require(Shared.Models.CityKit)
+local Materials = require(Shared.Materials)
 
 local BikeService = require(script.Parent.BikeService)
 
@@ -54,6 +55,11 @@ local function swapInMeshes(city: Instance)
 end
 
 function CityService.Init()
+	-- the owner's PBR texture sets, if any (AssetIds.Materials)
+	local variants = Materials.Apply()
+	if variants > 0 then
+		print(string.format("[CityService] %d custom PBR materials applied", variants))
+	end
 	local city = Workspace:FindFirstChild("City")
 	if not city then
 		warn("[CityService] map/City.rbxm missing from the place; building the city at runtime")

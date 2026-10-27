@@ -1,9 +1,11 @@
 --[[
-	MainMenu: the "Menus" button. Stats, Settings (units, music and sound volume, key hints),
-	Teleports (not while wanted) and a short How to Play.
+	MainMenu: the "Menus" button. Stats, Settings (units, music and sound volume, key hints, the
+	body cam's field of view), Tricks (every trick and control, keyboard and controller), Teleports
+	(not while wanted) and a short How to Play.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -11,6 +13,7 @@ local Economy = require(Shared.Economy)
 local Layout = require(Shared.City.Layout)
 local Remotes = require(Shared.Remotes)
 
+local BikeCamera = require(script.Parent.Parent.BikeCamera)
 local Sound = require(script.Parent.Parent.Sound)
 local State = require(script.Parent.Parent.State)
 local Panel = require(script.Parent.Panel)
@@ -35,13 +38,44 @@ local HELP = {
 	"Buy new Flightly bikes at Flighty Mechanics; upgrade and paint them in Tuning.",
 }
 
+-- Every trick and control: what it is, the keyboard keys, the controller buttons
+local CONTROLS: { { Section: string?, Name: string?, Keys: string?, Pad: string?, Note: string? } } = {
+	{ Section = "Riding" },
+	{ Name = "Gas / brake", Keys = "W / S", Pad = "RT / LT" },
+	{ Name = "Steer", Keys = "A / D", Pad = "Left stick" },
+	{ Name = "Front brake (stoppie)", Keys = "S + Shift", Pad = "LT + X", Note = "at speed: balance on the front wheel" },
+	{ Name = "Assist mode", Keys = "M or 1-5", Pad = "RB" },
+	{ Name = "Get off", Keys = "Space", Pad = "A" },
+	{ Section = "Ground tricks" },
+	{ Name = "Wheelie", Keys = "Shift or Ctrl", Pad = "X", Note = "throttle lifts, brake lowers; stay in the green" },
+	{ Name = "One hand", Keys = "C", Pad = "D-pad left" },
+	{ Name = "No hands", Keys = "V", Pad = "D-pad right" },
+	{ Name = "Bunny hop", Keys = "Q (hold, release)", Pad = "Y (hold, release)" },
+	{ Name = "Drift", Keys = "R + steer", Pad = "B + steer", Note = "locks the rear; let go to straighten up" },
+	{ Section = "Air tricks (hold in the air)" },
+	{ Name = "1. Superman", Keys = "Z", Pad = "D-pad up" },
+	{ Name = "2. Can-Can", Keys = "X", Pad = "B" },
+	{ Name = "3. Nac-Nac", Keys = "T", Pad = "LB" },
+	{ Name = "4. Knee Knocker", Keys = "G", Pad = "D-pad down" },
+	{ Name = "5. No-Footer", Keys = "N", Pad = "RB" },
+	{ Name = "6. Barspin", Keys = "Y (tap)", Pad = "Y (tap)" },
+	{ Name = "Backflip", Keys = "Shift", Pad = "X", Note = "pull back in the air; brake pushes the nose down" },
+	{ Name = "Spin", Keys = "A / D", Pad = "Left stick" },
+	{ Name = "Quarter pipe", Note = "ride up the face: you go up past the coping, turn round and come back down" },
+	{ Name = "Loops and foam pits", Note = "ride into a loop at speed; the foam pit always catches you" },
+	{ Section = "Camera" },
+	{ Name = "Body cam", Keys = "F", Pad = "R3", Note = "field of view in Settings" },
+	{ Name = "Video camera", Keys = "P", Pad = "", Note = "[ ] shots, , . zoom, ; letterbox" },
+	{ Name = "Look around", Keys = "Right mouse drag", Pad = "Right stick" },
+}
+
 function MainMenu.new(gui: Instance, close: () -> ()): Panel.Panel
 	local panel = Panel.new(gui, "Menus", "Menu", Vector2.new(700, 520), nil)
 	local tabs = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 34), Parent = panel.Body })
 	Theme.List(tabs, Enum.FillDirection.Horizontal, 6)
 	local content = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, -42), Position = UDim2.fromOffset(0, 42), Parent = panel.Body })
 	local tab = "Stats"
-	local draft: { Units: string, Music: number, Sounds: number, Hints: boolean }? = nil
+	local draft: { Units: string, Music: number, Sounds: number, Hints: boolean, Fov: number }? = nil
 	local buttons: { [string]: TextButton } = {}
 	local render: () -> ()
 
@@ -119,6 +153,71 @@ function MainMenu.new(gui: Instance, close: () -> ()): Panel.Panel
 			save()
 			task.defer(render)
 		end)
+		-- body cam field of view: a slider (drag, or tap anywhere on the bar)
+		local MIN_FOV, MAX_FOV = 60, 120
+		local line = New("Frame", { BackgroundColor3 = C.Card, Size = UDim2.new(1, 0, 0, 58), LayoutOrder = 5, Parent = list })
+		Theme.Corner(line, 6)
+		local valueLabel = Theme.Label({ Text = "", Size = UDim2.new(0.45, 0, 1, 0), Position = UDim2.fromOffset(12, 0), TextSize = 20, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = line })
+		local bar = New("Frame", { BackgroundColor3 = Color3.fromRGB(30, 30, 34), Size = UDim2.new(0.5, -24, 0, 10), Position = UDim2.new(1, -16, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Active = true, Parent = line })
+		Theme.Corner(bar, 5)
+		local fill = New("Frame", { BackgroundColor3 = C.Orange, Size = UDim2.fromScale(0, 1), Parent = bar })
+		Theme.Corner(fill, 5)
+		local knob = New("Frame", { BackgroundColor3 = Color3.fromRGB(245, 245, 245), Size = UDim2.fromOffset(24, 24), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), ZIndex = 3, Parent = bar })
+		Theme.Corner(knob, 12)
+		local function show(fov: number)
+			local f = (fov - MIN_FOV) / (MAX_FOV - MIN_FOV)
+			fill.Size = UDim2.fromScale(f, 1)
+			knob.Position = UDim2.fromScale(f, 0.5)
+			valueLabel.Text = string.format("Body cam FOV  %d°", fov)
+		end
+		show(current.Fov or 90)
+		local dragging: InputObject? = nil
+		local function setFrom(x: number)
+			local f = math.clamp((x - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
+			current.Fov = math.floor(MIN_FOV + f * (MAX_FOV - MIN_FOV) + 0.5)
+			BikeCamera.BodyCamFov = current.Fov
+			show(current.Fov)
+		end
+		bar.InputBegan:Connect(function(input: InputObject)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = input
+				setFrom(input.Position.X)
+			end
+		end)
+		local moved = UserInputService.InputChanged:Connect(function(input: InputObject)
+			if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input == dragging) then
+				setFrom(input.Position.X)
+			end
+		end)
+		local ended = UserInputService.InputEnded:Connect(function(input: InputObject)
+			if dragging and (input == dragging or input.UserInputType == Enum.UserInputType.MouseButton1) then
+				dragging = nil
+				save()
+			end
+		end)
+		line.Destroying:Connect(function()
+			moved:Disconnect()
+			ended:Disconnect()
+		end)
+	end
+
+	local function tricks()
+		local scroll = New("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6, Parent = content })
+		Theme.List(scroll, Enum.FillDirection.Vertical, 4)
+		for i, entry in CONTROLS do
+			if entry.Section then
+				Theme.Label({ Text = entry.Section, Size = UDim2.new(1, 0, 0, 30), TextSize = 20, Color = C.Orange, Align = Enum.TextXAlignment.Left, Stroke = 2, LayoutOrder = i, Parent = scroll })
+			else
+				local line = New("Frame", { BackgroundColor3 = if i % 2 == 0 then Color3.fromRGB(40, 40, 44) else Color3.fromRGB(36, 36, 40), Size = UDim2.new(1, -8, 0, if entry.Note then 46 else 30), LayoutOrder = i, Parent = scroll })
+				Theme.Corner(line, 4)
+				Theme.Label({ Text = entry.Name or "", Size = UDim2.new(0.4, -10, 0, 30), Position = UDim2.fromOffset(10, 0), TextSize = 16, Align = Enum.TextXAlignment.Left, Stroke = 1, Parent = line })
+				Theme.Label({ Text = entry.Keys or "", Size = UDim2.new(0.3, -6, 0, 30), Position = UDim2.new(0.4, 0, 0, 0), TextSize = 16, Color = C.Cash, Align = Enum.TextXAlignment.Left, Stroke = 1, Parent = line })
+				Theme.Label({ Text = if entry.Pad and entry.Pad ~= "" then "🎮 " .. entry.Pad else "", Size = UDim2.new(0.3, -6, 0, 30), Position = UDim2.new(0.7, 0, 0, 0), TextSize = 15, Color = Color3.fromRGB(150, 200, 255), Align = Enum.TextXAlignment.Left, Stroke = 1, Parent = line })
+				if entry.Note then
+					Theme.Label({ Text = entry.Note, Size = UDim2.new(1, -20, 0, 16), Position = UDim2.fromOffset(10, 28), TextSize = 13, Font = Theme.BodyRegular, Color = Color3.fromRGB(190, 190, 196), Align = Enum.TextXAlignment.Left, Stroke = 0, Parent = line })
+				end
+			end
+		end
 	end
 
 	local function teleports()
@@ -151,14 +250,16 @@ function MainMenu.new(gui: Instance, close: () -> ()): Panel.Panel
 			stats()
 		elseif tab == "Settings" then
 			settings()
+		elseif tab == "Tricks" then
+			tricks()
 		elseif tab == "Teleport" then
 			teleports()
 		else
 			help()
 		end
 	end
-	for i, name in { "Stats", "Settings", "Teleport", "Help" } do
-		buttons[name] = Theme.Button({ Text = name, Size = UDim2.fromOffset(130, 32), Color = C.Gray, TextSize = 18, LayoutOrder = i, Parent = tabs, OnClick = function()
+	for i, name in { "Stats", "Settings", "Tricks", "Teleport", "Help" } do
+		buttons[name] = Theme.Button({ Text = name, Size = UDim2.fromOffset(120, 32), Color = C.Gray, TextSize = 18, LayoutOrder = i, Parent = tabs, OnClick = function()
 			tab = name
 			render()
 		end })

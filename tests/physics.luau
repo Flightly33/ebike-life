@@ -266,13 +266,22 @@ do
 	local yaw0 = state.Yaw
 	local maxLean = 0
 	local before = kmh(state)
-	ride(spec, state, Modes.Defaults.TURBO, flat, 1, input({ Throttle = 1, Steer = 1 }), function(_, s)
+	local early = 0
+	ride(spec, state, Modes.Defaults.TURBO, flat, 1, input({ Throttle = 1, Steer = 1 }), function(t, s)
 		maxLean = math.max(maxLean, math.abs(s.Lean))
+		if t < 0.1 then
+			early = yaw0 - s.Yaw
+		end
 	end)
-	print(string.format("  turned %.0f deg in 1 s from %.0f to %.0f km/h, max lean %.0f deg", math.deg(yaw0 - state.Yaw), before, kmh(state), math.deg(maxLean)))
-	check(yaw0 - state.Yaw > 0.5, "steering right turns right (yaw decreases)")
-	-- the reference game carves ~85 degrees in a second at speed and barely slows
-	check(yaw0 - state.Yaw > math.rad(65) and yaw0 - state.Yaw < math.rad(100), "carves 65-100 degrees in a second at speed (like the reference)")
+	local yaw1 = state.Yaw
+	ride(spec, state, Modes.Defaults.TURBO, flat, 1, input({ Throttle = 1, Steer = 1 }))
+	local steady = yaw1 - state.Yaw
+	print(string.format("  turned %.0f deg in the first second, then %.0f deg/s, from %.0f to %.0f km/h, max lean %.0f deg, %.1f deg in the first 0.1 s", math.deg(yaw0 - yaw1), math.deg(steady), before, kmh(state), math.deg(maxLean), math.deg(early)))
+	check(yaw0 - yaw1 > 0.5, "steering right turns right (yaw decreases)")
+	-- the reference game carves ~85 degrees a second at speed and barely slows
+	check(steady > math.rad(65) and steady < math.rad(100), "carves 65-100 degrees a second at speed (like the reference)")
+	-- it rolls into the turn instead of snapping to it
+	check(early < math.rad(3), "turn-in builds up (under 3 degrees in the first 0.1 s)")
 	check(kmh(state) > before - 6, "a hard carve only scrubs a little speed")
 	check(state.Lean < 0, "leans right into a right turn")
 	check(maxLean <= Config.Turning.MaxLean + 1e-3 and maxLean > math.rad(20), "leans 20-34 degrees")

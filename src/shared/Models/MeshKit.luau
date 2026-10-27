@@ -34,7 +34,7 @@ MeshKit.Slots = {
 	Dark = { Color = Color3.fromRGB(52, 54, 58), Material = METAL },
 	Metal = { Color = Color3.fromRGB(192, 194, 198), Material = METAL },
 	Gold = { Color = Color3.fromRGB(205, 160, 45), Material = METAL },
-	Tire = { Color = Color3.fromRGB(30, 30, 32), Material = SM },
+	Tire = { Color = Color3.fromRGB(30, 30, 32), Material = Enum.Material.Rubber },
 	Leather = { Color = Color3.fromRGB(34, 30, 28), Material = Enum.Material.Leather },
 	Brown = { Color = Color3.fromRGB(96, 62, 40), Material = Enum.Material.Leather },
 	Wood = { Color = Color3.fromRGB(150, 105, 60), Material = Enum.Material.WoodPlanks },

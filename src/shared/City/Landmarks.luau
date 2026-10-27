@@ -646,8 +646,11 @@ function Landmarks.Kicker(parent: Instance, base: Vector3, dir: Vector3, height:
 	local surface = PartKit.Slab(model, "Ramp", base, lip, width, 0.6, wood, Enum.Material.WoodPlanks)
 	surface:SetAttribute("Surface", "Ramp")
 	-- back wall and posts
-	local backCenter = base + dir * (length + 0.3) + Vector3.new(0, height / 2 - 0.3, 0)
-	PartKit.Box(model, "Back", Vector3.new(width, height - 0.4, 0.6), CFrame.lookAt(backCenter, backCenter + dir), Color3.fromRGB(140, 104, 66), Enum.Material.Wood)
+	-- the back board sits under the lip, not past it: a board standing beyond the lip caught the
+	-- front tyre's ground ray as it rolled off, and the nose dipped and jumped back at every takeoff
+	local backTop = height - 1.0
+	local backCenter = base + dir * (length - 0.6) + Vector3.new(0, backTop / 2, 0)
+	PartKit.Box(model, "Back", Vector3.new(width, backTop, 0.6), CFrame.lookAt(backCenter, backCenter + dir), Color3.fromRGB(140, 104, 66), Enum.Material.Wood)
 	for _, t in { 0.4, 0.75 } do
 		for _, side in { -1, 1 } do
 			local right = Vector3.new(-dir.Z, 0, dir.X)
@@ -818,7 +821,8 @@ local function quarterPipe(parent: Instance, base: Vector3, dir: Vector3, r: num
 	local lipH = r * (1 - math.cos(topAlpha))
 	local lipRun = r * math.sin(topAlpha)
 	-- coping, deck and the solid back
-	PartKit.Cylinder(model, "Coping", 0.9, width, CFrame.new(base + dir * lipRun + up * lipH) * CFrame.fromMatrix(Vector3.zero, right, up, -dir), Color3.fromRGB(200, 200, 205), Enum.Material.Metal)
+	-- the coping is part of the ride (you go up past it and come back down), never a wall
+	PartKit.Cylinder(model, "Coping", 0.9, width, CFrame.new(base + dir * lipRun + up * lipH) * CFrame.fromMatrix(Vector3.zero, right, up, -dir), Color3.fromRGB(200, 200, 205), Enum.Material.Metal):SetAttribute("Surface", "Ramp")
 	local deck = base + dir * (lipRun + 6) + up * (lipH - 0.3)
 	PartKit.Box(model, "Deck", Vector3.new(width, 0.6, 12), CFrame.lookAt(deck, deck + dir), RAMP_WOOD, Enum.Material.WoodPlanks):SetAttribute("Surface", "Ramp")
 	-- the solid body under the deck, behind the lip (the curve stays open in front)
