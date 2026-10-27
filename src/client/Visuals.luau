@@ -42,6 +42,9 @@ type BikeRig = {
 	Steer: Motor6D?,
 	Barspin: number, -- 0..1 of a barspin (other riders' from the Barspin attribute)
 	Crank: Motor6D?,
+	Sprocket: Motor6D?, -- the e-moto meshes' front sprocket
+	ChainTop: Motor6D?, -- and the chain's two runs, slid along themselves
+	ChainBot: Motor6D?,
 	Fork: Motor6D?,
 	Swing: Motor6D?,
 	ShockTop: Motor6D?,
@@ -95,6 +98,9 @@ local function bikeRig(model: Model): BikeRig?
 		Steer = findMotor(model, "SteerJoint"),
 		Barspin = 0,
 		Crank = findMotor(model, "CrankSpin"),
+		Sprocket = findMotor(model, "SprocketSpin"),
+		ChainTop = findMotor(model, "ChainTopSlide"),
+		ChainBot = findMotor(model, "ChainBotSlide"),
 		Fork = findMotor(model, "ForkSlide"),
 		Swing = findMotor(model, "SwingJoint"),
 		ShockTop = findMotor(model, "ShockJoint"),
@@ -211,6 +217,35 @@ end
 
 -- Draw the suspension (BikeModel.SuspensionPose: the fork lowers up the steering axis, the swingarm
 -- about its pivot, the shock's body and shaft turned to keep pointing at each other)
+-- The chain moves with the rear wheel: the rear sprocket turns with it, so the chain runs at its
+-- pitch radius times the wheel's angle. Each run slides along itself by that much, wrapped to one
+-- link (two plates), so the links look like they travel; the front sprocket (48 teeth to 14) spins.
+local SPROCKET_RATIO = 48 / 14
+local function driveChain(rig: BikeRig)
+	local sprocket = rig.Sprocket
+	if not sprocket then
+		return
+	end
+	sprocket.Transform = CFrame.Angles(-rig.WheelAngle * SPROCKET_RATIO, 0, 0)
+	local hub = sprocket.Part1
+	local radius = hub and hub:GetAttribute("Radius")
+	if type(radius) ~= "number" then
+		return
+	end
+	local travel = rig.WheelAngle * radius
+	for _, run in { { Motor = rig.ChainTop, Sign = -1 }, { Motor = rig.ChainBot, Sign = 1 } } do
+		local motor = run.Motor
+		local part = motor and motor.Part1
+		if motor and part then
+			local dir, period = part:GetAttribute("Dir"), part:GetAttribute("Period")
+			if typeof(dir) == "Vector3" and type(period) == "number" and period > 0 then
+				-- the top run is pulled forward onto the sprocket, the bottom run goes back
+				motor.Transform = CFrame.new(dir * (run.Sign * (travel % period)))
+			end
+		end
+	end
+end
+
 local function poseSuspension(rig: BikeRig)
 	local pose = BikeModel.SuspensionPose(rig.Sus, rig.Comp[1], rig.Comp[2])
 	if rig.Fork then
@@ -288,6 +323,7 @@ local function updateBikes(dt: number)
 		if rig.Crank then
 			rig.Crank.Transform = CFrame.Angles(-rig.CrankAngle, 0, 0)
 		end
+		driveChain(rig)
 		local motor = rig.Motor
 		if motor then
 			local kmh = math.abs(speed) * 3.6

@@ -965,6 +965,34 @@ build = function(bike: Bikes.Bike, choice: PaintChoice?, options: Options?): Mod
 			end
 			table.insert(group.Parts, item.Part)
 		end
+		-- the front sprocket spins and each chain run slides along itself (Visuals drives them): give
+		-- them pivots. The sprocket's teeth are one ring, so its mesh's centre is the sprocket's.
+		local sprocket = b.Groups.Sprocket
+		if sprocket and #sprocket.Parts > 0 then
+			local centre = sprocket.Parts[1].Position
+			local sprocketHub = PartKit.Box(b.Model, "SprocketHub", Vector3.new(0.1, 0.1, 0.1), CFrame.new(centre), BLACK, SMOOTH, { Transparency = 1 })
+			sprocketHub:SetAttribute("Radius", 0.104 * VIS) -- the rear sprocket's pitch radius: chain speed per wheel radian
+			sprocket.Pivot = sprocketHub
+			table.insert(sprocket.Parts, sprocketHub)
+			-- the runs leave the sprocket 0.035 m above and below its centre and meet the rear sprocket
+			-- 0.102 m out; links repeat every two plates (emoto.py lays plates ~0.019 m long)
+			local rear = Vector3.new(centre.X, scale(g.RearAxle).Y, scale(g.RearAxle).Z)
+			for _, entry in { { Name = "ChainTop", Sign = 1 }, { Name = "ChainBot", Sign = -1 } } do
+				local name, sign = entry.Name, entry.Sign
+				local run = b.Groups[name]
+				if run and #run.Parts > 0 then
+					local from = centre + Vector3.yAxis * (sign * 0.035 * VIS)
+					local to = rear + Vector3.yAxis * (sign * 0.102 * VIS)
+					local lengthM = (to - from).Magnitude / VIS
+					local plates = math.max(4, math.floor(lengthM / 0.019))
+					local hub = PartKit.Box(b.Model, name .. "Hub", Vector3.new(0.1, 0.1, 0.1), CFrame.new(from), BLACK, SMOOTH, { Transparency = 1 })
+					hub:SetAttribute("Dir", (to - from).Unit)
+					hub:SetAttribute("Period", 2 * lengthM / plates * VIS)
+					run.Pivot = hub
+					table.insert(run.Parts, hub)
+				end
+			end
+		end
 	end
 
 	-- Hellfire (the Deathrider): chrome pipes breathing fire, and burning wheels
@@ -1037,6 +1065,16 @@ build = function(bike: Bikes.Bike, choice: PaintChoice?, options: Options?): Mod
 		end
 		if crank then
 			motor("CrankSpin", root, crank)
+		end
+		local sprocketHub = pivotOf("Sprocket")
+		if sprocketHub then
+			motor("SprocketSpin", root, sprocketHub)
+		end
+		for _, name in { "ChainTop", "ChainBot" } do
+			local hub = pivotOf(name)
+			if hub then
+				motor(name .. "Slide", swing or root, hub)
+			end
 		end
 		for _, d in model:GetDescendants() do
 			if d:IsA("BasePart") and d ~= root then

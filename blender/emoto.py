@@ -351,7 +351,9 @@ def build(k, P, cockpit, caliper_unused=None):
 
     # chain run, front sprocket teeth, chain guide (the chain rides the swingarm)
     sp_rear = RA - X * (0.05 + 0.035)
-    for z_front, z_rear in ((0.035, 0.102), (-0.035, -0.102)):
+    # each run is its own group: the game slides it along its length (ChainTopSlide / ChainBotSlide)
+    for run_group, z_front, z_rear in (("ChainTop", 0.035, 0.102), ("ChainBot", -0.035, -0.102)):
+        CH = lambda slot, bm, g=run_group: K.put(g, slot, bm)  # noqa: E731
         a = sp_front + Z * z_front
         b = sp_rear + Z * z_rear
         run = b - a
@@ -363,12 +365,12 @@ def build(k, P, cockpit, caliper_unused=None):
             inner = i % 2 == 0
             for side in (-1, 1):
                 off = X * side * (0.0045 if inner else 0.0065)
-                SW("Dark" if inner else "Metal", K.bar(p0 + off - dd * 0.002, p1 + off + dd * 0.002, 0.0015, 0.0085, 0.0, up=Z))
-            SW("Metal", K.cyl(p0 - X * 0.0075, p0 + X * 0.0075, 0.0028, 0.0028, 6))
+                CH("Dark" if inner else "Metal", K.bar(p0 + off - dd * 0.002, p1 + off + dd * 0.002, 0.0015, 0.0085, 0.0, up=Z))
+            CH("Metal", K.cyl(p0 - X * 0.0075, p0 + X * 0.0075, 0.0028, 0.0028, 6))
     for i in range(14):
         t = 2 * math.pi * i / 14
         radial = Vector((0, math.cos(t), math.sin(t)))
-        F("Metal", K.rbox(sp_front + radial * 0.038, (0.006, 0.006, 0.009), 0, K.frame_rot(X, X.cross(radial), radial)))
+        K.put("Sprocket", "Metal", K.rbox(sp_front + radial * 0.038, (0.006, 0.006, 0.009), 0, K.frame_rot(X, X.cross(radial), radial)))
     SW("Black", K.bar(sp_front - Z * 0.05 + Y * -0.02 - X * 0.0, sp_rear - Z * 0.115 + Y * 0.05, 0.012, 0.015, 0.004))
 
     # footpegs (the game puts the rider's feet 0.08 m ahead of the pivot), side stand

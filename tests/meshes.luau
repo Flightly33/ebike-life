@@ -104,6 +104,15 @@ for _, bike in Bikes.List do
 	local pedal = model:FindFirstChild("PedalL", true) or model:FindFirstChild("PegL", true)
 	check(grips ~= nil and pedal ~= nil, bike.Id .. ": grip and foot attachments kept")
 	check(model:FindFirstChildOfClass("Seat") ~= nil, bike.Id .. ": seat kept")
+	if not bike.Pedals then
+		local sprocket = model:FindFirstChild("SprocketSpin", true)
+		local top, bot = model:FindFirstChild("ChainTopSlide", true), model:FindFirstChild("ChainBotSlide", true)
+		check(sprocket ~= nil and top ~= nil and bot ~= nil, bike.Id .. ": the front sprocket and both chain runs are on joints")
+		local hub = top and (top :: any).Part1
+		local dir, period = hub and hub:GetAttribute("Dir"), hub and hub:GetAttribute("Period")
+		-- the runs head backward (+Z) and a link is a few centimetres
+		check(typeof(dir) == "Vector3" and (dir :: Vector3).Z > 0.9 and type(period) == "number" and period > 0.05 and period < 0.3, string.format("%s: chain runs backward, link %.3f studs", bike.Id, if type(period) == "number" then period else -1))
+	end
 end
 
 for _, kind in { "Police", "Sedan", "Hatch", "SUV", "Van", "Taxi" } do
