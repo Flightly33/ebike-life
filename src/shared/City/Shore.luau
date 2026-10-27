@@ -121,26 +121,126 @@ local function palmsAlong(parent: Instance, a: Vector3, b: Vector3, every: numbe
 	end
 end
 
+-- A beach: sand sloping from the beach walk at `r.MinX` (y = 0) into the surf at `r.MaxX`, a shelf on
+-- down to the ocean floor, lifeguard towers and umbrellas, rocks at both ends
+local function beach(folder: Instance, edges: Instance, r: LayoutModule.Rect, rng: Random)
+	local length = r.MaxZ - r.MinZ
+	local n = math.ceil(length / MAX_PART)
+	for k = 0, n - 1 do
+		local cz = r.MinZ + length * (k + 0.5) / n
+		local sand = PartKit.Ramp(folder, "Sand", Vector3.new(r.MaxX, Layout.WATER_Y, cz), Vector3.new(r.MinX, 0, cz), length / n, SAND, Enum.Material.Sand)
+		sand:SetAttribute("Surface", "Sand")
+		local under = PartKit.Ramp(folder, "Shelf", Vector3.new(r.MaxX + 150, Layout.SEABED_Y, cz), Vector3.new(r.MaxX, Layout.WATER_Y - 0.05, cz), length / n, WET_SAND, Enum.Material.Sand)
+		under:SetAttribute("Surface", "Sand")
+	end
+	for _, sz in { -1, 1 } do
+		local z = if sz < 0 then r.MinZ else r.MaxZ
+		revetment(edges, Vector3.new((r.MinX + r.MaxX) / 2, 0, z), Vector3.new(0, 0, sz), r.MaxX - r.MinX)
+	end
+	local towerColors = { Color3.fromRGB(255, 120, 160), Color3.fromRGB(80, 200, 220), Color3.fromRGB(255, 210, 60), Color3.fromRGB(150, 220, 120), Color3.fromRGB(255, 150, 70) }
+	local umbrellaColors = { Color3.fromRGB(230, 60, 60), Color3.fromRGB(40, 120, 220), Color3.fromRGB(250, 200, 40), Color3.fromRGB(40, 170, 120), Color3.fromRGB(245, 245, 240) }
+	local function sandAt(x: number): number
+		return (r.MaxX - x) / (r.MaxX - r.MinX) * (0 - Layout.WATER_Y) + Layout.WATER_Y
+	end
+	local towers = math.max(2, math.floor(length / 380))
+	for k = 0, towers - 1 do
+		local z = r.MinZ + 180 + k * (length - 360) / math.max(1, towers - 1)
+		local x = r.MinX + 70
+		Detail.LifeguardTower(folder, CFrame.new(x, sandAt(x), z) * CFrame.Angles(0, math.rad(-90), 0), towerColors[(k % #towerColors) + 1])
+		for _ = 1, 6 do
+			local ux = r.MinX + rng:NextNumber(20, 120)
+			local uz = z + rng:NextNumber(-130, 130)
+			if uz > r.MinZ + 20 and uz < r.MaxZ - 20 then
+				Detail.BeachUmbrella(folder, Vector3.new(ux, sandAt(ux), uz), umbrellaColors[rng:NextInteger(1, #umbrellaColors)], rng)
+			end
+		end
+	end
+end
+
+-- The island a causeway lands on (its rect) for a point at the far end
+local function islandAt(x: number, z: number): LayoutModule.Rect?
+	for _, island in Layout.Islands do
+		if x >= island.MinX - 1 and x <= island.MaxX + 1 and z >= island.MinZ - 1 and z <= island.MaxZ + 1 then
+			return island
+		end
+	end
+	return nil
+end
+
+-- Pieces of a span from `from` to `to` minus the gaps ({ from, to }), each no longer than MAX_PART
+local function runs(from: number, to: number, gaps: { { number } }): { { number } }
+	table.sort(gaps, function(a, b)
+		return a[1] < b[1]
+	end)
+	local out = {}
+	local function add(a: number, b: number)
+		local n = math.ceil((b - a) / (MAX_PART * 0.9))
+		for k = 0, n - 1 do
+			table.insert(out, { a + (b - a) * k / n, a + (b - a) * (k + 1) / n })
+		end
+	end
+	local at = from
+	for _, gap in gaps do
+		if gap[1] > at then
+			add(at, math.min(gap[1], to))
+		end
+		at = math.max(at, gap[2])
+	end
+	if to > at then
+		add(at, to)
+	end
+	return out
+end
+
 function Shore.Build(city: Instance, rng: Random)
 	local folder = PartKit.Folder(city, "Shore")
 	local ground = PartKit.Folder(city, "Ground")
 	local W = Layout.WORLD_HALF
-	local isl = Layout.ISLAND
 	local shoreX = Layout.SHORE_X
 
-	-- Land: the mainland's grass, the island's (its beach is its own slope)
-	tiles(ground, "Grass", { MinX = -W, MaxX = shoreX, MinZ = -W, MaxZ = W }, 0, 4, C.Grass, Enum.Material.Grass, "Grass")
-	tiles(ground, "Grass", { MinX = isl.MinX, MaxX = Layout.BEACH_X, MinZ = isl.MinZ, MaxZ = isl.MaxZ }, 0, 4, C.Grass, Enum.Material.Grass, "Grass")
-	-- the bay and ocean floor
-	for _, rect in Layout.Water do
-		tiles(ground, "Seabed", rect, Layout.SEABED_Y, 4, Color3.fromRGB(196, 186, 150), Enum.Material.Sand, "Sand")
+	-- Land. Built-up areas get ordinary grass parts; the open land a flat collider of the same
+	-- grass that CityService covers with Terrain (grass blades, marsh) and hides at runtime
+	for _, r in Layout.Rects.Subtract(Layout.BuiltGround, Layout.Beaches) do
+		tiles(ground, "Grass", r, 0, 4, C.Grass, Enum.Material.Grass, "Grass")
+	end
+	local open = PartKit.Folder(ground, "Open")
+	for _, g in Layout.OpenGround do
+		local marsh = g.Kind == "Marsh"
+		local before = #open:GetChildren()
+		tiles(open, "OpenGround", g, 0, 4, if marsh then Color3.fromRGB(96, 104, 62) else C.Grass, if marsh then Enum.Material.Mud else Enum.Material.Grass, if marsh then "Mud" else "Grass")
+		for k = before + 1, #open:GetChildren() do
+			open:GetChildren()[k]:SetAttribute("Terrain", g.Kind)
+		end
+	end
+	-- the bay and ocean floor; lake beds with banks sloping in
+	for _, r in Layout.Sea do
+		tiles(ground, "Seabed", r, Layout.SEABED_Y, 4, Color3.fromRGB(196, 186, 150), Enum.Material.Sand, "Sand")
+	end
+	local lakes = PartKit.Folder(folder, "Lakes")
+	for _, r in Layout.Lakes do
+		tiles(lakes, "LakeBed", r, Layout.LAKE_BED_Y, 3, Color3.fromRGB(90, 84, 60), Enum.Material.Mud, "Mud")
+		local cx, cz = (r.MinX + r.MaxX) / 2, (r.MinZ + r.MaxZ) / 2
+		local run = math.min(12, (r.MaxX - r.MinX) / 3, (r.MaxZ - r.MinZ) / 3)
+		local sides: { { Out: Vector3, At: number, Length: number } } = {
+			{ Out = Vector3.new(-1, 0, 0), At = r.MinX, Length = r.MaxZ - r.MinZ },
+			{ Out = Vector3.new(1, 0, 0), At = r.MaxX, Length = r.MaxZ - r.MinZ },
+			{ Out = Vector3.new(0, 0, -1), At = r.MinZ, Length = r.MaxX - r.MinX },
+			{ Out = Vector3.new(0, 0, 1), At = r.MaxZ, Length = r.MaxX - r.MinX },
+		}
+		for _, side in sides do
+			local out, at, length = side.Out, side.At, side.Length
+			local top = if out.X ~= 0 then Vector3.new(at, 0, cz) else Vector3.new(cx, 0, at)
+			local low = top - out * run + Vector3.new(0, Layout.LAKE_BED_Y, 0)
+			local bank = PartKit.Ramp(lakes, "Bank", low, top, length, Color3.fromRGB(104, 96, 66), Enum.Material.Mud)
+			bank:SetAttribute("Surface", "Mud")
+		end
 	end
 	-- invisible walls at the map edge
 	for _, d in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
 		local along = Vector3.new(d.Z, 0, -d.X)
-		for k = 0, 3 do
-			local center = d * (W + 2) + along * (-W + W / 4 + k * W / 2) + Vector3.new(0, 100, 0)
-			local size = if d.X ~= 0 then Vector3.new(4, 260, W / 2 + 8) else Vector3.new(W / 2 + 8, 260, 4)
+		for k = 0, 4 do
+			local center = d * (W + 2) + along * (-W + W / 5 + k * W * 2 / 5) + Vector3.new(0, 100, 0)
+			local size = if d.X ~= 0 then Vector3.new(4, 260, W * 2 / 5 + 8) else Vector3.new(W * 2 / 5 + 8, 260, 4)
 			local wall = PartKit.Box(ground, "Boundary", size, CFrame.new(center), Color3.new(1, 1, 1), SMOOTH, { Transparency = 1, Shadow = false })
 			wall:SetAttribute("Surface", "Wall")
 		end
@@ -150,28 +250,24 @@ function Shore.Build(city: Instance, rng: Random)
 	local walls = PartKit.Folder(folder, "Seawall")
 	local wallTop = Y
 	local wallH = wallTop - Layout.SEABED_Y
-	for k = 0, 3 do
-		PartKit.Box(walls, "Seawall", Vector3.new(3, wallH, W / 2), CFrame.new(shoreX - 1.5, Layout.SEABED_Y + wallH / 2, -W + W / 4 + k * W / 2), SEAWALL, CONCRETE)
+	for k = 0, 4 do
+		PartKit.Box(walls, "Seawall", Vector3.new(3, wallH, W * 2 / 5), CFrame.new(shoreX - 1.5, Layout.SEABED_Y + wallH / 2, -W + W / 5 + k * W * 2 / 5), SEAWALL, CONCRETE)
 	end
 	local walk = PartKit.Folder(folder, "Baywalk")
 	local bayEdge = Layout.Line(Layout.BAY_INDEX) + Layout.AVENUE_WIDTH / 2
-	local walkEnd = Layout.RING_HALF + 40
 	local gaps = {}
-	for _, z in Layout.CAUSEWAY_ZS do
-		table.insert(gaps, { z - (Layout.STREET_WIDTH + 4) / 2 - 2, z + (Layout.STREET_WIDTH + 4) / 2 + 2 })
+	for _, link in Layout.Causeways do
+		local width = Layout.Edges[Layout.Nodes[link.A].Edges[1]].Width
+		for _, edgeId in Layout.Nodes[link.A].Edges do
+			local edge = Layout.Edges[edgeId]
+			if edge.Kind == "Causeway" then
+				width = edge.Width
+			end
+		end
+		table.insert(gaps, { link.Z - width / 2 - 2, link.Z + width / 2 + 2 })
 	end
-	table.sort(gaps, function(a, b)
-		return a[1] < b[1]
-	end)
-	local pieces = {}
-	local from = -walkEnd
-	for _, gap in gaps do
-		table.insert(pieces, { from, gap[1] })
-		from = gap[2]
-	end
-	table.insert(pieces, { from, walkEnd })
 	local thickness = Y + 0.4
-	for _, piece in pieces do
+	for _, piece in runs(-3800, 3620, gaps) do
 		local z0, z1 = piece[1], piece[2]
 		local cz, d = (z0 + z1) / 2, z1 - z0
 		local w = shoreX - 3 - bayEdge
@@ -183,13 +279,13 @@ function Shore.Build(city: Instance, rng: Random)
 		PartKit.Box(walk, "Paving", Vector3.new(6, 0.05, d), CFrame.new(bayEdge + 16, Y + 0.02, cz), Color3.fromRGB(176, 150, 126), Enum.Material.Brick, DECOR)
 		PartKit.Box(walk, "Railing", Vector3.new(0.3, 0.3, d), CFrame.new(shoreX - 3.6, Y + 3.4, cz), Color3.fromRGB(235, 235, 232), Enum.Material.Metal, DECOR)
 		PartKit.Box(walk, "Railing", Vector3.new(0.25, 0.25, d), CFrame.new(shoreX - 3.6, Y + 1.8, cz), Color3.fromRGB(235, 235, 232), Enum.Material.Metal, DECOR)
-		local n = math.floor(d / 9)
+		local n = math.floor(d / 18)
 		for k = 0, n do
-			PartKit.Post(walk, "RailPost", 0.35, 3.4, Vector3.new(shoreX - 3.6, Y, z0 + k * d / n), Color3.fromRGB(235, 235, 232), Enum.Material.Metal, DECOR)
+			PartKit.Post(walk, "RailPost", 0.35, 3.4, Vector3.new(shoreX - 3.6, Y, z0 + k * d / math.max(n, 1)), Color3.fromRGB(235, 235, 232), Enum.Material.Metal, DECOR)
 		end
 		-- palms, lights and benches
-		palmsAlong(walk, Vector3.new(bayEdge + 9, Y, z0 + 6), Vector3.new(bayEdge + 9, Y, z1 - 6), 44, rng)
-		local lights = math.floor(d / 90)
+		palmsAlong(walk, Vector3.new(bayEdge + 9, Y, z0 + 6), Vector3.new(bayEdge + 9, Y, z1 - 6), 48, rng)
+		local lights = math.floor(d / 100)
 		for k = 1, lights do
 			local z = z0 + k * d / (lights + 1)
 			Props.StreetLight(walk, Vector3.new(bayEdge + 2.5, Y, z + 20), Vector3.new(-1, 0, 0))
@@ -197,60 +293,56 @@ function Shore.Build(city: Instance, rng: Random)
 		end
 	end
 
-	-- The island's edges: rocks on the bay side and both ends, a seawall walk along West Ave
+	-- The islands' edges: the barrier island and Key Biscayne in rock on the bay side and their
+	-- ends, the port in a concrete quay wall
 	local edges = PartKit.Folder(folder, "IslandEdge")
-	revetment(edges, Vector3.new(isl.MinX, 0, 0), Vector3.new(-1, 0, 0), isl.MaxZ - isl.MinZ)
-	revetment(edges, Vector3.new((isl.MinX + Layout.BEACH_X) / 2, 0, isl.MinZ), Vector3.new(0, 0, -1), Layout.BEACH_X - isl.MinX)
-	revetment(edges, Vector3.new((isl.MinX + Layout.BEACH_X) / 2, 0, isl.MaxZ), Vector3.new(0, 0, 1), Layout.BEACH_X - isl.MinX)
-
-	-- The beach: sand sloping from the beach walk into the surf, and on down to the ocean floor
-	local beach = PartKit.Folder(folder, "Beach")
-	local beachLen = isl.MaxZ - isl.MinZ
-	for _, half in { -1, 1 } do
-		local cz = half * beachLen / 4
-		local sand = PartKit.Ramp(beach, "Sand", Vector3.new(Layout.SURF_X, Layout.WATER_Y, cz), Vector3.new(Layout.BEACH_X, 0, cz), beachLen / 2, SAND, Enum.Material.Sand)
-		sand:SetAttribute("Surface", "Sand")
-		local under = PartKit.Ramp(beach, "Shelf", Vector3.new(Layout.SURF_X + 150, Layout.SEABED_Y, cz), Vector3.new(Layout.SURF_X, Layout.WATER_Y - 0.05, cz), beachLen / 2, WET_SAND, Enum.Material.Sand)
-		under:SetAttribute("Surface", "Sand")
+	local shores: { { R: LayoutModule.Rect, BeachX: number } } = { { R = Layout.ISLAND, BeachX = Layout.BEACH_X }, { R = Layout.KEY, BeachX = Layout.KEY_BEACH_X } }
+	for _, island in shores do
+		local r, beachX = island.R, island.BeachX
+		revetment(edges, Vector3.new(r.MinX, 0, (r.MinZ + r.MaxZ) / 2), Vector3.new(-1, 0, 0), r.MaxZ - r.MinZ)
+		revetment(edges, Vector3.new((r.MinX + beachX) / 2, 0, r.MinZ), Vector3.new(0, 0, -1), beachX - r.MinX)
+		revetment(edges, Vector3.new((r.MinX + beachX) / 2, 0, r.MaxZ), Vector3.new(0, 0, 1), beachX - r.MinX)
 	end
-	-- the beach's ends drop to the rocks too
-	for _, sz in { -1, 1 } do
-		local z = sz * isl.MaxZ
-		revetment(edges, Vector3.new((Layout.BEACH_X + Layout.SURF_X) / 2, 0, z), Vector3.new(0, 0, sz), Layout.SURF_X - Layout.BEACH_X)
-	end
-	-- lifeguard towers, umbrellas and loungers along the sand
-	local towerColors = { Color3.fromRGB(255, 120, 160), Color3.fromRGB(80, 200, 220), Color3.fromRGB(255, 210, 60), Color3.fromRGB(150, 220, 120), Color3.fromRGB(255, 150, 70) }
-	local umbrellaColors = { Color3.fromRGB(230, 60, 60), Color3.fromRGB(40, 120, 220), Color3.fromRGB(250, 200, 40), Color3.fromRGB(40, 170, 120), Color3.fromRGB(245, 245, 240) }
-	local sandAt = function(x: number): number
-		return (Layout.SURF_X - x) / (Layout.SURF_X - Layout.BEACH_X) * (0 - Layout.WATER_Y) + Layout.WATER_Y
-	end
-	for k = 0, 7 do
-		local z = isl.MinZ + 180 + k * (beachLen - 360) / 7
-		local x = Layout.BEACH_X + 70
-		Detail.LifeguardTower(beach, CFrame.new(x, sandAt(x), z) * CFrame.Angles(0, math.rad(-90), 0), towerColors[(k % #towerColors) + 1])
-		for _ = 1, 6 do
-			local ux = Layout.BEACH_X + rng:NextNumber(20, 120)
-			local uz = z + rng:NextNumber(-130, 130)
-			Detail.BeachUmbrella(beach, Vector3.new(ux, sandAt(ux), uz), umbrellaColors[rng:NextInteger(1, #umbrellaColors)], rng)
+	do
+		local p = Layout.PORT
+		local h = Y - Layout.SEABED_Y
+		local cy = Layout.SEABED_Y + h / 2
+		for _, sx in { -1, 1 } do
+			PartKit.Box(edges, "QuayWall", Vector3.new(3, h, p.MaxZ - p.MinZ), CFrame.new(if sx < 0 then p.MinX + 1.5 else p.MaxX - 1.5, cy, (p.MinZ + p.MaxZ) / 2), SEAWALL, CONCRETE)
+			PartKit.Box(edges, "QuayWall", Vector3.new(p.MaxX - p.MinX, h, 3), CFrame.new((p.MinX + p.MaxX) / 2, cy, if sx < 0 then p.MinZ + 1.5 else p.MaxZ - 1.5), SEAWALL, CONCRETE)
 		end
+	end
+
+	-- The beaches
+	local beaches = PartKit.Folder(folder, "Beach")
+	for _, r in Layout.Beaches do
+		beach(beaches, edges, r, rng)
 	end
 
 	-- Causeways: a road on a rock embankment across the bay, with verges, rails, lights and palms
 	local causeways = PartKit.Folder(folder, "Causeways")
-	for k, link in Layout.Causeways do
-		local z = Layout.CAUSEWAY_ZS[k]
-		local x0 = bayEdge
-		local x1 = Layout.ISLAND_XS[1] - Layout.ISLAND_X_WIDTHS[1] / 2
+	for _, link in Layout.Causeways do
+		local a, b = Layout.Nodes[link.A], Layout.Nodes[link.B]
+		local z = link.Z
 		local roadW = Layout.STREET_WIDTH + 4
-		local crest = 54 -- the embankment's width across its top
+		for _, edgeId in a.Edges do
+			local edge = Layout.Edges[edgeId]
+			if edge.Kind == "Causeway" then
+				roadW = edge.Width
+			end
+		end
+		local x0 = a.Position.X + (if a.WX then a.WX / 2 else Layout.AVENUE_WIDTH / 2)
+		local x1 = b.Position.X - (if b.Grid and b.WX then b.WX / 2 else 0)
+		local crest = roadW + 28 -- the embankment's width across its top
 		local cx, len = (x0 + x1) / 2, x1 - x0
 		Roads.Slab(causeways, "Causeway", Vector3.new(cx, 0, z), Vector3.new(len, 0, roadW))
-		local a, b = Vector3.new(x0, Layout.ROAD_Y, z), Vector3.new(x1, Layout.ROAD_Y, z)
-		Roads.Markings(causeways, a, b, "Street", roadW, 1)
-		Roads.Line(causeways, a, b, roadW / 2 - 1.4, 0.45, C.White)
-		Roads.Line(causeways, a, b, -(roadW / 2 - 1.4), 0.45, C.White)
+		local pa, pb = Vector3.new(x0, Layout.ROAD_Y, z), Vector3.new(x1, Layout.ROAD_Y, z)
+		Roads.Markings(causeways, pa, pb, if roadW > Layout.STREET_WIDTH + 6 then "Avenue" else "Street", roadW, if roadW > Layout.STREET_WIDTH + 6 then 2 else 1)
+		Roads.Line(causeways, pa, pb, roadW / 2 - 1.4, 0.45, C.White)
+		Roads.Line(causeways, pa, pb, -(roadW / 2 - 1.4), 0.45, C.White)
 		-- the embankment over the water (the ends are on land)
-		local w0, w1 = shoreX, isl.MinX
+		local island = islandAt(b.Position.X, z)
+		local w0, w1 = shoreX, if island then island.MinX else x1
 		local wcx, wlen = (w0 + w1) / 2, w1 - w0
 		local fillTop = Layout.ROAD_Y - 0.6
 		PartKit.Box(causeways, "Fill", Vector3.new(wlen, fillTop - Layout.SEABED_Y, crest), CFrame.new(wcx, (fillTop + Layout.SEABED_Y) / 2, z), ROCK:Lerp(SAND, 0.4), Enum.Material.Rock)
@@ -259,14 +351,13 @@ function Shore.Build(city: Instance, rng: Random)
 			verge:SetAttribute("Surface", "Grass")
 			revetment(causeways, Vector3.new(wcx, 0, z + side * crest / 2), Vector3.new(0, 0, side), wlen)
 			guardRail(causeways, Vector3.new(w0 + 4, Layout.ROAD_Y, z + side * (roadW / 2 + 1)), Vector3.new(w1 - 4, Layout.ROAD_Y, z + side * (roadW / 2 + 1)))
-			palmsAlong(causeways, Vector3.new(w0 + 30, Layout.ROAD_Y, z + side * (roadW / 2 + 8)), Vector3.new(w1 - 30, Layout.ROAD_Y, z + side * (roadW / 2 + 8)), 60, rng)
+			palmsAlong(causeways, Vector3.new(w0 + 30, Layout.ROAD_Y, z + side * (roadW / 2 + 8)), Vector3.new(w1 - 30, Layout.ROAD_Y, z + side * (roadW / 2 + 8)), 70, rng)
 		end
-		for i = 1, math.floor(wlen / 110) do
-			local x = w0 + i * wlen / (math.floor(wlen / 110) + 1)
+		for i = 1, math.floor(wlen / 120) do
+			local x = w0 + i * wlen / (math.floor(wlen / 120) + 1)
 			local side = if i % 2 == 0 then 1 else -1
 			Props.StreetLight(causeways, Vector3.new(x, Layout.ROAD_Y, z + side * (roadW / 2 + 3)), Vector3.new(0, 0, -side))
 		end
-		local _ = link
 	end
 
 	-- The marina: docks off the baywalk beside the Marina block, boats in the slips
@@ -298,12 +389,22 @@ function Shore.Build(city: Instance, rng: Random)
 		for k = 0, 3 do
 			Props.StreetLight(docks, Vector3.new(mainX + 1, deckY, z0 + 20 + k * (z1 - z0 - 40) / 3), Vector3.new(1, 0, 0))
 		end
-		-- a few boats at anchor further out in the bay
-		for _ = 1, 6 do
-			local p = Vector3.new(rng:NextNumber(shoreX + 220, isl.MinX - 120), Layout.WATER_Y, rng:NextNumber(-1700, 1700))
-			if math.abs(p.Z - Layout.I395_Z) > 120 and math.abs(math.abs(p.Z) - 900) > 120 then
-				Shore.Boat(docks, CFrame.lookAt(p, p + Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1))), rng)
+	end
+	-- boats at anchor out in the bay, clear of the crossings
+	local anchored = PartKit.Folder(folder, "Moored")
+	local placed, tries = 0, 0
+	while placed < 14 and tries < 400 do
+		tries += 1
+		local p = Vector3.new(rng:NextNumber(shoreX + 200, Layout.ISLAND.MinX - 120), Layout.WATER_Y, rng:NextNumber(-3600, 3600))
+		local clear = Layout.InWater(p.X, p.Z) and Layout.InWater(p.X + 70, p.Z) and Layout.InWater(p.X - 70, p.Z) and math.abs(p.Z - Layout.I395_Z) > 140
+		for _, link in Layout.Causeways do
+			if math.abs(p.Z - link.Z) < 140 then
+				clear = false
 			end
+		end
+		if clear then
+			Shore.Boat(anchored, CFrame.lookAt(p, p + Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1) + 0.01)), rng)
+			placed += 1
 		end
 	end
 	return folder

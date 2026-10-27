@@ -166,7 +166,7 @@ end
 
 -- A brick (or render) building with framed windows on every face; the ground floor is a shopfront
 -- facing `front`, sometimes a fire escape on a side, roof plant on top
-function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, d: number, floors: number, front: Vector3, rng: Random, openSides: { Vector3 }?, stucco: boolean?)
+function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, d: number, floors: number, front: Vector3, rng: Random, openSides: { Vector3 }?, stucco: boolean?, shopNames: { string }?)
 	local model = PartKit.Model(parent, "Building")
 	local floorH = 12
 	local h = floors * floorH + 2
@@ -208,7 +208,7 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 	local faceWidth = if math.abs(front.X) > 0.5 then d else w
 	local faceDepth = if math.abs(front.X) > 0.5 then w else d
 	local face = Detail.Face(cx, cz, front, faceDepth / 2, Y)
-	Detail.Storefront(model, face, faceWidth, 9.5, pick(rng, SHOPS), pick(rng, AWNINGS), rng)
+	Detail.Storefront(model, face, faceWidth, 9.5, pick(rng, shopNames or SHOPS), pick(rng, AWNINGS), rng)
 	-- side door to the flats above
 	-- fire escape on one side
 	if floors >= 3 and rng:NextNumber() < 0.45 then
@@ -1466,6 +1466,9 @@ local function suburbBlock(folder: Instance, block: LayoutModule.Block, rng: Ran
 		end
 	end
 end
+
+Buildings.TowerBlock = towerBlock
+Buildings.Pastels = PASTELS
 
 -- Fills a block according to its district (the landmarks are the Builder's)
 function Buildings.Fill(parent: Instance, block: LayoutModule.Block, rng: Random)

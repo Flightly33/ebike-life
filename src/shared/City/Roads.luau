@@ -24,21 +24,8 @@ local PATCH = Color3.fromRGB(72, 74, 78) -- repaired asphalt, darker than the ro
 local SIGN_GREEN = Color3.fromRGB(28, 104, 62)
 
 -- Street names at a grid crossing: the road along Z, then the road along X (Layout's names)
-local islandNames: { [number]: { string } } = {}
-for i, column in Layout.IslandGrid do
-	for j, id in column do
-		islandNames[id] = { Layout.ISLAND_X_NAMES[i], Layout.ISLAND_Z_NAMES[j] }
-	end
-end
 local function crossingNames(node: LayoutModule.Node): (string, string)
-	if node.I and node.J then
-		return Layout.X_NAMES[node.I + 1], Layout.Z_NAMES[node.J + 1]
-	end
-	local names = islandNames[node.Id]
-	if names then
-		return names[1], names[2]
-	end
-	return "Avenue", "Street"
+	return Layout.CrossingNames(node.Id)
 end
 
 -- Road pieces the freeway and shore builders draw instead (decks, ramps, causeways)

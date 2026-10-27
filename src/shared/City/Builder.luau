@@ -14,6 +14,10 @@ local Countryside = require(script.Parent.Countryside)
 local Detail = require(script.Parent.Detail)
 local Freeways = require(script.Parent.Freeways)
 local Shore = require(script.Parent.Shore)
+local Neighborhoods = require(script.Parent.Neighborhoods)
+local Airport = require(script.Parent.Airport)
+local Port = require(script.Parent.Port)
+local Everglades = require(script.Parent.Everglades)
 local Realism = require(script.Parent.Parent.Realism)
 local PartKit = require(script.Parent.Parent.PartKit)
 local Config = require(script.Parent.Parent.Config)
@@ -107,46 +111,159 @@ local function pads(city: Instance)
 		Roads.Slab(folder, "CarPark", Vector3.new((u0 + u1) / 2, 0, (block.MinZ + block.MaxZ) / 2), Vector3.new(u1 - u0, 0, block.MaxZ - block.MinZ))
 	end
 
-	-- pavements round the outside of the mainland grid (gaps where the country roads leave it),
-	-- up the west side of Biscayne Blvd's ends, and along the island's edges
-	local first, last = Layout.Line(0), Layout.Line(Layout.GRID_COUNT - 1)
+	-- pavements round the outside of each street grid, with gaps where roads leave it
 	local swOut = Layout.STREET_SIDEWALK
-	local hw0 = Layout.LineWidthX(0) / 2
-	local bayWest = last - Layout.LineWidthX(Layout.BAY_INDEX) / 2
-	local rural = { { -Layout.RURAL_WIDTH / 2, Layout.RURAL_WIDTH / 2 } }
-	local outerN = first - Layout.LineWidthZ(0) / 2
-	local outerS = last + Layout.LineWidthZ(Layout.GRID_COUNT - 1) / 2
-	padX(first - hw0 - swOut, bayWest, outerN - swOut, outerN, table.clone(rural))
-	padX(first - hw0 - swOut, bayWest, outerS, outerS + swOut, table.clone(rural))
-	padZ(first - hw0 - swOut, first - hw0, outerN, outerS, table.clone(rural))
+	local function outer(nodeAt: (number, number) -> number, xs: { number }, zs: { number }, xw: { number }, zw: { number }, east: boolean)
+		local nx, nz = #xs, #zs
+		local inGrid: { [number]: boolean } = {}
+		for i = 1, nx do
+			for j = 1, nz do
+				inGrid[nodeAt(i, j)] = true
+			end
+		end
+		-- the roads leaving the grid from its edge crossings, by side
+		local gaps: { [string]: { { number } } } = { N = {}, S = {}, W = {}, E = {} }
+		for i = 1, nx do
+			for j = 1, nz do
+				local id = nodeAt(i, j)
+				local p = Layout.Nodes[id].Position
+				for _, edgeId in Layout.Nodes[id].Edges do
+					local edge = Layout.Edges[edgeId]
+					local other = Layout.OtherEnd(edge, id)
+					if not inGrid[other] then
+						local d = Layout.Nodes[other].Position - p
+						local half = edge.Width / 2 + 1
+						if j == 1 and d.Z < -1 and math.abs(d.X) < math.abs(d.Z) then
+							table.insert(gaps.N, { p.X - half, p.X + half })
+						elseif j == nz and d.Z > 1 and math.abs(d.X) < math.abs(d.Z) then
+							table.insert(gaps.S, { p.X - half, p.X + half })
+						elseif i == 1 and d.X < -1 and math.abs(d.Z) < math.abs(d.X) then
+							table.insert(gaps.W, { p.Z - half, p.Z + half })
+						elseif i == nx and d.X > 1 and math.abs(d.Z) < math.abs(d.X) then
+							table.insert(gaps.E, { p.Z - half, p.Z + half })
+						end
+					end
+				end
+			end
+		end
+		local west = xs[1] - xw[1] / 2
+		local eastX = xs[nx] + xw[nx] / 2
+		local north = zs[1] - zw[1] / 2
+		local south = zs[nz] + zw[nz] / 2
+		-- (a grid whose east side is the bay's avenue stops at its west kerb: the baywalk is east)
+		local x1 = if east then eastX + swOut else xs[nx] - xw[nx] / 2
+		padX(west - swOut, x1, north - swOut, north, gaps.N)
+		padX(west - swOut, x1, south, south + swOut, gaps.S)
+		padZ(west - swOut, west, north, south, gaps.W)
+		if east then
+			padZ(eastX, eastX + swOut, north, south, gaps.E)
+		end
+	end
+	local mainXs, mainZs, mainXw, mainZw = {}, {}, {}, {}
+	for k = 0, Layout.GRID_COUNT - 1 do
+		table.insert(mainXs, Layout.Line(k))
+		table.insert(mainZs, Layout.Line(k))
+		table.insert(mainXw, Layout.LineWidthX(k))
+		table.insert(mainZw, Layout.LineWidthZ(k))
+	end
+	outer(function(i: number, j: number): number
+		return Layout.GridNode[i - 1][j - 1]
+	end, mainXs, mainZs, mainXw, mainZw, false)
+	local function widthsOf(xs: { number }, node: (number) -> number, axis: string): { number }
+		local out = {}
+		for k = 1, #xs do
+			local n = Layout.Nodes[node(k)]
+			table.insert(out, (if axis == "X" then n.WX else n.WZ) or Layout.STREET_WIDTH)
+		end
+		return out
+	end
+	for _, spec in { { Name = "Havana", XS = Layout.HAVANA_XS, ZS = Layout.HAVANA_ZS, East = true }, { Name = "South", XS = Layout.SOUTH_XS, ZS = Layout.SOUTH_ZS, East = false } } do
+		local nodes = Layout.Grids[spec.Name]
+		local xw = widthsOf(spec.XS, function(k: number): number
+			return nodes[k][1]
+		end, "X")
+		local zw = widthsOf(spec.ZS, function(k: number): number
+			return nodes[1][k]
+		end, "Z")
+		outer(function(i: number, j: number): number
+			return nodes[i][j]
+		end, spec.XS, spec.ZS, xw, zw, spec.East)
+	end
+
+	-- Biscayne Blvd's west pavement where it runs on past the turnpike (north to its end, south
+	-- to Bayshore Dr)
+	local bayWest = Layout.Line(Layout.BAY_INDEX) - Layout.LineWidthX(Layout.BAY_INDEX) / 2
 	local ringIn = Layout.RING_HALF - Layout.RING_WIDTH / 2
+	local ringOut = Layout.RING_HALF + Layout.RING_WIDTH / 2
+	local outerN = Layout.Line(0) - Layout.LineWidthZ(0) / 2
+	local outerS = Layout.Line(Layout.GRID_COUNT - 1) + Layout.LineWidthZ(Layout.GRID_COUNT - 1) / 2
 	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, -ringIn, outerN - swOut)
 	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, outerS + swOut, ringIn)
+	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, -3780 - Layout.AVENUE_WIDTH / 2, -ringOut)
+	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, ringOut, Layout.SOUTH_ZS[1] - Layout.STREET_WIDTH / 2 - swOut)
 
-	local isl = Layout.ISLAND
-	local xs, zs = Layout.ISLAND_XS, Layout.ISLAND_ZS
-	local westAve = xs[1] - Layout.ISLAND_X_WIDTHS[1] / 2
-	local oceanDr = xs[#xs] + Layout.ISLAND_X_WIDTHS[#xs] / 2
-	local zTop = zs[1] - Layout.ISLAND_Z_WIDTHS[1] / 2
-	local zBottom = zs[#zs] + Layout.ISLAND_Z_WIDTHS[#zs] / 2
+	-- the islands' edges: Miami Beach and Key Biscayne
+	local function islandEdges(xs: { number }, xw: { number }, zs: { number }, zw: { number }, minX: number, beachX: number, landings: { { number } })
+		local westAve = xs[1] - xw[1] / 2
+		local oceanDr = xs[#xs] + xw[#xs] / 2
+		local zTop = zs[1] - zw[1] / 2
+		local zBottom = zs[#zs] + zw[#zs] / 2
+		-- the bay side: pavement where it's narrow, a pavement and a lawn down to the rocks where
+		-- it's wide; the causeways land through gaps
+		if westAve - swOut - minX > 40 then
+			padZ(westAve - swOut, westAve, zTop - swOut, zBottom + swOut, table.clone(landings))
+			local x0, x1 = minX + 8, westAve - swOut
+			local sorted = table.clone(landings)
+			table.sort(sorted, function(a, b)
+				return a[1] < b[1]
+			end)
+			local from = zTop - swOut
+			local function lawn(z0: number, z1: number)
+				if z1 - z0 > 1 then
+					local part = PartKit.Box(folder, "Lawn", Vector3.new(x1 - x0, Y + 0.4, z1 - z0), CFrame.new((x0 + x1) / 2, (Y - 0.4) / 2, (z0 + z1) / 2), C.Lawn, Enum.Material.Grass)
+					part:SetAttribute("Surface", "Grass")
+				end
+			end
+			for _, gap in sorted do
+				lawn(from, math.min(gap[1], zBottom + swOut))
+				from = math.max(from, gap[2])
+			end
+			lawn(from, zBottom + swOut)
+		else
+			padZ(minX + 8, westAve, zTop - swOut, zBottom + swOut, table.clone(landings))
+		end
+		-- the ocean side: a pavement, then a lawn of palms down to the beach path
+		pad(oceanDr, oceanDr + swOut + 2, zTop - swOut, zBottom + swOut)
+		local lawnX0, lawnX1 = oceanDr + swOut + 2, beachX - 8
+		local lawn = PartKit.Box(folder, "Lawn", Vector3.new(lawnX1 - lawnX0, Y + 0.4, zBottom - zTop + 2 * swOut), CFrame.new((lawnX0 + lawnX1) / 2, (Y - 0.4) / 2, (zTop + zBottom) / 2), C.Lawn, Enum.Material.Grass)
+		lawn:SetAttribute("Surface", "Grass")
+		pad(beachX - 8, beachX, zTop - swOut, zBottom + swOut)
+		pad(westAve, oceanDr, zTop - swOut, zTop)
+		pad(westAve, oceanDr, zBottom, zBottom + swOut)
+	end
 	local landings: { { number } } = { { Layout.I395_Z - Layout.AVENUE_WIDTH / 2 - 2, Layout.I395_Z + Layout.AVENUE_WIDTH / 2 + 2 } }
 	for _, z in Layout.CAUSEWAY_ZS do
 		table.insert(landings, { z - Layout.STREET_WIDTH / 2 - 4, z + Layout.STREET_WIDTH / 2 + 4 })
 	end
-	padZ(isl.MinX + 8, westAve, zTop - swOut, zBottom + swOut, landings)
-	-- Ocean Drive's east side: a pavement, then a lawn of palms down to the beach path
-	pad(oceanDr, oceanDr + swOut + 2, zTop - swOut, zBottom + swOut)
-	local lawnX0, lawnX1 = oceanDr + swOut + 2, Layout.BEACH_X - 8
-	local lawn = PartKit.Box(folder, "Lawn", Vector3.new(lawnX1 - lawnX0, Y + 0.4, zBottom - zTop + 2 * swOut), CFrame.new((lawnX0 + lawnX1) / 2, (Y - 0.4) / 2, (zTop + zBottom) / 2), C.Lawn, Enum.Material.Grass)
-	lawn:SetAttribute("Surface", "Grass")
-	pad(Layout.BEACH_X - 8, Layout.BEACH_X, zTop - swOut, zBottom + swOut)
-	pad(westAve, oceanDr, zTop - swOut, zTop)
-	pad(westAve, oceanDr, zBottom, zBottom + swOut)
+	islandEdges(Layout.ISLAND_XS, Layout.ISLAND_X_WIDTHS, Layout.ISLAND_ZS, Layout.ISLAND_Z_WIDTHS, Layout.ISLAND.MinX, Layout.BEACH_X, landings)
+	local keyNodes = Layout.Grids.Key
+	local keyXw = widthsOf(Layout.KEY_XS, function(k: number): number
+		return keyNodes[k][1]
+	end, "X")
+	local keyZw = widthsOf(Layout.KEY_ZS, function(k: number): number
+		return keyNodes[1][k]
+	end, "Z")
+	local rick = Layout.STREET_WIDTH + 14
+	islandEdges(Layout.KEY_XS, keyXw, Layout.KEY_ZS, keyZw, Layout.KEY.MinX, Layout.KEY_BEACH_X, { { Layout.RICKENBACKER_Z - rick / 2 - 4, Layout.RICKENBACKER_Z + rick / 2 + 4 } })
 end
 
--- Palms on most pavements, shade trees in the suburbs, nothing on the industrial and freeway blocks
+-- Palms on most pavements, shade trees in the suburbs, the Gables and the Grove, nothing on the
+-- industrial and freeway blocks
+local SHADE: { [string]: boolean } = { Suburb = true, Gables = true, Grove = true }
+-- old-fashioned lamps (not modern street lights) in the leafy districts
+local CLASSIC: { [string]: boolean } = { Suburb = true, Plaza = true, Gables = true, GablesHotel = true, Grove = true, Mansion = true, KeyHomes = true }
 local function treesFor(district: string): boolean | string
-	if district == "Suburb" then
+	if SHADE[district] then
 		return true
 	elseif district == "Wynwood" or district == "Jump" or district == "Freeway" then
 		return false
@@ -158,7 +275,7 @@ local function streetscape(city: Instance, rng: Random)
 	local folder = PartKit.Folder(city, "Streetscape")
 	for _, block in Layout.Blocks do
 		local trees = treesFor(block.District)
-		local modern = block.District ~= "Suburb" and block.District ~= "Plaza"
+		local modern = not CLASSIC[block.District]
 		local inset = 2.5
 		local x0, x1 = block.MinX + inset, block.MaxX - inset
 		local z0, z1 = block.MinZ + inset, block.MaxZ - inset
@@ -190,7 +307,7 @@ local function streetscape(city: Instance, rng: Random)
 	Props.Streetscape(folder, Vector3.new(westAve - 3, Y, isl.MinZ + 240), Vector3.new(westAve - 3, Y, isl.MaxZ - 240), rng, "Palm", Vector3.new(1, 0, 0))
 end
 
-local BUSY: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Midtown = true, Plaza = true, Dealership = true, Police = true, ArtDeco = true, Condo = true }
+local BUSY: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Midtown = true, Plaza = true, Dealership = true, Police = true, ArtDeco = true, Condo = true, Havana = true, HavanaPark = true }
 
 -- Benches, bins, racks, meters, news boxes and bollards along the pavements; bus stops on the
 -- avenues; street-name signs at the crossings
@@ -268,30 +385,43 @@ local function spawnPoint(city: Instance)
 	spawn.Parent = city
 end
 
--- The island's ends: South Pointe and the park north of Lincoln Rd, palms and paths on the grass
+-- The islands' ends: South Pointe, the park at North Beach's tip and Key Biscayne's ends; palms
+-- and a path on the grass
 local function islandEnds(city: Instance, rng: Random)
 	local folder = PartKit.Folder(city, "IslandParks")
-	local isl = Layout.ISLAND
-	local zs = Layout.ISLAND_ZS
-	local westAve = Layout.ISLAND_XS[1] - Layout.ISLAND_X_WIDTHS[1] / 2
-	local inner = { zs[1] - Layout.ISLAND_Z_WIDTHS[1] / 2 - Layout.STREET_SIDEWALK, zs[#zs] + Layout.ISLAND_Z_WIDTHS[#zs] / 2 + Layout.STREET_SIDEWALK }
-	local outer = { isl.MinZ + 30, isl.MaxZ - 30 }
-	for k = 1, 2 do
-		local z0, z1 = math.min(inner[k], outer[k]), math.max(inner[k], outer[k])
-		local cz = (z0 + z1) / 2
-		local path = PartKit.Box(folder, "Path", Vector3.new(Layout.BEACH_X - westAve, 0.3, 12), CFrame.new((westAve + Layout.BEACH_X) / 2, 0.15, cz), Color3.fromRGB(214, 200, 178), Enum.Material.Pavement)
-		path:SetAttribute("Surface", "Sidewalk")
-		for _ = 1, 26 do
-			local x = rng:NextNumber(isl.MinX + 20, Layout.BEACH_X - 10)
-			local z = rng:NextNumber(z0 + 8, z1 - 8)
-			if math.abs(z - cz) > 12 then
-				Props.Palm(folder, Vector3.new(x, 0, z), rng)
+	local keyNodes = Layout.Grids.Key
+	local keyW = Layout.Nodes[keyNodes[1][1]]
+	local keyS = Layout.Nodes[keyNodes[1][#Layout.KEY_ZS]]
+	local islands = {
+		{ Rect = Layout.ISLAND, West = Layout.ISLAND_XS[1] - Layout.ISLAND_X_WIDTHS[1] / 2, Beach = Layout.BEACH_X, North = Layout.ISLAND_ZS[1] - Layout.ISLAND_Z_WIDTHS[1] / 2, South = Layout.ISLAND_ZS[#Layout.ISLAND_ZS] + Layout.ISLAND_Z_WIDTHS[#Layout.ISLAND_ZS] / 2 },
+		{ Rect = Layout.KEY, West = Layout.KEY_XS[1] - (keyW.WX or 26) / 2, Beach = Layout.KEY_BEACH_X, North = Layout.KEY_ZS[1] - (keyW.WZ or 26) / 2, South = Layout.KEY_ZS[#Layout.KEY_ZS] + (keyS.WZ or 26) / 2 },
+	}
+	for _, island in islands do
+		local isl = island.Rect
+		local westAve = island.West
+		local beachX = island.Beach
+		local inner = { island.North - Layout.STREET_SIDEWALK, island.South + Layout.STREET_SIDEWALK }
+		local outer = { isl.MinZ + 30, isl.MaxZ - 30 }
+		for k = 1, 2 do
+			local z0, z1 = math.min(inner[k], outer[k]), math.max(inner[k], outer[k])
+			if z1 - z0 < 30 then
+				continue
 			end
-		end
-		for i = 1, 5 do
-			local x = westAve + i * (Layout.BEACH_X - westAve) / 6
-			Props.Bench(folder, CFrame.new(x, 0.3, cz - 9) * CFrame.Angles(0, math.pi, 0))
-			Props.Lamp(folder, Vector3.new(x + 20, 0.3, cz + 9))
+			local cz = (z0 + z1) / 2
+			local path = PartKit.Box(folder, "Path", Vector3.new(beachX - westAve, 0.3, 12), CFrame.new((westAve + beachX) / 2, 0.15, cz), Color3.fromRGB(214, 200, 178), Enum.Material.Pavement)
+			path:SetAttribute("Surface", "Sidewalk")
+			for _ = 1, math.floor((z1 - z0) * (beachX - isl.MinX) / 1500) do
+				local x = rng:NextNumber(isl.MinX + 20, beachX - 10)
+				local z = rng:NextNumber(z0 + 8, z1 - 8)
+				if math.abs(z - cz) > 12 then
+					Props.Palm(folder, Vector3.new(x, 0, z), rng)
+				end
+			end
+			for i = 1, 5 do
+				local x = westAve + i * (beachX - westAve) / 6
+				Props.Bench(folder, CFrame.new(x, 0.3, cz - 9) * CFrame.Angles(0, math.pi, 0))
+				Props.Lamp(folder, Vector3.new(x + 20, 0.3, cz + 9))
+			end
 		end
 	end
 end
@@ -324,7 +454,7 @@ function Builder.Build(): Model
 			else
 				Landmarks.JumpPark(blocks, block, rng)
 			end
-		else
+		elseif not Neighborhoods.Fill(blocks, block, rng) then
 			Buildings.Fill(blocks, block, rng)
 		end
 	end
@@ -332,6 +462,9 @@ function Builder.Build(): Model
 	furniture(city, rng)
 	islandEnds(city, rng)
 	chargers(city)
+	Airport.Build(city, rng)
+	Port.Build(city, rng)
+	Everglades.Build(city, rng)
 	Countryside.Build(city, rng)
 	spawnPoint(city)
 	-- real-world materials by role (roofs, tyres, glass...)

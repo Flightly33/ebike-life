@@ -344,12 +344,19 @@ for _, d in CarDriver.All do
 		break
 	end
 end
-world.Keys.W = true
+-- (a wheelie has to be balanced: held flat out it loops over in a couple of seconds)
 world.Keys.LeftShift = true
-world:Run(5)
+for _ = 1, 50 do
+	local p = BikeController.Physics
+	local angle = if p then p.Wheelie else 0
+	world.Keys.W = angle < 0.55
+	world.Keys.S = angle > 0.72
+	world:Run(0.1)
+end
 world.Keys.W = false
 world.Keys.LeftShift = false
 world.Keys.S = true
+check((player:GetAttribute("Wanted") or 0) >= 1, "the bust test's wheelie made the player wanted")
 -- keep a cop on the rider
 local maxOfficers = 0
 for _ = 1, 60 do
