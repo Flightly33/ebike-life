@@ -137,12 +137,28 @@ local function buildTrickRow(pad: boolean)
 	hintGroup(trickRow, { if pad then "B" else "R" }, "Drift", 7)
 	hintGroup(trickRow, { if pad then "RS" else "F" }, "Camera", 8)
 	-- the row never runs into the minimap or the speedometer: shrink it to its slot
+	-- (changing the scale changes the content size, which fires this again: run it deferred, once
+	-- at a time, and only for a real change, or it re-enters itself until Roblox errors)
+	local pending = false
 	local function refit()
-		local content = layout.AbsoluteContentSize.X / math.max(fit.Scale, 0.01)
-		local room = trickRow.AbsoluteSize.X
-		if content > 0 and room > 0 then
-			fit.Scale = math.min(1, room / content)
+		if pending then
+			return
 		end
+		pending = true
+		task.defer(function()
+			pending = false
+			if not fit.Parent then
+				return
+			end
+			local content = layout.AbsoluteContentSize.X / math.max(fit.Scale, 0.01)
+			local room = trickRow.AbsoluteSize.X
+			if content > 0 and room > 0 then
+				local scale = math.min(1, room / content)
+				if math.abs(scale - fit.Scale) > 0.01 then
+					fit.Scale = scale
+				end
+			end
+		end)
 	end
 	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refit)
 	trickRow:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
