@@ -59,6 +59,9 @@ MeshKit.Slots = {
 -- Slots the player's paint (or a car's colour) decides
 MeshKit.Paintable = { Frame = true, Accent = true, Rims = true, Paint = true }
 
+-- the share of a vehicle's meshes that may be missing before it falls back to parts
+MeshKit.MaxMissing = 0.25
+
 local checked: { [string]: boolean } = {}
 local turns: { [string]: number } = {}
 local rootFolder: Instance? = nil
@@ -172,12 +175,14 @@ function MeshKit.Has(vehicleId: string): boolean
 	local meshes = meshIndex()
 	local ok = entries ~= nil and next(meshes) ~= nil
 	if ok and entries then
+		-- a few missing pieces (an older import, or the importer dropping some) don't throw the whole
+		-- vehicle back to parts: use what's there, as long as most of it is
+		local missing: { string } = {}
 		for _, entry in entries do
 			local mesh = meshes[entry.Name]
 			if not mesh or not mesh:IsA("MeshPart") then
-				ok = false
-				warn(string.format("[MeshKit] %s: mesh %s missing from VehicleMeshes; using the part-built model", vehicleId, entry.Name))
-				break
+				table.insert(missing, entry.Name)
+				continue
 			end
 			-- thin meshes (rotors, plates) are too flat to judge; check the chunky ones
 			local size = entry.Size
@@ -186,6 +191,11 @@ function MeshKit.Has(vehicleId: string): boolean
 				warn(string.format("[MeshKit] %s: %s came in turned (MeshSize %s, expected %s); re-import with Y up, -Z forward", vehicleId, entry.Name, tostring(mesh.MeshSize), tostring(size)))
 				break
 			end
+		end
+		if ok and #missing > 0 then
+			local share = #missing / #entries
+			warn(string.format("[MeshKit] %s: %d of %d meshes missing from VehicleMeshes (e.g. %s)%s", vehicleId, #missing, #entries, missing[1], if share > MeshKit.MaxMissing then "; using the part-built model" else "; using the rest"))
+			ok = share <= MeshKit.MaxMissing
 		end
 	end
 	if ok and entries then
