@@ -1,6 +1,6 @@
 --[[
 	MainMenu: the "Menus" button. Stats, Settings (units, music and sound volume, key hints, the
-	body cam's field of view), Tricks (every trick and control, keyboard and controller), Teleports
+	body cam's field of view, graphics Ultra / Performance), Tricks (every trick and control, keyboard and controller), Teleports
 	(not while wanted) and a short How to Play.
 ]]
 
@@ -14,6 +14,7 @@ local Layout = require(Shared.City.Layout)
 local Remotes = require(Shared.Remotes)
 
 local BikeCamera = require(script.Parent.Parent.BikeCamera)
+local Graphics = require(script.Parent.Parent.Graphics)
 local Sound = require(script.Parent.Parent.Sound)
 local State = require(script.Parent.Parent.State)
 local Panel = require(script.Parent.Panel)
@@ -75,7 +76,7 @@ function MainMenu.new(gui: Instance, close: () -> ()): Panel.Panel
 	Theme.List(tabs, Enum.FillDirection.Horizontal, 6)
 	local content = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, -42), Position = UDim2.fromOffset(0, 42), Parent = panel.Body })
 	local tab = "Stats"
-	local draft: { Units: string, Music: number, Sounds: number, Hints: boolean, Fov: number }? = nil
+	local draft: { Units: string, Music: number, Sounds: number, Hints: boolean, Fov: number, Graphics: string }? = nil
 	local buttons: { [string]: TextButton } = {}
 	local render: () -> ()
 
@@ -151,6 +152,14 @@ function MainMenu.new(gui: Instance, close: () -> ()): Panel.Panel
 		setting("Key hints while riding", if current.Hints then "On" else "Off", 4, function()
 			current.Hints = not current.Hints
 			save()
+			task.defer(render)
+		end)
+		local mode = if current.Graphics == "Ultra" or current.Graphics == "Performance" then current.Graphics else Graphics.Mode()
+		setting("Graphics", if mode == "Ultra" then "✨ Ultra" else "⚡ Performance", 6, function()
+			current.Graphics = if mode == "Ultra" then "Performance" else "Ultra"
+			data.Settings = table.clone(current)
+			save()
+			Graphics.Apply()
 			task.defer(render)
 		end)
 		-- body cam field of view: a slider (drag, or tap anywhere on the bar)

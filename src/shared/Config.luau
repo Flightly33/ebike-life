@@ -207,10 +207,34 @@ Config.DayNight = {
 	DaySeconds = 1200, -- one game day in real seconds
 	DayShare = 0.7, -- of it in daylight (06:00-20:00); the night goes quicker
 	StartFraction = 0.12, -- where the clock starts at server time 0 (mid-morning)
-	LampRange = 170, -- studs: street lamps this close cast real light (the rest just glow)
-	MaxLampLights = 28, -- real lights on street lamps at once (phones)
+	LampRange = 170, -- studs: street lamps this close cast real light (the rest just glow; how
+	-- many, and how many cars' headlights, is the graphics mode's LampLights / HeadlightCars)
 	WindowLitShare = 0.45, -- of windows lit at night
-	HeadlightCars = 8, -- nearest cars whose headlights cast real light at night
+}
+
+-- The two graphics modes the player picks on join (Client/Graphics; Menus > Settings changes it).
+-- Ultra is the full look; Performance drops what costs most on phones and older computers.
+Config.Graphics = {
+	Ultra = {
+		Shadows = true,
+		Clouds = true,
+		SunRays = true,
+		DepthOfField = true,
+		LampLights = 28,
+		HeadlightCars = 8,
+		Specular = 1,
+		Pedestrians = 24, -- people walking the pavements near the camera (Client/Ambient)
+	},
+	Performance = {
+		Shadows = false,
+		Clouds = false,
+		SunRays = false,
+		DepthOfField = false,
+		LampLights = 6,
+		HeadlightCars = 2,
+		Specular = 0.4,
+		Pedestrians = 8,
+	},
 }
 
 Config.Police = {

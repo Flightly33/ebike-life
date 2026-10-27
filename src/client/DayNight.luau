@@ -2,8 +2,8 @@
 	DayNight (client): runs the shared clock (Shared/DayNight) on this client and dresses the world
 	for the hour:
 	  - Lighting, the sky, Atmosphere, Bloom, colour grading and sun rays blend between the looks;
-	  - at dusk the street lamps glow, and the nearest ones (Config.DayNight.MaxLampLights within
-	    LampRange) cast real light, for phones;
+	  - at dusk the street lamps glow, and the nearest ones (the graphics mode's LampLights within
+	    Config.DayNight.LampRange) cast real light;
 	  - a stable share of windows light up warm (each window always the same way);
 	  - bike and car headlights cast light (your bike's always, the nearest cars').
 	Everything here is local: the clock comes from the server time, so all players agree.
@@ -19,6 +19,7 @@ local Config = require(Shared.Config)
 local DayNightShared = require(Shared.DayNight)
 
 local BikeController = require(script.Parent.BikeController)
+local Graphics = require(script.Parent.Graphics)
 
 local DayNight = {}
 
@@ -187,7 +188,7 @@ local function updateLampLights(focus: Vector3)
 		end)
 	end
 	local keep: { [BasePart]: boolean } = {}
-	for i = 1, math.min(#near, CFG.MaxLampLights) do
+	for i = 1, math.min(#near, Graphics.Current().LampLights) do
 		local part = near[i].Part
 		keep[part] = true
 		if not lampLights[part] then
@@ -255,7 +256,7 @@ local function updateBeams(focus: Vector3)
 			table.sort(cars, function(a, b)
 				return a.D < b.D
 			end)
-			for i = 1, math.min(#cars, CFG.HeadlightCars) do
+			for i = 1, math.min(#cars, Graphics.Current().HeadlightCars) do
 				for _, d in cars[i].Model:GetDescendants() do
 					if d:IsA("BasePart") and d.Name == "Headlight" then
 						want(d, 40)

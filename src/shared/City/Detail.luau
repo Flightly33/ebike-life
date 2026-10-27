@@ -403,48 +403,6 @@ function Detail.ChainLink(parent: Instance, a: Vector3, b: Vector3, height: numb
 	end
 end
 
--- A big three-blade wind turbine; `yaw` turns the nacelle
-function Detail.WindTurbine(parent: Instance, base: Vector3, height: number, yaw: number)
-	local model = PartKit.Model(parent, "WindTurbine")
-	local white = Color3.fromRGB(240, 242, 244)
-	local sections = 4
-	for i = 0, sections - 1 do
-		local d = 7 - i * 1.2
-		PartKit.Post(model, "Tower", d, height / sections, base + Vector3.new(0, i * height / sections, 0), white, SMOOTH)
-	end
-	local hub = CFrame.new(base + Vector3.new(0, height, 0)) * CFrame.Angles(0, yaw, 0)
-	PartKit.Box(model, "Nacelle", Vector3.new(5, 5, 16), hub * CFrame.new(0, 1, 3), white, SMOOTH, SOLID_DECOR)
-	PartKit.Ball(model, "Spinner", 5, (hub * CFrame.new(0, 1, -5.5)).Position, white, SMOOTH, SOLID_DECOR)
-	local rotor = hub * CFrame.new(0, 1, -6.5)
-	for k = 0, 2 do
-		local blade = rotor * CFrame.Angles(0, 0, math.rad(k * 120 + 15)) * CFrame.new(0, 26, 0)
-		PartKit.Box(model, "Blade", Vector3.new(3.2, 50, 0.8), blade, white, SMOOTH, SOLID_DECOR)
-	end
-	return model
-end
-
-function Detail.HayBale(parent: Instance, base: Vector3, yaw: number)
-	PartKit.Cylinder(parent, "HayBale", 5, 4.5, CFrame.new(base + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, yaw, 0), Color3.fromRGB(214, 178, 96), Enum.Material.Grass, SOLID_DECOR)
-end
-
--- Post-and-rail farm fence from a to b
-function Detail.FarmFence(parent: Instance, a: Vector3, b: Vector3)
-	local length = (b - a).Magnitude
-	if length < 2 then
-		return
-	end
-	local dir = (b - a).Unit
-	local cf = CFrame.lookAt((a + b) / 2, (a + b) / 2 + dir)
-	local wood = Color3.fromRGB(130, 98, 66)
-	for _, y in { 1.6, 3.2 } do
-		PartKit.Box(parent, "Rail", Vector3.new(0.3, 0.5, length), cf * CFrame.new(0, y, 0), wood, Enum.Material.Wood, DECOR)
-	end
-	local posts = math.floor(length / 12)
-	for i = 0, posts do
-		PartKit.Post(parent, "FencePost", 0.6, 4.2, a + dir * (i * length / math.max(posts, 1)), wood, Enum.Material.Wood, DECOR)
-	end
-end
-
 -- A lifeguard tower on the beach: a pastel hut on stilts with a ramp up the back, facing the sea
 -- (`cf` looks out to sea, at the sand)
 function Detail.LifeguardTower(parent: Instance, cf: CFrame, color: Color3)

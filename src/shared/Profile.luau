@@ -33,6 +33,7 @@ export type Settings = {
 	Sounds: number, -- 0..1
 	Hints: boolean,
 	Fov: number, -- body cam field of view, degrees
+	Graphics: string, -- "Ultra" or "Performance"; "" until the player picks (asked on join)
 }
 
 export type Data = {
@@ -66,7 +67,7 @@ function Profile.Default(): Data
 		Modes = Modes.Sanitize(nil),
 		Mode = "TOUR",
 		Stats = { BestWheelie = 0, LongestAir = 0, Distance = 0, Escapes = 0, Busts = 0, Flips = 0, MaxStars = 0, Earned = 0 },
-		Settings = { Units = "kmh", Music = 0.5, Sounds = 0.8, Hints = true, Fov = 90 },
+		Settings = { Units = "kmh", Music = 0.5, Sounds = 0.8, Hints = true, Fov = 90, Graphics = "" },
 		BoostUntil = 0,
 	}
 end
@@ -147,6 +148,7 @@ function Profile.Sanitize(saved: any): Data
 		data.Settings.Sounds = num(s.Sounds, 0.8, 0, 1)
 		data.Settings.Hints = s.Hints ~= false
 		data.Settings.Fov = num(s.Fov, 90, 60, 120)
+		data.Settings.Graphics = if s.Graphics == "Ultra" or s.Graphics == "Performance" then s.Graphics else ""
 	end
 	data.BoostUntil = num(saved.BoostUntil, 0, 0)
 	return data

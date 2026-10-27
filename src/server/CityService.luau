@@ -1,8 +1,8 @@
 --[[
 	CityService: makes sure the city is in the world (the baked map/City.rbxm, or a fresh build if
-	it's missing), fills Biscayne Bay and the ocean with Terrain water (Terrain isn't part of the
-	baked model), swaps its showroom bikes and parked cars for the Blender meshes when those are
-	imported, and runs its charging stations.
+	it's missing), fills Biscayne Bay, the ocean and the lakes with Terrain water and the open land
+	with Terrain grass and marsh (Terrain isn't part of the baked model), swaps its showroom bikes
+	and parked cars for the Blender meshes when those are imported, and runs its charging stations.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -56,38 +56,143 @@ local function swapInMeshes(city: Instance)
 	end
 end
 
+local CHUNK = 512
+local terrainWork = 0
+local function breathe()
+	terrainWork += 1
+	if terrainWork % 8 == 0 then
+		task.wait()
+	end
+end
+
+-- Fill a rect (x/z) between two heights in CHUNK-sized pieces
+local function fillRect(terrain: Terrain, rect: Layout.Rect, bottom: number, top: number, material: Enum.Material)
+	for x = rect.MinX, rect.MaxX - 0.01, CHUNK do
+		for z = rect.MinZ, rect.MaxZ - 0.01, CHUNK do
+			local x1, z1 = math.min(x + CHUNK, rect.MaxX), math.min(z + CHUNK, rect.MaxZ)
+			terrain:FillBlock(CFrame.new((x + x1) / 2, (top + bottom) / 2, (z + z1) / 2), Vector3.new(x1 - x, top - bottom, z1 - z), material)
+			breathe()
+		end
+	end
+end
+
 -- Biscayne Bay and the ocean: Terrain water from the bay floor up to Layout.WATER_Y over every
--- Layout.Water rect, a chunk at a time, turquoise and clear like the real bay
-local WATER_CHUNK = 512
-local function fillWater()
+-- Layout.Water rect, turquoise and clear like the real bay; the lakes from their beds
+local function fillWater(terrain: Terrain)
+	terrain.WaterColor = Color3.fromRGB(26, 150, 160)
+	terrain.WaterTransparency = 0.8
+	terrain.WaterReflectance = 0.6
+	terrain.WaterWaveSize = 0.12
+	terrain.WaterWaveSpeed = 8
+	local lakes: { [Layout.Rect]: boolean } = {}
+	for _, lake in Layout.Lakes do
+		lakes[lake] = true
+	end
+	for _, rect in Layout.Water do
+		fillRect(terrain, rect, if lakes[rect] then Layout.LAKE_BED_Y else Layout.SEABED_Y, Layout.WATER_Y, Enum.Material.Water)
+	end
+end
+
+-- The colours of the land: lush subtropical grass, the darker leafy verges, Everglades mud
+local TERRAIN_COLORS: { [Enum.Material]: Color3 } = {
+	[Enum.Material.Grass] = Color3.fromRGB(92, 134, 58),
+	[Enum.Material.LeafyGrass] = Color3.fromRGB(96, 128, 60),
+	[Enum.Material.Mud] = Color3.fromRGB(92, 80, 60),
+	[Enum.Material.Ground] = Color3.fromRGB(124, 108, 82),
+}
+
+-- The open land: Terrain grass (with blades) over the hidden OpenGround colliders, flush with
+-- their tops (y = 0), two voxels deep. The Everglades are sawgrass (grass blades) with patches of
+-- mud and leafy grass. Under anything lying on the open ground (roads, pads, greens, car parks,
+-- hills) the terrain is leafy grass instead, which has no blades to poke through the part. The
+-- riding physics stays on the parts, so the terrain is only looks.
+local function fillLand(terrain: Terrain, city: Instance)
+	for material, color in TERRAIN_COLORS do
+		terrain:SetMaterialColor(material, color)
+	end
+	local depth = 8
+	for _, g in Layout.OpenGround do
+		fillRect(terrain, g, -depth, 0, Enum.Material.Grass)
+	end
+	-- the marsh's patchwork (seeded, so every server has the same Everglades)
+	local rng = Random.new(2026)
+	for _, g in Layout.OpenGround do
+		if g.Kind ~= "Marsh" then
+			continue
+		end
+		local area = (g.MaxX - g.MinX) * (g.MaxZ - g.MinZ)
+		for _ = 1, math.floor(area / 9000) do
+			local x, z = rng:NextNumber(g.MinX, g.MaxX), rng:NextNumber(g.MinZ, g.MaxZ)
+			local material = if rng:NextNumber() < 0.55 then Enum.Material.Mud else Enum.Material.LeafyGrass
+			terrain:FillCylinder(CFrame.new(x, -depth / 2, z), depth, rng:NextNumber(10, 34), material)
+			breathe()
+		end
+	end
+	-- bare (bladeless) ground under the parts lying on the open land, then hide the colliders
+	local open = city:FindFirstChild("Ground")
+	open = open and open:FindFirstChild("Open")
+	for _, d in city:GetDescendants() do
+		if not d:IsA("BasePart") or d.Parent == open or not d.CanCollide or d.Transparency >= 1 then
+			continue
+		end
+		local cf, size = d.CFrame, d.Size
+		local function extent(axis: number): number
+			local r, u, l = cf.RightVector, cf.UpVector, cf.LookVector
+			local pick = function(v: Vector3): number
+				return math.abs(if axis == 1 then v.X elseif axis == 2 then v.Y else v.Z)
+			end
+			return (pick(r) * size.X + pick(u) * size.Y + pick(l) * size.Z) / 2
+		end
+		local half = Vector3.new(extent(1), extent(2), extent(3))
+		local p = cf.Position
+		if p.Y - half.Y > 1 or p.Y + half.Y < -1 or half.X < 3 or half.Z < 3 then
+			continue
+		end
+		if Layout.IsBuiltUp(p.X, p.Z) or Layout.InWater(p.X, p.Z) then
+			continue
+		end
+		local round = d:IsA("Part") and (d :: Part).Shape ~= Enum.PartType.Block
+		if math.abs(cf.UpVector.Y) > 0.9 and not round then
+			-- a flat piece (a road, a pad, a fairway): its own footprint, turned with it
+			local look = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z)
+			local yaw = if look.Magnitude > 1e-3 then CFrame.lookAt(Vector3.zero, look) else CFrame.identity
+			terrain:FillBlock(CFrame.new(p.X, -depth / 2, p.Z) * yaw, Vector3.new(size.X + 2, depth, size.Z + 2), Enum.Material.LeafyGrass)
+		else
+			-- anything else (a hill side, a green, a post): its box on the ground
+			terrain:FillBlock(CFrame.new(p.X, -depth / 2, p.Z), Vector3.new(half.X * 2 + 2, depth, half.Z * 2 + 2), Enum.Material.LeafyGrass)
+		end
+		breathe()
+	end
+	if open then
+		for _, tile in open:GetChildren() do
+			if tile:IsA("BasePart") then
+				tile.Transparency = 1
+				tile.CastShadow = false
+			end
+		end
+	end
+end
+
+local function fillTerrain(city: Instance)
 	local terrain = Workspace:FindFirstChildOfClass("Terrain")
 	if not terrain then
 		return
 	end
-	local ok, err = pcall(function()
-		terrain.WaterColor = Color3.fromRGB(26, 150, 160)
-		terrain.WaterTransparency = 0.8
-		terrain.WaterReflectance = 0.6
-		terrain.WaterWaveSize = 0.12
-		terrain.WaterWaveSpeed = 8
-		local top, bottom = Layout.WATER_Y, Layout.SEABED_Y
-		local filled = 0
-		for _, rect in Layout.Water do
-			for x = rect.MinX, rect.MaxX - 1, WATER_CHUNK do
-				for z = rect.MinZ, rect.MaxZ - 1, WATER_CHUNK do
-					local x1, z1 = math.min(x + WATER_CHUNK, rect.MaxX), math.min(z + WATER_CHUNK, rect.MaxZ)
-					terrain:FillBlock(CFrame.new((x + x1) / 2, (top + bottom) / 2, (z + z1) / 2), Vector3.new(x1 - x, top - bottom, z1 - z), Enum.Material.Water)
-					filled += 1
-					if filled % 8 == 0 then
-						task.wait()
-					end
-				end
-			end
+	local function try(what: string, f: () -> ())
+		local ok, err = pcall(function()
+			f()
+		end)
+		if not ok then
+			warn(string.format("[CityService] couldn't %s: %s", what, tostring(err)))
 		end
-	end)
-	if not ok then
-		warn("[CityService] couldn't fill the bay with water: " .. tostring(err))
 	end
+	try("fill the bay with water", function()
+		fillWater(terrain)
+	end)
+	try("lay the terrain grass", function()
+		fillLand(terrain, city)
+	end)
+	Workspace:SetAttribute("TerrainReady", true)
 end
 
 function CityService.Init()
@@ -103,7 +208,7 @@ function CityService.Init()
 		city.Parent = Workspace
 	end
 	local cityModel = city :: Instance
-	task.spawn(fillWater)
+	task.spawn(fillTerrain, cityModel)
 	swapInMeshes(cityModel)
 	-- the detailed city kit (windows, trees, lamps) in place of their part-built placeholders, a
 	-- few hundred a frame so start-up doesn't stall

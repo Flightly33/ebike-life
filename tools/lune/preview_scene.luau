@@ -119,6 +119,35 @@ for _, place in { { "dealership", Layout.Places.Dealership }, { "looppark", bloc
 	local at: Vector3 = place[2]
 	table.insert(views, { name = place[1], pos = { at.X + 90, at.Y + 55, at.Z + 90 }, look = { at.X, at.Y + 8, at.Z }, fov = 60, width = 1280, height = 720 })
 end
+-- the new districts: street spots and aerials
+local havana = Layout.GridBlock("Havana", 1, 2)
+if havana then
+	spot("havana", Vector3.new((havana.LotMinX + havana.LotMaxX) / 2, Layout.CURB_Y, havana.MaxZ - 4), math.rad(-20))
+end
+local gables = Layout.GridBlock("South", 2, 1)
+if gables then
+	spot("gables", Vector3.new((gables.LotMinX + gables.LotMaxX) / 2, Layout.CURB_Y, gables.MinZ + 4), math.rad(160))
+end
+local grove = Layout.GridBlock("South", 9, 1)
+if grove then
+	spot("grove", Vector3.new(grove.MinX + 4, Layout.CURB_Y, (grove.LotMinZ + grove.LotMaxZ) / 2), math.rad(-110))
+end
+local key = Layout.GridBlock("Key", 0, 1)
+if key then
+	spot("keyhomes", Vector3.new(key.MaxX - 4, Layout.CURB_Y, (key.LotMinZ + key.LotMaxZ) / 2), math.rad(70))
+end
+local nb = Layout.GridBlock("Island", 0, 3)
+if nb then
+	spot("northbeach", Vector3.new(nb.MaxX + 4, Layout.CURB_Y, (nb.LotMinZ + nb.LotMaxZ) / 2), math.rad(60))
+end
+for _, place in { { "airport", Layout.Places.Airport, 260 }, { "port", Layout.Places.Port, 260 }, { "everglades", Layout.Places.Everglades, 160 }, { "keybiscayne", Layout.Places.KeyBiscayne, 220 }, { "littlehavana", Layout.Places.LittleHavana, 160 }, { "coralgables", Layout.Places.CoralGables, 200 } } do
+	local at: Vector3 = place[2]
+	local d: number = place[3]
+	table.insert(views, { name = "aerial_" .. place[1], pos = { at.X + d, at.Y + d * 0.7, at.Z + d }, look = { at.X, at.Y + 6, at.Z }, fov = 60, width = 1280, height = 720 })
+end
+view("aerial_golf", Vector3.new(400 * K, 500, -2300 * K), Vector3.new(-100 * K, 0, -3300 * K), 60)
+view("aerial_south", Vector3.new(-1500 * K, 900, 4400 * K), Vector3.new(-1000 * K, 0, 2600 * K), 60)
+view("aerial_west", Vector3.new(-1500 * K, 1100, 600 * K), Vector3.new(-3300 * K, 0, -200 * K), 60)
 table.insert(views, { name = "map", pos = { 0, 3000, 0 }, look = { 0, 0, 0 }, fov = 60, width = 1400, height = 1400, ortho = Layout.WORLD_HALF * 2 })
 
 fs.writeFile(process.args[1], serde.encode("json", Preview.Export(city)))

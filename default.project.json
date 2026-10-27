@@ -37,6 +37,12 @@
       },
       "City": {
         "$path": "map/City.rbxm"
+      },
+      "Terrain": {
+        "$className": "Terrain",
+        "$properties": {
+          "Decoration": true
+        }
       }
     },
     "MaterialService": {
@@ -48,7 +54,7 @@
       "$properties": {
         "Technology": "Future",
         "ClockTime": 14.2,
-        "GeographicLatitude": 38,
+        "GeographicLatitude": 26,
         "Brightness": 3,
         "Ambient": [
           0.36,

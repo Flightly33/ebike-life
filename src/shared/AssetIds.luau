@@ -26,6 +26,12 @@ AssetIds.Sounds = {
 	Escaped = "",
 	CrateOpen = "",
 	Charge = "",
+	AmbientCity = "", -- loop: city ambience (downtown, the grids)
+	AmbientSurf = "", -- loop: waves (the beaches and the baywalk)
+	AmbientNature = "", -- loop: birds (the open land, the Everglades, by day)
+	AmbientNight = "", -- loop: crickets and night insects
+	Jet = "", -- loop: an airliner's engines (landing and taking off at the airport)
+	Gulls = "", -- seagull calls over the beach
 }
 
 -- Background music ids (a shuffled playlist). Empty: the server searches the library.

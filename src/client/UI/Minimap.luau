@@ -1,8 +1,10 @@
 --[[
 	Minimap: the round map in the bottom-left corner, as in the reference game. Drawn from the city
-	layout (the bay and the beach, blocks, roads, the freeways in orange), it turns with the camera so "up" is where you're looking, with
-	the player's arrow in the middle, other riders, police cars (flashing during a chase) and the
-	places that matter (Flighty Mechanics, the police station, the jump park, chargers).
+	layout (the open land and the Everglades, the bay, lakes and beaches, the runway, blocks, roads,
+	the freeways in orange), it turns with the camera so "up" is where you're looking, with the
+	player's arrow in the middle, other riders, police cars (flashing during a chase) and the places
+	that matter (Flighty Mechanics, the police station, the jump park, the airport, the port, the
+	Everglades, chargers).
 ]]
 
 local Players = game:GetService("Players")
@@ -25,16 +27,28 @@ export type Minimap = {
 	Update: (self: Minimap) -> (),
 }
 
+local LEAFY = Color3.fromRGB(52, 60, 50)
+local PARK = Color3.fromRGB(48, 86, 50)
 local DISTRICT_COLORS: { [string]: Color3 } = {
-	BayPark = Color3.fromRGB(48, 86, 50),
+	BayPark = PARK,
+	HavanaPark = PARK,
+	KeyPark = PARK,
 	Jump = Color3.fromRGB(92, 70, 48),
-	Suburb = Color3.fromRGB(52, 60, 50),
+	Suburb = LEAFY,
+	Gables = LEAFY,
+	Grove = LEAFY,
+	Mansion = LEAFY,
+	KeyHomes = LEAFY,
 	Marina = Color3.fromRGB(52, 62, 74),
+	GroveBay = Color3.fromRGB(52, 62, 74),
 }
 -- built-up blocks get a darker footprint inside
-local BUILT: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Condo = true, Midtown = true, Wynwood = true, ArtDeco = true }
+local BUILT: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Condo = true, Midtown = true, Wynwood = true, ArtDeco = true, Havana = true, GablesHotel = true }
 local WATER = Color3.fromRGB(34, 86, 124)
 local SAND = Color3.fromRGB(150, 136, 100)
+local OPEN = Color3.fromRGB(38, 52, 36) -- the open grass between the districts
+local MARSH = Color3.fromRGB(46, 52, 34) -- the Everglades
+local RUNWAY = Color3.fromRGB(70, 70, 76)
 local ROAD = Color3.fromRGB(150, 150, 156)
 local FREEWAY = Color3.fromRGB(232, 150, 52)
 local ELEVATED: { [string]: boolean } = { Freeway = true, Ramp = true }
@@ -76,11 +90,19 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 			Parent = map,
 		})
 	end
-	-- the bay, the ocean and the beach
+	-- the open land and the marsh, the bay, the ocean, the lakes and the beaches, the runway
+	for _, ground in Layout.OpenGround do
+		rect(ground.MinX, ground.MinZ, ground.MaxX, ground.MaxZ, if ground.Kind == "Marsh" then MARSH else OPEN, 1)
+	end
 	for _, water in Layout.Water do
 		rect(water.MinX, water.MinZ, water.MaxX, water.MaxZ, WATER, 1)
 	end
-	rect(Layout.BEACH_X, Layout.ISLAND.MinZ, Layout.SURF_X, Layout.ISLAND.MaxZ, SAND, 1)
+	for _, beach in Layout.Beaches do
+		rect(beach.MinX, beach.MinZ, beach.MaxX, beach.MaxZ, SAND, 1)
+	end
+	local airport = Layout.Airport
+	rect(airport.Apron.MinX, airport.Apron.MinZ, airport.Apron.MaxX, airport.Apron.MaxZ, RUNWAY, 2)
+	rect(airport.RunwayX0, airport.RunwayZ - airport.RunwayWidth / 2, airport.RunwayX1, airport.RunwayZ + airport.RunwayWidth / 2, RUNWAY, 2)
 	-- blocks
 	for _, block in Layout.Blocks do
 		rect(block.MinX, block.MinZ, block.MaxX, block.MaxZ, DISTRICT_COLORS[block.District] or Color3.fromRGB(44, 44, 48), 1)
@@ -120,6 +142,9 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 	icon("⛲", Layout.Places.Plaza, 14)
 	icon("🏖", Layout.Places.Beach, 16)
 	icon("🌴", Layout.Places.Park, 14)
+	icon("✈", Layout.Places.Airport, 18)
+	icon("🚢", Layout.Places.Port, 16)
+	icon("🐊", Layout.Places.Everglades, 16)
 	for _, charger in Layout.Chargers do
 		icon("⚡", charger, 13)
 	end

@@ -34,6 +34,13 @@ AudioCatalog.Effects = {
 	Escaped = { Keywords = { "success", "victory jingle", "win" }, MaxDuration = 4, Volume = 0.5 },
 	CrateOpen = { Keywords = { "chest open", "reward", "unlock" }, MaxDuration = 4, Volume = 0.5 },
 	Charge = { Keywords = { "electric charge", "power up", "charging" }, MaxDuration = 4, Volume = 0.45 },
+	-- ambience (Client/Ambient blends them by where the camera is and the hour)
+	AmbientCity = { Keywords = { "city ambience", "city traffic ambience", "urban ambience" }, MinDuration = 20, MaxDuration = 600, Volume = 0.22 },
+	AmbientSurf = { Keywords = { "ocean waves", "beach waves ambience", "sea waves" }, MinDuration = 15, MaxDuration = 600, Volume = 0.35 },
+	AmbientNature = { Keywords = { "birds ambience", "forest birds", "nature ambience" }, MinDuration = 15, MaxDuration = 600, Volume = 0.3 },
+	AmbientNight = { Keywords = { "crickets night", "night insects", "crickets" }, MinDuration = 10, MaxDuration = 600, Volume = 0.25 },
+	Jet = { Keywords = { "jet engine loop", "airplane engine", "jet flyby" }, MinDuration = 3, MaxDuration = 120, Volume = 0.8 },
+	Gulls = { Keywords = { "seagulls", "seagull", "gull call" }, MaxDuration = 8, Volume = 0.35 },
 } :: { [string]: Search }
 
 AudioCatalog.Music = {

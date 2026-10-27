@@ -24,6 +24,7 @@ local State = require(script.Parent.State)
 local Hud = require(script.Hud)
 local MainMenu = require(script.MainMenu)
 local AdminPanel = require(script.AdminPanel)
+local GraphicsPrompt = require(script.GraphicsPrompt)
 local Panel = require(script.Panel)
 local Rides = require(script.Rides)
 local Store = require(script.Store)
@@ -116,6 +117,7 @@ function UI.Init()
 	for _, panel in panels do
 		panel.OnClose = close
 	end
+	GraphicsPrompt.Init(menus)
 
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if input.KeyCode == Enum.KeyCode.Escape and openName then

@@ -684,8 +684,14 @@ Methods.Humanoid = {
 }
 
 Methods.ParticleEmitter = { Emit = function() end, Clear = function() end }
--- Terrain: the bay's water is filled at runtime; the sim has no voxels (ground rays never see it)
-Methods.Terrain = { FillBlock = function() end }
+-- Terrain: the water and the open land's grass are filled at runtime; the sim has no voxels
+-- (ground rays never see them; the riding physics is on the parts anyway)
+Methods.Terrain = {
+	FillBlock = function() end,
+	FillCylinder = function() end,
+	FillBall = function() end,
+	SetMaterialColor = function() end,
+}
 -- Seats: Sit welds the humanoid on (Occupant / SeatPart / Seated like Roblox)
 Methods.Seat = {
 	Sit = function(self, humanoid)
