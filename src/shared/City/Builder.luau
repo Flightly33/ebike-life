@@ -12,6 +12,8 @@ local Buildings = require(script.Parent.Buildings)
 local Landmarks = require(script.Parent.Landmarks)
 local Countryside = require(script.Parent.Countryside)
 local Detail = require(script.Parent.Detail)
+local Freeways = require(script.Parent.Freeways)
+local Shore = require(script.Parent.Shore)
 local Realism = require(script.Parent.Parent.Realism)
 local PartKit = require(script.Parent.Parent.PartKit)
 local Config = require(script.Parent.Parent.Config)
@@ -24,33 +26,14 @@ local C = Props.Palette
 local Y = Layout.CURB_Y
 local DECOR = { Collide = false, Query = false, Touch = false, Shadow = false }
 
-local function ground(city: Instance)
-	local folder = PartKit.Folder(city, "Ground")
-	local half = Layout.WORLD_HALF
-	local tiles = 3
-	local size = half * 2 / tiles
-	for i = 0, tiles - 1 do
-		for j = 0, tiles - 1 do
-			local cx = -half + size * (i + 0.5)
-			local cz = -half + size * (j + 0.5)
-			local tile = PartKit.Box(folder, "Grass", Vector3.new(size, 4, size), CFrame.new(cx, -2, cz), C.Grass, Enum.Material.Grass)
-			tile:SetAttribute("Surface", "Grass")
-		end
-	end
-	-- Invisible walls at the map edge
-	for _, d in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
-		local center = d * (half + 2) + Vector3.new(0, 100, 0)
-		local size3 = if d.X ~= 0 then Vector3.new(4, 200, half * 2 + 8) else Vector3.new(half * 2 + 8, 200, 4)
-		local wall = PartKit.Box(folder, "Boundary", size3, CFrame.new(center), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, { Transparency = 1, Shadow = false })
-		wall:SetAttribute("Surface", "Wall")
-	end
-end
-
 -- Raised pads between the carriageways (pavement and kerb), with a light kerb line
 local function pads(city: Instance)
 	local folder = PartKit.Folder(city, "Pads")
 	local thickness = Y + 0.4
 	local function pad(minX: number, maxX: number, minZ: number, maxZ: number)
+		if maxX - minX < 1 or maxZ - minZ < 1 then
+			return
+		end
 		local w, d = maxX - minX, maxZ - minZ
 		local cx, cz = (minX + maxX) / 2, (minZ + maxZ) / 2
 		local p = PartKit.Box(folder, "Pavement", Vector3.new(w, thickness, d), CFrame.new(cx, Y - thickness / 2, cz), C.Pavement, Enum.Material.Pavement)
@@ -61,50 +44,153 @@ local function pads(city: Instance)
 		PartKit.Box(folder, "Kerb", Vector3.new(1.1, 0.06, d), CFrame.new(minX + 0.55, Y + 0.01, cz), C.Kerb, Enum.Material.Concrete, DECOR)
 		PartKit.Box(folder, "Kerb", Vector3.new(1.1, 0.06, d), CFrame.new(maxX - 0.55, Y + 0.01, cz), C.Kerb, Enum.Material.Concrete, DECOR)
 	end
-	for _, block in Layout.Blocks do
-		pad(block.MinX, block.MaxX, block.MinZ, block.MaxZ)
-	end
-	-- pavements on the outer side of the edge roads
-	local first, last = Layout.Line(0), Layout.Line(Layout.GRID_COUNT - 1)
-	local hw = Layout.STREET_WIDTH / 2
-	local sw = Layout.STREET_SIDEWALK
-	-- each outer strip runs between the country road gaps
-	local outer = last + hw + sw
-	local function strip(minX: number, maxX: number, minZ: number, maxZ: number)
-		if maxX - minX > 1 and maxZ - minZ > 1 then
-			pad(minX, maxX, minZ, maxZ)
+	-- a pad along X from x0 to x1 with gaps cut out of it ({ from, to } in x)
+	local function padX(x0: number, x1: number, z0: number, z1: number, gaps: { { number } })
+		table.sort(gaps, function(a, b)
+			return a[1] < b[1]
+		end)
+		local from = x0
+		for _, gap in gaps do
+			pad(from, math.min(gap[1], x1), z0, z1)
+			from = math.max(from, gap[2])
 		end
+		pad(from, x1, z0, z1)
 	end
-	local gap = Layout.AVENUE_WIDTH / 2 -- the avenues continue out as country roads
-	strip(first - hw - sw, first - hw, -outer, -gap)
-	strip(first - hw - sw, first - hw, gap, outer)
-	strip(last + hw, last + hw + sw, -outer, -gap)
-	strip(last + hw, last + hw + sw, gap, outer)
-	strip(-outer + sw, -gap, first - hw - sw, first - hw)
-	strip(gap, outer - sw, first - hw - sw, first - hw)
-	strip(-outer + sw, -gap, last + hw, last + hw + sw)
-	strip(gap, outer - sw, last + hw, last + hw + sw)
+	local function padZ(x0: number, x1: number, z0: number, z1: number, gaps: { { number } })
+		table.sort(gaps, function(a, b)
+			return a[1] < b[1]
+		end)
+		local from = z0
+		for _, gap in gaps do
+			pad(x0, x1, from, math.min(gap[1], z1))
+			from = math.max(from, gap[2])
+		end
+		pad(x0, x1, from, z1)
+	end
+
+	for _, block in Layout.Blocks do
+		if block.District ~= "Freeway" then
+			pad(block.MinX, block.MaxX, block.MinZ, block.MaxZ)
+			continue
+		end
+		-- under I-95: pavements either side, a car park at street level in the middle (piers, the
+		-- ramps), entered through gaps in the pavements across its ends
+		local u0, u1 = Layout.UnderDeck(block)
+		local swN = Layout.LineSidewalk(block.Bz)
+		local swS = Layout.LineSidewalk(block.Bz + 1)
+		pad(block.MinX, u0, block.MinZ, block.MaxZ)
+		pad(u1, block.MaxX, block.MinZ, block.MaxZ)
+		local north: { { number } } = {}
+		local south: { { number } } = {}
+		local ramps = false
+		for _, ramp in Layout.Ramps do
+			local foot = Layout.Nodes[ramp.Foot].Position
+			local mouth = { foot.X - Layout.RAMP_WIDTH / 2 - 1, foot.X + Layout.RAMP_WIDTH / 2 + 1 }
+			if math.abs(foot.Z - Layout.Line(block.Bz)) < 1 then
+				table.insert(north, mouth)
+				ramps = true
+			elseif math.abs(foot.Z - Layout.Line(block.Bz + 1)) < 1 then
+				table.insert(south, mouth)
+				ramps = true
+			end
+		end
+		-- driveways into the car park
+		local drive = { Layout.I95_X - 12, Layout.I95_X + 12 }
+		if not ramps or #north == 0 then
+			table.insert(north, drive)
+		end
+		if not ramps or #south == 0 then
+			table.insert(south, drive)
+		end
+		padX(u0, u1, block.MinZ, block.MinZ + swN, north)
+		padX(u0, u1, block.MaxZ - swS, block.MaxZ, south)
+		Roads.Slab(folder, "CarPark", Vector3.new((u0 + u1) / 2, 0, (block.MinZ + block.MaxZ) / 2), Vector3.new(u1 - u0, 0, block.MaxZ - block.MinZ))
+	end
+
+	-- pavements round the outside of the mainland grid (gaps where the country roads leave it),
+	-- up the west side of Biscayne Blvd's ends, and along the island's edges
+	local first, last = Layout.Line(0), Layout.Line(Layout.GRID_COUNT - 1)
+	local swOut = Layout.STREET_SIDEWALK
+	local hw0 = Layout.LineWidthX(0) / 2
+	local bayWest = last - Layout.LineWidthX(Layout.BAY_INDEX) / 2
+	local rural = { { -Layout.RURAL_WIDTH / 2, Layout.RURAL_WIDTH / 2 } }
+	local outerN = first - Layout.LineWidthZ(0) / 2
+	local outerS = last + Layout.LineWidthZ(Layout.GRID_COUNT - 1) / 2
+	padX(first - hw0 - swOut, bayWest, outerN - swOut, outerN, table.clone(rural))
+	padX(first - hw0 - swOut, bayWest, outerS, outerS + swOut, table.clone(rural))
+	padZ(first - hw0 - swOut, first - hw0, outerN, outerS, table.clone(rural))
+	local ringIn = Layout.RING_HALF - Layout.RING_WIDTH / 2
+	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, -ringIn, outerN - swOut)
+	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, outerS + swOut, ringIn)
+
+	local isl = Layout.ISLAND
+	local xs, zs = Layout.ISLAND_XS, Layout.ISLAND_ZS
+	local westAve = xs[1] - Layout.ISLAND_X_WIDTHS[1] / 2
+	local oceanDr = xs[#xs] + Layout.ISLAND_X_WIDTHS[#xs] / 2
+	local zTop = zs[1] - Layout.ISLAND_Z_WIDTHS[1] / 2
+	local zBottom = zs[#zs] + Layout.ISLAND_Z_WIDTHS[#zs] / 2
+	local landings: { { number } } = { { Layout.I395_Z - Layout.AVENUE_WIDTH / 2 - 2, Layout.I395_Z + Layout.AVENUE_WIDTH / 2 + 2 } }
+	for _, z in Layout.CAUSEWAY_ZS do
+		table.insert(landings, { z - Layout.STREET_WIDTH / 2 - 4, z + Layout.STREET_WIDTH / 2 + 4 })
+	end
+	padZ(isl.MinX + 8, westAve, zTop - swOut, zBottom + swOut, landings)
+	-- Ocean Drive's east side: a pavement, then a lawn of palms down to the beach path
+	pad(oceanDr, oceanDr + swOut + 2, zTop - swOut, zBottom + swOut)
+	local lawnX0, lawnX1 = oceanDr + swOut + 2, Layout.BEACH_X - 8
+	local lawn = PartKit.Box(folder, "Lawn", Vector3.new(lawnX1 - lawnX0, Y + 0.4, zBottom - zTop + 2 * swOut), CFrame.new((lawnX0 + lawnX1) / 2, (Y - 0.4) / 2, (zTop + zBottom) / 2), C.Lawn, Enum.Material.Grass)
+	lawn:SetAttribute("Surface", "Grass")
+	pad(Layout.BEACH_X - 8, Layout.BEACH_X, zTop - swOut, zBottom + swOut)
+	pad(westAve, oceanDr, zTop - swOut, zTop)
+	pad(westAve, oceanDr, zBottom, zBottom + swOut)
+end
+
+-- Palms on most pavements, shade trees in the suburbs, nothing on the industrial and freeway blocks
+local function treesFor(district: string): boolean | string
+	if district == "Suburb" then
+		return true
+	elseif district == "Wynwood" or district == "Jump" or district == "Freeway" then
+		return false
+	end
+	return "Palm"
 end
 
 local function streetscape(city: Instance, rng: Random)
 	local folder = PartKit.Folder(city, "Streetscape")
 	for _, block in Layout.Blocks do
-		local trees = block.District == "Downtown" or block.District == "Midtown" or block.District == "Suburb" or block.District == "Industrial"
+		local trees = treesFor(block.District)
+		local modern = block.District ~= "Suburb" and block.District ~= "Plaza"
 		local inset = 2.5
 		local x0, x1 = block.MinX + inset, block.MaxX - inset
 		local z0, z1 = block.MinZ + inset, block.MaxZ - inset
-		Props.Streetscape(folder, Vector3.new(x0 + 10, Y, z0), Vector3.new(x1 - 10, Y, z0), rng, trees)
-		Props.Streetscape(folder, Vector3.new(x0 + 10, Y, z1), Vector3.new(x1 - 10, Y, z1), rng, trees)
-		Props.Streetscape(folder, Vector3.new(x0, Y, z0 + 10), Vector3.new(x0, Y, z1 - 10), rng, trees)
-		Props.Streetscape(folder, Vector3.new(x1, Y, z0 + 10), Vector3.new(x1, Y, z1 - 10), rng, trees)
+		if block.District == "Freeway" then
+			-- the pads either side of the car park under I-95
+			local u0, u1 = Layout.UnderDeck(block)
+			Props.Streetscape(folder, Vector3.new(x0, Y, z0 + 10), Vector3.new(x0, Y, z1 - 10), rng, false, Vector3.new(-1, 0, 0))
+			Props.Streetscape(folder, Vector3.new(x1, Y, z0 + 10), Vector3.new(x1, Y, z1 - 10), rng, false, Vector3.new(1, 0, 0))
+			Props.Streetscape(folder, Vector3.new(x0 + 10, Y, z0), Vector3.new(u0 - 6, Y, z0), rng, false, Vector3.new(0, 0, -1))
+			Props.Streetscape(folder, Vector3.new(u1 + 6, Y, z0), Vector3.new(x1 - 10, Y, z0), rng, false, Vector3.new(0, 0, -1))
+			Props.Streetscape(folder, Vector3.new(x0 + 10, Y, z1), Vector3.new(u0 - 6, Y, z1), rng, false, Vector3.new(0, 0, 1))
+			Props.Streetscape(folder, Vector3.new(u1 + 6, Y, z1), Vector3.new(x1 - 10, Y, z1), rng, false, Vector3.new(0, 0, 1))
+			continue
+		end
+		local function side(a: Vector3, b: Vector3, road: Vector3)
+			Props.Streetscape(folder, a, b, rng, trees, if modern then road else nil)
+		end
+		side(Vector3.new(x0 + 10, Y, z0), Vector3.new(x1 - 10, Y, z0), Vector3.new(0, 0, -1))
+		side(Vector3.new(x0 + 10, Y, z1), Vector3.new(x1 - 10, Y, z1), Vector3.new(0, 0, 1))
+		side(Vector3.new(x0, Y, z0 + 10), Vector3.new(x0, Y, z1 - 10), Vector3.new(-1, 0, 0))
+		side(Vector3.new(x1, Y, z0 + 10), Vector3.new(x1, Y, z1 - 10), Vector3.new(1, 0, 0))
 	end
+	-- the island's Ocean Drive promenade and West Ave bay walk: palms and lights
+	local isl = Layout.ISLAND
+	local xs = Layout.ISLAND_XS
+	local oceanDr = xs[#xs] + Layout.ISLAND_X_WIDTHS[#xs] / 2
+	local westAve = xs[1] - Layout.ISLAND_X_WIDTHS[1] / 2
+	Props.Streetscape(folder, Vector3.new(oceanDr + 3, Y, isl.MinZ + 240), Vector3.new(oceanDr + 3, Y, isl.MaxZ - 240), rng, "Palm", Vector3.new(-1, 0, 0))
+	Props.Streetscape(folder, Vector3.new(westAve - 3, Y, isl.MinZ + 240), Vector3.new(westAve - 3, Y, isl.MaxZ - 240), rng, "Palm", Vector3.new(1, 0, 0))
 end
 
--- Street names for the grid lines (x = Line(i) runs north-south, z = Line(j) runs east-west)
-local NS_NAMES = { "Oak Ave", "Maple Ave", "Cedar Ave", "Birch Ave", "Flightly Blvd", "Elm Ave", "Aspen Ave", "Willow Ave", "Pine Ave" }
-local EW_NAMES = { "1st St", "2nd St", "3rd St", "4th St", "Volt Ave", "6th St", "7th St", "8th St", "9th St" }
-
-local BUSY: { [string]: boolean } = { Downtown = true, Midtown = true, Plaza = true, Dealership = true, Police = true }
+local BUSY: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Midtown = true, Plaza = true, Dealership = true, Police = true, ArtDeco = true, Condo = true }
 
 -- Benches, bins, racks, meters, news boxes and bollards along the pavements; bus stops on the
 -- avenues; street-name signs at the crossings
@@ -125,7 +211,7 @@ local function furniture(city: Instance, rng: Random)
 		for _, side in sides do
 			local length = (side.b - side.a).Magnitude
 			local dir = (side.b - side.a).Unit
-			local avenue = Layout.IsAvenue(side.line)
+			local avenue = block.Grid == "Main" and Layout.IsAvenue(side.line)
 			-- the lamps and trees sit every 40 studs from Props.Streetscape; furniture goes between
 			local slots = math.floor(length / 40)
 			for k = 1, slots - 1 do
@@ -157,32 +243,12 @@ local function furniture(city: Instance, rng: Random)
 			end
 		end
 	end
-	-- street-name signs on the north-east corner of every crossing
-	for _, node in Layout.Nodes do
-		if node.Grid and node.I and node.J then
-			local wx = Layout.LineWidth(node.I)
-			local wz = Layout.LineWidth(node.J)
-			local base = node.Position + Vector3.new(wx / 2 + 3.5, Y - Layout.ROAD_Y, -(wz / 2 + 3.5))
-			Detail.StreetSign(folder, base, NS_NAMES[node.I + 1], Vector3.new(0, 0, 1), EW_NAMES[node.J + 1])
-		end
-	end
 end
 
 local function chargers(city: Instance)
 	local folder = PartKit.Folder(city, "Chargers")
-	for _, position in Layout.Chargers do
-		-- face the nearest street
-		local function nearestLine(v: number): number
-			local index = math.clamp(math.floor((v - Layout.GRID_MIN) / Layout.GRID_STEP + 0.5), 0, Layout.GRID_COUNT - 1)
-			return Layout.Line(index)
-		end
-		local lx, lz = nearestLine(position.X), nearestLine(position.Z)
-		local dx, dz = lx - position.X, lz - position.Z
-		if math.abs(position.X) < 100 and math.abs(position.Z) > Layout.Line(Layout.GRID_COUNT - 1) then
-			dx, dz = -position.X, 1e9 -- the country stop faces the road at x = 0
-		end
-		local facing = if math.abs(dx) < math.abs(dz) then Vector3.new(math.sign(dx), 0, 0) else Vector3.new(0, 0, math.sign(dz))
-		Props.Charger(folder, position, facing)
+	for k, position in Layout.Chargers do
+		Props.Charger(folder, position, Layout.ChargerFacing[k] or Vector3.new(0, 0, 1))
 	end
 end
 
@@ -202,26 +268,56 @@ local function spawnPoint(city: Instance)
 	spawn.Parent = city
 end
 
+-- The island's ends: South Pointe and the park north of Lincoln Rd, palms and paths on the grass
+local function islandEnds(city: Instance, rng: Random)
+	local folder = PartKit.Folder(city, "IslandParks")
+	local isl = Layout.ISLAND
+	local zs = Layout.ISLAND_ZS
+	local westAve = Layout.ISLAND_XS[1] - Layout.ISLAND_X_WIDTHS[1] / 2
+	local inner = { zs[1] - Layout.ISLAND_Z_WIDTHS[1] / 2 - Layout.STREET_SIDEWALK, zs[#zs] + Layout.ISLAND_Z_WIDTHS[#zs] / 2 + Layout.STREET_SIDEWALK }
+	local outer = { isl.MinZ + 30, isl.MaxZ - 30 }
+	for k = 1, 2 do
+		local z0, z1 = math.min(inner[k], outer[k]), math.max(inner[k], outer[k])
+		local cz = (z0 + z1) / 2
+		local path = PartKit.Box(folder, "Path", Vector3.new(Layout.BEACH_X - westAve, 0.3, 12), CFrame.new((westAve + Layout.BEACH_X) / 2, 0.15, cz), Color3.fromRGB(214, 200, 178), Enum.Material.Pavement)
+		path:SetAttribute("Surface", "Sidewalk")
+		for _ = 1, 26 do
+			local x = rng:NextNumber(isl.MinX + 20, Layout.BEACH_X - 10)
+			local z = rng:NextNumber(z0 + 8, z1 - 8)
+			if math.abs(z - cz) > 12 then
+				Props.Palm(folder, Vector3.new(x, 0, z), rng)
+			end
+		end
+		for i = 1, 5 do
+			local x = westAve + i * (Layout.BEACH_X - westAve) / 6
+			Props.Bench(folder, CFrame.new(x, 0.3, cz - 9) * CFrame.Angles(0, math.pi, 0))
+			Props.Lamp(folder, Vector3.new(x + 20, 0.3, cz + 9))
+		end
+	end
+end
+
 function Builder.Build(): Model
 	local city = Instance.new("Model")
 	city.Name = "City"
 	local rng = Random.new(Builder.SEED)
-	ground(city)
+	Shore.Build(city, rng)
 	pads(city)
 	Roads.Build(city)
+	Freeways.Build(city)
 
 	local blocks = PartKit.Folder(city, "Blocks")
-	local parkBlocks = {}
 	for _, block in Layout.Blocks do
 		local district = block.District
-		if district == "Park" then
-			table.insert(parkBlocks, block)
-		elseif district == "Dealership" then
+		if district == "Dealership" then
 			Landmarks.Dealership(blocks, block, rng)
 		elseif district == "Police" then
 			Landmarks.Police(blocks, block, rng)
 		elseif district == "Plaza" then
 			Landmarks.Plaza(blocks, block, rng)
+		elseif district == "BayPark" then
+			Landmarks.BayPark(blocks, block, rng)
+		elseif district == "Marina" then
+			Landmarks.Marina(blocks, block, rng)
 		elseif district == "Jump" then
 			if block.Bx == 1 then
 				Landmarks.LoopPark(blocks, block, rng)
@@ -232,9 +328,9 @@ function Builder.Build(): Model
 			Buildings.Fill(blocks, block, rng)
 		end
 	end
-	Landmarks.Park(blocks, parkBlocks, rng)
 	streetscape(city, rng)
 	furniture(city, rng)
+	islandEnds(city, rng)
 	chargers(city)
 	Countryside.Build(city, rng)
 	spawnPoint(city)

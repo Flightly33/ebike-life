@@ -1,6 +1,7 @@
 --[[
 	CityService: makes sure the city is in the world (the baked map/City.rbxm, or a fresh build if
-	it's missing), swaps its showroom bikes and parked cars for the Blender meshes when those are
+	it's missing), fills Biscayne Bay and the ocean with Terrain water (Terrain isn't part of the
+	baked model), swaps its showroom bikes and parked cars for the Blender meshes when those are
 	imported, and runs its charging stations.
 ]]
 
@@ -9,6 +10,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Builder = require(Shared.City.Builder)
+local Layout = require(Shared.City.Layout)
 local Remotes = require(Shared.Remotes)
 local Bikes = require(Shared.Bikes)
 local PartKit = require(Shared.PartKit)
@@ -54,6 +56,40 @@ local function swapInMeshes(city: Instance)
 	end
 end
 
+-- Biscayne Bay and the ocean: Terrain water from the bay floor up to Layout.WATER_Y over every
+-- Layout.Water rect, a chunk at a time, turquoise and clear like the real bay
+local WATER_CHUNK = 512
+local function fillWater()
+	local terrain = Workspace:FindFirstChildOfClass("Terrain")
+	if not terrain then
+		return
+	end
+	local ok, err = pcall(function()
+		terrain.WaterColor = Color3.fromRGB(26, 150, 160)
+		terrain.WaterTransparency = 0.8
+		terrain.WaterReflectance = 0.6
+		terrain.WaterWaveSize = 0.12
+		terrain.WaterWaveSpeed = 8
+		local top, bottom = Layout.WATER_Y, Layout.SEABED_Y
+		local filled = 0
+		for _, rect in Layout.Water do
+			for x = rect.MinX, rect.MaxX - 1, WATER_CHUNK do
+				for z = rect.MinZ, rect.MaxZ - 1, WATER_CHUNK do
+					local x1, z1 = math.min(x + WATER_CHUNK, rect.MaxX), math.min(z + WATER_CHUNK, rect.MaxZ)
+					terrain:FillBlock(CFrame.new((x + x1) / 2, (top + bottom) / 2, (z + z1) / 2), Vector3.new(x1 - x, top - bottom, z1 - z), Enum.Material.Water)
+					filled += 1
+					if filled % 8 == 0 then
+						task.wait()
+					end
+				end
+			end
+		end
+	end)
+	if not ok then
+		warn("[CityService] couldn't fill the bay with water: " .. tostring(err))
+	end
+end
+
 function CityService.Init()
 	-- the owner's PBR texture sets, if any (AssetIds.Materials)
 	local variants = Materials.Apply()
@@ -67,6 +103,7 @@ function CityService.Init()
 		city.Parent = Workspace
 	end
 	local cityModel = city :: Instance
+	task.spawn(fillWater)
 	swapInMeshes(cityModel)
 	-- the detailed city kit (windows, trees, lamps) in place of their part-built placeholders, a
 	-- few hundred a frame so start-up doesn't stall

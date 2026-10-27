@@ -149,6 +149,74 @@ end
 for _, t in Layout.Teleports do
 	check(Layout.Places[t.Id] ~= nil, "teleport " .. t.Id .. " has a place")
 end
+for _, id in Loader.Require("ReplicatedStorage.Shared.Admin").Places do
+	check(Layout.Places[id] ~= nil, "admin teleport " .. id .. " has a place")
+end
+
+-- Miami: nothing that's driven or stood on is in the bay unless it's a bridge or a causeway
+for id, place in Layout.Places do
+	check(not Layout.InWater(place.X, place.Z), "place " .. id .. " is on land")
+end
+for k, p in Layout.Chargers do
+	check(not Layout.InWater(p.X, p.Z), "charger " .. k .. " is on land")
+end
+for _, block in Layout.Blocks do
+	for _, corner in { { block.MinX, block.MinZ }, { block.MaxX, block.MaxZ }, { block.MinX, block.MaxZ }, { block.MaxX, block.MinZ } } do
+		check(not Layout.InWater(corner[1], corner[2]), string.format("block %s %d,%d is on land", block.Grid, block.Bx, block.Bz))
+	end
+end
+for _, node in Layout.Nodes do
+	if Layout.InWater(node.Position.X, node.Position.Z) then
+		check(node.Elevated, "road node " .. node.Id .. " over the water is up on the bridge")
+	end
+	check(node.Elevated == (node.Position.Y > Layout.ROAD_Y + 1), "node " .. node.Id .. " Elevated matches its height")
+end
+for _, edge in Layout.Edges do
+	local a, b = Layout.Nodes[edge.A], Layout.Nodes[edge.B]
+	local mid = (a.Position + b.Position) / 2
+	if Layout.InWater(mid.X, mid.Z) and not (a.Elevated or b.Elevated) then
+		check(edge.Kind == "Causeway", "edge " .. edge.Id .. " across the water is a causeway")
+	end
+	-- the street grid never climbs; only freeways, ramps and the bridge do
+	if math.abs(a.Position.Y - b.Position.Y) > 0.5 then
+		check(edge.Kind == "Freeway" or edge.Kind == "Ramp", "edge " .. edge.Id .. " that climbs is a freeway or a ramp")
+		check(math.abs(a.Position.Y - b.Position.Y) / edge.Length < 0.16, "edge " .. edge.Id .. " climbs no steeper than 16%")
+	end
+end
+check(Layout.Nodes[Layout.PoliceSpawn].Grid, "police spawn at a grid crossing")
+for _, ramp in Layout.Ramps do
+	check(#Layout.Nodes[ramp.Foot].Edges == 3, "ramp foot is a T on its street")
+	check(not Layout.Nodes[ramp.Base].Elevated and Layout.Nodes[ramp.Top].Elevated, "ramp climbs from its base to its top")
+end
+
+-- The baked map: every place (teleports, the spawn) and charger is on open ground (a ray from
+-- high above lands near its height, not on a roof) with room around it
+do
+	local fs = require("@lune/fs")
+	local roblox = require("@lune/roblox")
+	local GeoWorld = require("../tools/lune/geoworld")
+	local Vector3, CFrame = roblox.Vector3, roblox.CFrame
+	local city = roblox.deserializeModel(fs.readFile("map/City.rbxm"))[1]
+	local geo = GeoWorld.new(city)
+	local function openGround(p: Vector3, what: string, room: boolean)
+		local hit = geo.Physics.Down(Vector3.new(p.X, p.Y + 400, p.Z), 500)
+		check(hit ~= nil and math.abs(hit.Position.Y - p.Y) < 3, string.format("%s lands on the ground (hit %s at %s)", what, if hit and hit.Part then hit.Part:GetFullName() else "nothing", if hit then string.format("%.1f", hit.Position.Y) else "-"))
+		if room then
+			for _, d in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
+				local frame = CFrame.new(p + Vector3.new(0, 3.5, 0))
+				local distance, _, kind = geo.Physics.Sweep(frame, Vector3.new(2, 4, 2), d * 8)
+				check(distance == nil or kind ~= "Wall", string.format("%s has room around it (%s)", what, if geo.LastSweepPart then geo.LastSweepPart:GetFullName() else "-"))
+			end
+		end
+	end
+	for id, place in Layout.Places do
+		openGround(place, "place " .. id, true)
+	end
+	for k, p in Layout.Chargers do
+		-- where the bike parks: on the charging pad in front of the kiosk
+		openGround(p + (Layout.ChargerFacing[k] or Vector3.new(0, 0, 1)) * 6, "charger " .. k, false)
+	end
+end
 
 -- The day and night clock: continuous, invertible, and a full look at every hour
 do

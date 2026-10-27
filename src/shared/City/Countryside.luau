@@ -1,7 +1,8 @@
 --[[
-	Countryside: the land between the city grid and the ring highway and beyond it. Ploughed and
-	crop fields, farmsteads, a line of power pylons (as in the reference) and a belt of woods at
-	the map edge.
+	Countryside: the land between the city grid and the turnpike (a U round the north, west and
+	south, its ends on the bay) and beyond it to the map edge. Crop fields, farmsteads, a power line,
+	woods of oaks and palms, a few wind turbines and rolling grass hills to ride. Nothing goes in the
+	water or on the island.
 ]]
 
 local LayoutModule = require(script.Parent.Layout)
@@ -17,28 +18,62 @@ local DECOR = { Collide = false, Query = false, Touch = false, Shadow = false }
 local NO_COLLIDE = { Collide = false, Query = false, Touch = false }
 local CITY_EDGE = Layout.Line(Layout.GRID_COUNT - 1) + 40
 
--- Signed distance from a point to the ring highway's centre line (a rounded square)
-function Countryside.RingDistance(x: number, z: number): number
-	local inner = Layout.RING_HALF - Layout.RING_RADIUS
-	local qx, qz = math.abs(x) - inner, math.abs(z) - inner
-	local ox, oz = math.max(qx, 0), math.max(qz, 0)
-	return math.sqrt(ox * ox + oz * oz) + math.min(math.max(qx, qz), 0) - Layout.RING_RADIUS
+-- the turnpike's centre line (Layout.RingNodes, in order)
+local ring: { Vector3 } = {}
+for _, id in Layout.RingNodes do
+	local p = Layout.Nodes[id].Position
+	table.insert(ring, Vector3.new(p.X, 0, p.Z))
 end
 
--- True where something would sit on (or too close to) a road or the city
+local function segmentDistance(p: Vector3, a: Vector3, b: Vector3): number
+	local ab = b - a
+	local t = math.clamp((p - a):Dot(ab) / math.max(ab:Dot(ab), 1e-6), 0, 1)
+	return (p - (a + ab * t)).Magnitude
+end
+
+-- Signed distance from a point to the turnpike: negative inside the U (between it and the bay)
+function Countryside.RingDistance(x: number, z: number): number
+	local p = Vector3.new(x, 0, z)
+	local best = math.huge
+	for k = 1, #ring - 1 do
+		best = math.min(best, segmentDistance(p, ring[k], ring[k + 1]))
+	end
+	-- inside: the polygon the U makes with the shore (an even-odd ray cast)
+	local inside = false
+	local n = #ring
+	for k = 1, n do
+		local a, b = ring[k], ring[(k % n) + 1]
+		if (a.Z > z) ~= (b.Z > z) and x < a.X + (z - a.Z) / (b.Z - a.Z) * (b.X - a.X) then
+			inside = not inside
+		end
+	end
+	return if inside then -best else best
+end
+
+-- True where something would sit on (or too close to) a road, the city or the water
 function Countryside.Blocked(x: number, z: number, margin: number): boolean
+	if x > Layout.SHORE_X - 40 - margin then
+		return true -- the baywalk, the bay and the island
+	end
 	if math.abs(x) < CITY_EDGE + margin and math.abs(z) < CITY_EDGE + margin then
 		return true
 	end
 	if math.abs(Countryside.RingDistance(x, z)) < Layout.RING_WIDTH / 2 + 12 + margin then
 		return true
 	end
-	-- the four country roads
+	-- the country roads out of the grid (north, south and west)
 	local rural = Layout.RURAL_WIDTH / 2 + 10 + margin
 	if math.abs(x) < rural and math.abs(z) < Layout.RING_HALF + 10 then
 		return true
 	end
-	if math.abs(z) < rural and math.abs(x) < Layout.RING_HALF + 10 then
+	if math.abs(z) < rural and x < 0 and x > -Layout.RING_HALF - 10 then
+		return true
+	end
+	-- I-95 down to the turnpike, and Biscayne Blvd's ends
+	if math.abs(x - Layout.I95_X) < Layout.FREEWAY_WIDTH / 2 + 20 + margin and math.abs(z) < Layout.RING_HALF + 10 then
+		return true
+	end
+	if math.abs(x - Layout.Line(Layout.BAY_INDEX)) < Layout.AVENUE_WIDTH / 2 + 20 + margin and math.abs(z) < Layout.RING_HALF + 10 then
 		return true
 	end
 	return false
@@ -152,15 +187,17 @@ function Countryside.Build(city: Instance, rng: Random)
 		end
 	end
 	-- Farmsteads
-	farmstead(folder, -1300, -1250, math.rad(90), rng)
-	farmstead(folder, 1280, 1300, math.rad(-90), rng)
-	farmstead(folder, 1300, -700, 0, rng)
+	for _, farm in { { -1700, -1150, 90 }, { -1700, 1150, 90 }, { -800, -1700, 0 }, { 900, 1700, 180 } } do
+		if not Countryside.Blocked(farm[1], farm[2], 60) then
+			farmstead(folder, farm[1], farm[2], math.rad(farm[3]), rng)
+		end
+	end
 
 	-- Power line across the north fields
 	local lines = PartKit.Folder(folder, "PowerLine")
 	local previous: { Vector3 }? = nil
-	local z = -1330
-	for x = -2200, 2200, 220 do
+	local z = -1700
+	for x = -1850, 1300, 220 do
 		if not Countryside.Blocked(x, z, 12) then
 			local points = pylon(lines, Vector3.new(x, 0, z))
 			if previous then
@@ -169,6 +206,8 @@ function Countryside.Build(city: Instance, rng: Random)
 				end
 			end
 			previous = points
+		else
+			previous = nil
 		end
 	end
 
@@ -176,7 +215,7 @@ function Countryside.Build(city: Instance, rng: Random)
 	local woods = PartKit.Folder(folder, "Woods")
 	local placed = 0
 	local tries = 0
-	while placed < 320 and tries < 4000 do
+	while placed < 480 and tries < 6000 do
 		tries += 1
 		local x = rng:NextNumber(-Layout.WORLD_HALF + 20, Layout.WORLD_HALF - 20)
 		local zz = rng:NextNumber(-Layout.WORLD_HALF + 20, Layout.WORLD_HALF - 20)
@@ -184,7 +223,11 @@ function Countryside.Build(city: Instance, rng: Random)
 		local outside = ring > 60
 		local verge = ring < -45 and ring > -120 and rng:NextNumber() < 0.25
 		if (outside or verge) and not Countryside.Blocked(x, zz, 6) then
-			Props.Tree(woods, Vector3.new(x, 0, zz), rng, rng:NextNumber(1.1, 1.8))
+			if rng:NextNumber() < 0.3 then
+				Props.Palm(woods, Vector3.new(x, 0, zz), rng, rng:NextNumber(0.9, 1.2))
+			else
+				Props.Tree(woods, Vector3.new(x, 0, zz), rng, rng:NextNumber(1.1, 1.8))
+			end
 			placed += 1
 		end
 	end
@@ -193,7 +236,7 @@ function Countryside.Build(city: Instance, rng: Random)
 	local wind = PartKit.Folder(folder, "WindFarm")
 	local turbines = 0
 	local attempts = 0
-	while turbines < 9 and attempts < 400 do
+	while turbines < 5 and attempts < 400 do
 		attempts += 1
 		local x = rng:NextNumber(-Layout.WORLD_HALF + 80, Layout.WORLD_HALF - 80)
 		local zz = rng:NextNumber(-Layout.WORLD_HALF + 80, Layout.WORLD_HALF - 80)
@@ -232,7 +275,7 @@ function Countryside.Build(city: Instance, rng: Random)
 
 	-- Rolling grass hills outside the ring (rideable slopes)
 	local hills = PartKit.Folder(folder, "Hills")
-	for _, spot in { Vector3.new(1950, 0, 300), Vector3.new(-1950, 0, -400), Vector3.new(500, 0, 1950), Vector3.new(-700, 0, -1950), Vector3.new(1900, 0, -1600) } do
+	for _, spot in { Vector3.new(-2400, 0, 300), Vector3.new(-2350, 0, -1500), Vector3.new(-700, 0, -2450), Vector3.new(700, 0, 2450), Vector3.new(-2400, 0, 2300) } do
 		local h = rng:NextNumber(14, 24)
 		local top = PartKit.Box(hills, "HillTop", Vector3.new(70, h, 70), CFrame.new(spot + Vector3.new(0, h / 2, 0)), Props.Palette.Grass, Enum.Material.Grass)
 		top:SetAttribute("Surface", "Grass")

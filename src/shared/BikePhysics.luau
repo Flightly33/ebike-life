@@ -145,6 +145,7 @@ export type State = {
 	StoppieActive: boolean,
 	StoppieTime: number,
 	Flat: number, -- seconds of flat tyre left (police spike strip)
+	Wet: boolean, -- in the water (Splash fired; the controller puts the bike back on the shore)
 	Loop: Loop?, -- riding a loop
 	LoopAngle: number, -- rad round it
 	BrakeApplied: number, -- 0..1, the brake as squeezed (follows the input at BrakeSqueeze)
@@ -241,6 +242,7 @@ function BikePhysics.new(spec: Spec, ground: CFrame, battery: number?, seed: num
 		StoppieActive = false,
 		StoppieTime = 0,
 		Flat = 0,
+		Wet = false,
 		Loop = nil,
 		LoopAngle = 0,
 		BrakeApplied = 0,
@@ -987,6 +989,14 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		end
 		s.Surface = kind
 		s.Offroad = OFFROAD[kind] == true
+		if kind == "Water" then
+			-- rolled off into the bay: it sinks (the controller puts it back on the shore)
+			if not s.Wet then
+				s.Wet = true
+				push(events, "Splash")
+			end
+			v *= math.max(0, 1 - 6 * dt)
+		end
 		if kind == "Spikes" and s.Flat <= 0 then
 			s.Flat = Config.Police.FlatTime
 			push(events, "Spiked")
@@ -1034,6 +1044,19 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 	s.Offroad = OFFROAD[kind] == true
 	local _ = world
 
+	if kind == "Water" then
+		-- a jump into the bay
+		s.Pitch = groundPitch
+		s.Speed = 0
+		s.TrickExt = 0
+		s.TrickName = ""
+		s.BarSpin = 0
+		if not s.Wet then
+			s.Wet = true
+			push(events, "Splash")
+		end
+		return
+	end
 	if s.Crash > 0 then
 		s.Pitch = groundPitch
 		s.Speed = horizontal.Magnitude / STUDS * 0.4

@@ -19,6 +19,12 @@ local rideable: (BasePart) -> boolean
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 params.RespectCanCollide = true
+-- the ground rays find the water's surface (Terrain water: the bay and the ocean); the body
+-- sweeps go through it
+local sweepParams = RaycastParams.new()
+sweepParams.FilterType = Enum.RaycastFilterType.Exclude
+sweepParams.RespectCanCollide = true
+sweepParams.IgnoreWater = true
 
 local MATERIALS: { [Enum.Material]: string } = {
 	[Enum.Material.Asphalt] = "Road",
@@ -97,6 +103,7 @@ function World.Refresh()
 		end
 	end
 	params.FilterDescendantsInstances = list
+	sweepParams.FilterDescendantsInstances = list
 end
 
 World.Physics = {
@@ -104,6 +111,9 @@ World.Physics = {
 		local hit = Workspace:Raycast(origin, Vector3.new(0, -length, 0), params)
 		if not hit then
 			return nil
+		end
+		if hit.Material == Enum.Material.Water then
+			return { Position = hit.Position, Normal = Vector3.yAxis, Kind = "Water" }
 		end
 		local part = hit.Instance
 		local kind = if part:IsA("BasePart") then surfaceOf(part) else "Road"
@@ -113,7 +123,7 @@ World.Physics = {
 		return { Position = hit.Position, Normal = hit.Normal, Kind = kind }
 	end,
 	Sweep = function(frame: CFrame, size: Vector3, delta: Vector3): (number?, Vector3?, string?)
-		local hit = Workspace:Blockcast(frame, size, delta, params)
+		local hit = Workspace:Blockcast(frame, size, delta, sweepParams)
 		if not hit then
 			return nil, nil, nil
 		end

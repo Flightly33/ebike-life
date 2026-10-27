@@ -25,6 +25,7 @@ local Modes = require(Shared.Modes)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 local Upgrades = require(Shared.Upgrades)
+local Layout = require(Shared.City.Layout)
 
 local BikeCamera = require(script.Parent.BikeCamera)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -59,6 +60,12 @@ local bailedAt = 0
 local chargeLeft = 0
 local warnedEmpty = false
 local restoreCollide: { [BasePart]: boolean } = {}
+-- where to put the bike back if it ends up in the water: spots it rode over on dry ground, half a
+-- second apart, the newest last
+local trail: { CFrame } = {}
+local trailClock = 0
+local TRAIL_LENGTH = 8
+local splashedAt: number? = nil
 local connections: { RBXScriptConnection } = {}
 
 local function modeTable(): Modes.Mode
@@ -148,6 +155,11 @@ local function onEvent(event: BikePhysics.Event)
 		sendTrick("WheelieEnd", event.Value, event.Extra)
 	elseif kind == "AirTrick" then
 		sendTrick("AirTrick", event.Value, event.Extra, event.Text)
+	elseif kind == "Splash" then
+		-- into the bay: a splash, and in a moment the bike is back on the shore it came from
+		Sound.Play("Splash", position)
+		BikeCamera.Shake(0.8)
+		splashedAt = os.clock()
 	elseif kind == "Spiked" then
 		Sound.Play("Crash", position, 1.6, 0.6)
 		BikeCamera.Shake(0.6)
@@ -250,6 +262,23 @@ local function step(dt: number)
 	batteries[model] = s.Battery
 	for _, event in events do
 		onEvent(event)
+	end
+	-- remember dry ground; after a splash, go back to the oldest spot remembered
+	trailClock += dt
+	if trailClock >= 0.5 and s.Grounded and not s.Wet and s.Crash <= 0 then
+		trailClock = 0
+		table.insert(trail, CFrame.lookAt(s.Position, s.Position + BikePhysics.Heading(s.Yaw)))
+		if #trail > TRAIL_LENGTH then
+			table.remove(trail, 1)
+		end
+	end
+	if splashedAt and os.clock() - splashedAt > 0.9 then
+		splashedAt = nil
+		local back = trail[1] or CFrame.new(Layout.Places.Spawn)
+		BikeController.Physics = BikePhysics.new(spec, back + Vector3.new(0, 0.5, 0), s.Battery, player.UserId % 97)
+		table.clear(trail)
+		BikeController.Event:Fire({ Kind = "Rescued" })
+		return
 	end
 	if s.Battery <= 0 and not warnedEmpty then
 		warnedEmpty = true

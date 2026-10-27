@@ -193,6 +193,8 @@ function UI.Init()
 	BikeController.Event:Connect(function(event: any)
 		if event.Kind == "Spiked" then
 			Toasts.Message("Police", "Spike strip! Your tyre's flat for a while.")
+		elseif event.Kind == "Splash" then
+			Toasts.Message("Error", "Splash! Back to the shore...")
 		elseif event.Kind == "BatteryEmpty" then
 			Toasts.Message("Error", "Battery empty! Push it to a ⚡ charging station")
 		elseif event.Kind == "Flip" then

@@ -684,6 +684,8 @@ Methods.Humanoid = {
 }
 
 Methods.ParticleEmitter = { Emit = function() end, Clear = function() end }
+-- Terrain: the bay's water is filled at runtime; the sim has no voxels (ground rays never see it)
+Methods.Terrain = { FillBlock = function() end }
 -- Seats: Sit welds the humanoid on (Occupant / SeatPart / Seated like Roblox)
 Methods.Seat = {
 	Sit = function(self, humanoid)

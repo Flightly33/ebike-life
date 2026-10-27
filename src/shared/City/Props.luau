@@ -1,6 +1,6 @@
 --[[
-	Props: street furniture and greenery for the city builder (trees, lamps, benches, hydrants,
-	traffic lights, charging stations).
+	Props: street furniture and greenery for the city builder (trees, palms, lamps, benches,
+	hydrants, traffic lights, charging stations).
 ]]
 
 local PartKit = require(script.Parent.Parent.PartKit)
@@ -28,15 +28,16 @@ Props.Palette = {
 }
 local C = Props.Palette
 
--- Autumn canopy colours (the reference city is mid-autumn) with some green left in
+-- Subtropical canopy colours (live oaks, sea grapes, gumbo limbos), with the odd flowering
+-- poinciana and yellow tabebuia
 Props.Leaves = {
-	Color3.fromRGB(214, 96, 38),
-	Color3.fromRGB(196, 58, 38),
-	Color3.fromRGB(232, 178, 52),
-	Color3.fromRGB(176, 120, 48),
-	Color3.fromRGB(118, 150, 62),
-	Color3.fromRGB(150, 160, 60),
-	Color3.fromRGB(222, 140, 40),
+	Color3.fromRGB(62, 112, 52),
+	Color3.fromRGB(78, 128, 58),
+	Color3.fromRGB(52, 98, 50),
+	Color3.fromRGB(96, 140, 64),
+	Color3.fromRGB(70, 120, 70),
+	Color3.fromRGB(214, 70, 46),
+	Color3.fromRGB(236, 196, 58),
 }
 
 -- Trees: mostly broadleaf (a shaped canopy of clumps, sunlit on top and shaded underneath, on a
@@ -102,6 +103,56 @@ function Props.Tree(parent: Instance, base: Vector3, rng: Random, size: number?)
 	end
 	-- a sunlit crown on top
 	PartKit.Ellipsoid(model, "Leaves", Vector3.new(7, 5, 7) * s * (if birch then 0.7 else 1), CFrame.new(top + Vector3.new(rng:NextNumber(-1, 1) * s, (if birch then 6.5 else 5) * s, rng:NextNumber(-1, 1) * s)), light, Enum.Material.Grass, NO_COLLIDE)
+end
+
+-- A palm: a slender, slightly curving ringed trunk and a crown of drooping fronds. Its own model
+-- name ("Palm"), so the city kit's tree meshes leave it alone. Coconut palms lean and carry
+-- coconuts; royal palms stand straight with a smooth pale trunk and a green crownshaft.
+local PALM_FRONDS = { Color3.fromRGB(70, 128, 52), Color3.fromRGB(84, 140, 58), Color3.fromRGB(96, 146, 62), Color3.fromRGB(62, 116, 50) }
+function Props.Palm(parent: Instance, base: Vector3, rng: Random, size: number?)
+	local s = size or rng:NextNumber(0.85, 1.2)
+	local model = PartKit.Model(parent, "Palm")
+	local royal = rng:NextNumber() < 0.35
+	model:SetAttribute("Species", if royal then "Royal" else "Coconut")
+	local height = (if royal then 40 else 32) * s
+	local lean = if royal then 0 else rng:NextNumber(1.5, 5) * s
+	local yaw = rng:NextNumber(0, math.pi * 2)
+	local leanDir = Vector3.new(math.cos(yaw), 0, math.sin(yaw))
+	local bark = if royal then Color3.fromRGB(196, 190, 176) else Color3.fromRGB(140, 120, 94)
+	-- two trunk pieces bend it a little
+	local mid = base + Vector3.new(0, height * 0.55, 0) + leanDir * lean * 0.3
+	local top = base + Vector3.new(0, height, 0) + leanDir * lean
+	PartKit.Tube(model, "Trunk", base, mid, (if royal then 2.2 else 1.6) * s, bark, Enum.Material.Wood)
+	PartKit.Tube(model, "Trunk", mid, top, (if royal then 1.8 else 1.25) * s, bark, Enum.Material.Wood)
+	PartKit.Post(model, "Roots", (if royal then 3.2 else 2.4) * s, 0.8 * s, base, bark, Enum.Material.Wood, NO_COLLIDE)
+	if royal then
+		PartKit.Tube(model, "Crownshaft", top, top + Vector3.new(0, 6 * s, 0), 1.9 * s, Color3.fromRGB(96, 140, 70), Enum.Material.SmoothPlastic, NO_COLLIDE)
+		top += Vector3.new(0, 6 * s, 0)
+	end
+	local color = PALM_FRONDS[rng:NextInteger(1, #PALM_FRONDS)]
+	local fronds = if royal then 9 else 8
+	for i = 1, fronds do
+		local a = yaw + (i / fronds) * math.pi * 2 + rng:NextNumber(-0.2, 0.2)
+		local out = Vector3.new(math.cos(a), 0, math.sin(a))
+		local droop = rng:NextNumber(-0.55, -0.15)
+		local length = rng:NextNumber(13, 17) * s
+		local dir = (out + Vector3.new(0, droop, 0)).Unit
+		local center = top + dir * (length / 2)
+		local cf = CFrame.lookAt(center, center + dir) * CFrame.Angles(0, 0, rng:NextNumber(-0.25, 0.25))
+		local tone = color:Lerp(Color3.fromRGB(170, 160, 90), rng:NextNumber(0, 0.18))
+		PartKit.Ellipsoid(model, "Frond", Vector3.new(4.2 * s, 0.35, length), cf, tone, Enum.Material.Grass, DECOR)
+	end
+	-- a couple of young fronds standing up in the middle
+	for i = 1, 2 do
+		local a = yaw + i * math.pi
+		local dir = (Vector3.new(math.cos(a) * 0.35, 1, math.sin(a) * 0.35)).Unit
+		local center = top + dir * 4 * s
+		PartKit.Ellipsoid(model, "Frond", Vector3.new(2.4 * s, 0.3, 9 * s), CFrame.lookAt(center, center + dir), color:Lerp(Color3.fromRGB(150, 190, 90), 0.3), Enum.Material.Grass, DECOR)
+	end
+	if not royal and rng:NextNumber() < 0.7 then
+		PartKit.Ball(model, "Coconuts", 2.6 * s, top - Vector3.new(0, 1.2 * s, 0), Color3.fromRGB(120, 96, 50), Enum.Material.SmoothPlastic, DECOR)
+	end
+	return model
 end
 
 -- Old-fashioned black lamp post with a white globe (as in the reference city)
@@ -191,8 +242,25 @@ function Props.Charger(parent: Instance, base: Vector3, facing: Vector3)
 	return model
 end
 
--- Kerbside features along one pad edge from `a` to `b` (both on the pavement, near the kerb)
-function Props.Streetscape(parent: Instance, a: Vector3, b: Vector3, rng: Random, trees: boolean)
+-- A modern street light: a tall grey pole, an arm reaching `toward` the road and a lens (named
+-- "Globe": DayNight lights it at night)
+function Props.StreetLight(parent: Instance, base: Vector3, toward: Vector3)
+	local model = PartKit.Model(parent, "StreetLight")
+	local grey = Color3.fromRGB(120, 124, 128)
+	PartKit.Post(model, "Pole", 0.8, 26, base, grey, METAL)
+	PartKit.Post(model, "Base", 1.4, 1.2, base, grey, METAL, DECOR)
+	local tip = base + Vector3.new(0, 25.5, 0) + toward * 7
+	PartKit.Bar(model, "Arm", base + Vector3.new(0, 24.5, 0), tip, 0.4, 0.4, grey, METAL, NO_COLLIDE)
+	PartKit.Box(model, "Head", Vector3.new(1.8, 0.7, 3.6), CFrame.lookAt(tip, tip + toward), grey, METAL, DECOR)
+	local lens = tip - Vector3.new(0, 0.42, 0)
+	PartKit.Box(model, "Globe", Vector3.new(1.3, 0.2, 2.6), CFrame.lookAt(lens, lens + toward), Color3.fromRGB(255, 232, 186), Enum.Material.Neon, DECOR)
+	return model
+end
+
+-- Kerbside features along one pad edge from `a` to `b` (both on the pavement, near the kerb):
+-- lamps, and trees between them (`trees`: true for shade trees, "Palm" for palms). With `road`
+-- (the way to the carriageway) the lamps are modern street lights reaching over it.
+function Props.Streetscape(parent: Instance, a: Vector3, b: Vector3, rng: Random, trees: boolean | string, road: Vector3?)
 	local length = (b - a).Magnitude
 	if length < 30 then
 		return
@@ -203,10 +271,18 @@ function Props.Streetscape(parent: Instance, a: Vector3, b: Vector3, rng: Random
 	for i = 0, count do
 		local t = (i + 0.5) / (count + 1)
 		local p = a:Lerp(b, t)
-		Props.Lamp(parent, p)
+		if road then
+			Props.StreetLight(parent, p, road)
+		else
+			Props.Lamp(parent, p)
+		end
 		if trees and i < count then
 			local mid = a:Lerp(b, (i + 1) / (count + 1))
-			Props.Tree(parent, mid, rng, rng:NextNumber(0.75, 1.0))
+			if trees == "Palm" then
+				Props.Palm(parent, mid, rng, rng:NextNumber(0.8, 1.05))
+			else
+				Props.Tree(parent, mid, rng, rng:NextNumber(0.75, 1.0))
+			end
 			PartKit.Box(parent, "TreeGrate", Vector3.new(4, 0.08, 4), CFrame.new(mid + Vector3.new(0, 0.04, 0)), Color3.fromRGB(46, 44, 42), Enum.Material.DiamondPlate, DECOR)
 		end
 	end

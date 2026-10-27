@@ -40,6 +40,7 @@ export type Driver = {
 	ObeyLights: boolean,
 	Waypoints: { Vector3 },
 	WaypointNodes: { number }, -- the node each waypoint leads into (for traffic lights)
+	WaypointSpeeds: { number }, -- the road's speed relative to a street's (1), per waypoint
 	WaypointIndex: number,
 	-- route state while cruising
 	FromNode: number,
@@ -113,6 +114,7 @@ function CarDriver.new(model: Model, kind: CarModel.Kind, start: CFrame, rng: Ra
 		ObeyLights = true,
 		Waypoints = {},
 		WaypointNodes = {},
+		WaypointSpeeds = {},
 		WaypointIndex = 1,
 		FromNode = 1,
 		ToNode = 1,
@@ -159,6 +161,8 @@ end
 --------------------------------------------------------------------------------
 -- Routes
 --------------------------------------------------------------------------------
+local STREET_SPEED = 11 -- m/s, Layout's street speed: the speed TopSpeed is set for
+
 local function clearance(nodeId: number, edge: Layout.Edge): number
 	local node = Layout.Nodes[nodeId]
 	if node.Grid then
@@ -188,14 +192,28 @@ local function turnPoints(exit: Vector3, entry: Vector3, corner: Vector3): { Vec
 	return points
 end
 
+local function flatDir(from: Vector3, to: Vector3): Vector3
+	local d = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
+	return if d.Magnitude > 1e-3 then d.Unit else Vector3.zero
+end
+
+-- The next node on a cruise: any road out but the one we came in on, and no doubling back (a
+-- freeway's ramps meet it at a node; a car off the ramp goes on along the deck, not back down)
 local function pickNext(self: Driver, at: number, cameFrom: number): number
 	local node = Layout.Nodes[at]
-	local options = {}
+	local incoming = flatDir(Layout.Nodes[cameFrom].Position, node.Position)
+	local options, ahead = {}, {}
 	for _, edgeId in node.Edges do
 		local other = Layout.OtherEnd(Layout.Edges[edgeId], at)
 		if other ~= cameFrom then
 			table.insert(options, other)
+			if flatDir(node.Position, Layout.Nodes[other].Position):Dot(incoming) > -0.3 then
+				table.insert(ahead, other)
+			end
 		end
+	end
+	if #ahead > 0 then
+		options = ahead
 	end
 	if #options == 0 then
 		return cameFrom
@@ -211,9 +229,11 @@ local function appendLeg(self: Driver, a: number, b: number, c: number?)
 	end
 	local lane = math.min(self.Lane, edge.Lanes)
 	local entry, exit = edgePoints(edge, a, lane)
+	local scale = edge.Speed / STREET_SPEED
 	local function add(p: Vector3)
 		table.insert(self.Waypoints, p)
 		table.insert(self.WaypointNodes, b)
+		table.insert(self.WaypointSpeeds, scale)
 	end
 	add(entry)
 	-- intermediate points on long edges keep the pursuit steering on the lane
@@ -241,6 +261,7 @@ function CarDriver.Cruise(self: Driver, from: number, to: number)
 	self.ToNode = to
 	self.Waypoints = {}
 	self.WaypointNodes = {}
+	self.WaypointSpeeds = {}
 	self.WaypointIndex = 1
 	local after = pickNext(self, to, from)
 	appendLeg(self, from, to, after)
@@ -255,13 +276,15 @@ local function extendCruise(self: Driver)
 	local from, to = self.FromNode, self.ToNode
 	local after = pickNext(self, to, from)
 	-- drop the waypoints already passed
-	local kept, keptNodes = {}, {}
+	local kept, keptNodes, keptSpeeds = {}, {}, {}
 	for i = self.WaypointIndex, #self.Waypoints do
 		table.insert(kept, self.Waypoints[i])
 		table.insert(keptNodes, self.WaypointNodes[i])
+		table.insert(keptSpeeds, self.WaypointSpeeds[i] or 1)
 	end
 	self.Waypoints = kept
 	self.WaypointNodes = keptNodes
+	self.WaypointSpeeds = keptSpeeds
 	self.WaypointIndex = 1
 	appendLeg(self, from, to, after)
 	self.FromNode, self.ToNode = to, after
@@ -285,12 +308,14 @@ function CarDriver.Chase(self: Driver, target: Vector3, velocity: Vector3, direc
 		local path = Layout.Path(start, goal)
 		self.Waypoints = { Layout.Nodes[start].Position }
 		self.WaypointNodes = { start }
+		self.WaypointSpeeds = { 1 }
 		self.WaypointIndex = 1
 		for i = 1, #path - 1 do
 			appendLeg(self, path[i], path[i + 1], path[i + 2])
 		end
 		table.insert(self.Waypoints, Vector3.new(target.X, Layout.ROAD_Y, target.Z))
 		table.insert(self.WaypointNodes, goal)
+		table.insert(self.WaypointSpeeds, 1)
 	end
 end
 
@@ -316,7 +341,7 @@ local function lightAhead(self: Driver): (boolean, number)
 	local dir = forward(self.Yaw)
 	local ahead = flat:Dot(dir)
 	local axis = if math.abs(dir.X) > math.abs(dir.Z) then "X" else "Z"
-	local half = if axis == "X" then Layout.LineWidth(fromNode.I or 0) / 2 else Layout.LineWidth(fromNode.J or 0) / 2
+	local half = if axis == "X" then (fromNode.WX or 26) / 2 else (fromNode.WZ or 26) / 2
 	local stopDistance = ahead - half - 6 - self.HalfLength
 	if stopDistance < -2 or stopDistance > 60 then
 		return false, math.huge
@@ -392,8 +417,11 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 		end
 	end
 
-	-- Target speed
+	-- Target speed (cruising: scaled by the road, faster on the freeway)
 	local targetSpeed = if self.Mode == "Idle" then 0 else self.TopSpeed
+	if self.Mode == "Cruise" then
+		targetSpeed *= self.WaypointSpeeds[self.WaypointIndex] or 1
+	end
 	local yawError = 0
 	if aim then
 		local offset = Vector3.new(aim.X - self.Position.X, 0, aim.Z - self.Position.Z)
@@ -504,6 +532,7 @@ function CarDriver.Hold(self: Driver)
 	self.Direct = false
 	table.clear(self.Waypoints)
 	table.clear(self.WaypointNodes)
+	table.clear(self.WaypointSpeeds)
 	self.WaypointIndex = 1
 end
 

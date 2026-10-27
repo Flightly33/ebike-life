@@ -273,9 +273,14 @@ local function predictNode(position: Vector3, velocity: Vector3, seconds: number
 		return nil
 	end
 	local ahead = position + flat * seconds
+	-- (a crossing at the rider's level: none while they're up on the freeway)
 	local nodeId = Layout.NearestNode(ahead, function(node)
-		return node.Grid and (node.Position - position):Dot(flat) > 0
+		return node.Grid and (node.Position - position):Dot(flat) > 0 and math.abs(node.Position.Y - position.Y) < 12
 	end)
+	local node = Layout.Nodes[nodeId]
+	if not (node.Grid and math.abs(node.Position.Y - position.Y) < 12) then
+		return nil
+	end
 	return nodeId
 end
 
@@ -349,7 +354,7 @@ local function placeRoadblock(player: Player, position: Vector3, velocity: Vecto
 	unit.RoadblockAt = os.clock()
 	CarDriver.Teleport(unit.Driver, nodeId, across)
 	CarDriver.Hold(unit.Driver)
-	local width = if node.I and node.J then math.max(Layout.LineWidth(node.I), Layout.LineWidth(node.J)) else 30
+	local width = if node.WX and node.WZ then math.max(node.WX, node.WZ) else 30
 	unit.Spikes = spikeStrip(node.Position - approach * (width / 2 + 14), approach, width * 0.9)
 end
 
@@ -473,13 +478,7 @@ end
 
 -- Did the player just roll into an intersection on red?
 local function checkRedLight(player: Player, w: Watch, position: Vector3, velocity: Vector3, kmh: number)
-	local function nearestIndex(v: number): number
-		return math.clamp(math.floor((v - Layout.GRID_MIN) / Layout.GRID_STEP + 0.5), 0, Layout.GRID_COUNT - 1)
-	end
-	local i, j = nearestIndex(position.X), nearestIndex(position.Z)
-	local insideX = math.abs(position.X - Layout.Line(i)) < Layout.LineWidth(i) / 2
-	local insideZ = math.abs(position.Z - Layout.Line(j)) < Layout.LineWidth(j) / 2
-	local nodeId = if insideX and insideZ then Layout.GridNode[i][j] else nil
+	local nodeId = Layout.IntersectionAt(position)
 	if nodeId and nodeId ~= w.Inside and kmh > 12 then
 		local node = Layout.Nodes[nodeId]
 		if Layout.HasLights(node) then
@@ -700,7 +699,9 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 			aim = position + right * (side * C.FlankOffset) - dir * 6
 		end
 	end
-	CarDriver.Chase(driver, aim, velocity, visible)
+	-- straight at them only when they're on the same level (not up on a deck overhead): otherwise
+	-- by road, which finds the ramps
+	CarDriver.Chase(driver, aim, velocity, visible and math.abs(position.Y - driver.Position.Y) < 10)
 
 	-- hopelessly stuck or left far behind: bring it back in closer
 	if driver.StuckCount >= 3 or distance > 1400 then

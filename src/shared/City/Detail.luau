@@ -18,6 +18,7 @@ local METAL = Enum.Material.Metal
 local GLASS = Enum.Material.Glass
 local CONCRETE = Enum.Material.Concrete
 local DECOR = { Collide = false, Query = false, Touch = false, Shadow = false }
+local NO_COLLIDE = { Collide = false, Query = false, Touch = false }
 local SOLID_DECOR = { Collide = false, Query = false, Touch = false }
 local SOLID = { Touch = false }
 
@@ -442,6 +443,49 @@ function Detail.FarmFence(parent: Instance, a: Vector3, b: Vector3)
 	for i = 0, posts do
 		PartKit.Post(parent, "FencePost", 0.6, 4.2, a + dir * (i * length / math.max(posts, 1)), wood, Enum.Material.Wood, DECOR)
 	end
+end
+
+-- A lifeguard tower on the beach: a pastel hut on stilts with a ramp up the back, facing the sea
+-- (`cf` looks out to sea, at the sand)
+function Detail.LifeguardTower(parent: Instance, cf: CFrame, color: Color3)
+	local model = PartKit.Model(parent, "LifeguardTower")
+	local wood = Color3.fromRGB(236, 232, 222)
+	for _, x in { -4.5, 4.5 } do
+		for _, z in { -3.5, 3.5 } do
+			PartKit.Box(model, "Stilt", Vector3.new(0.8, 8, 0.8), cf * CFrame.new(x, 4, z), wood, Enum.Material.Wood, NO_COLLIDE)
+		end
+	end
+	PartKit.Box(model, "Floor", Vector3.new(14, 0.6, 12), cf * CFrame.new(0, 8.3, -1), wood, Enum.Material.WoodPlanks)
+	PartKit.Box(model, "Hut", Vector3.new(11, 8, 8), cf * CFrame.new(0, 12.6, 0.5), color, Enum.Material.SmoothPlastic)
+	local roof = PartKit.Box(model, "HutRoof", Vector3.new(13, 1, 10), cf * CFrame.new(0, 17.1, 0.5) * CFrame.Angles(math.rad(-6), 0, 0), color:Lerp(Color3.new(1, 1, 1), 0.4), Enum.Material.SmoothPlastic)
+	local _ = roof
+	PartKit.Box(model, "Window", Vector3.new(8, 3.2, 0.3), cf * CFrame.new(0, 13.6, -3.6), Color3.fromRGB(50, 70, 90), Enum.Material.Glass, DECOR)
+	PartKit.Box(model, "Rail", Vector3.new(14, 0.3, 0.3), cf * CFrame.new(0, 11, -6.8), wood, Enum.Material.Wood, DECOR)
+	-- the ramp up the back
+	PartKit.Slab(model, "Ramp", (cf * CFrame.new(0, 0, 22)).Position, (cf * CFrame.new(0, 8.6, 5)).Position, 4, 0.5, wood, Enum.Material.WoodPlanks, NO_COLLIDE)
+	local flag = PartKit.Box(model, "Flag", Vector3.new(3, 2, 0.1), cf * CFrame.new(5, 21, 0.5), Color3.fromRGB(230, 40, 40), Enum.Material.Fabric, DECOR)
+	local _f = flag
+	PartKit.Post(model, "FlagPole", 0.25, 6, (cf * CFrame.new(3.5, 17.5, 0.5)).Position, Color3.fromRGB(230, 230, 230), Enum.Material.Metal, DECOR)
+	return model
+end
+
+-- A beach umbrella over a towel or a pair of loungers
+function Detail.BeachUmbrella(parent: Instance, base: Vector3, color: Color3, rng: Random)
+	local model = PartKit.Model(parent, "Umbrella")
+	PartKit.Post(model, "Pole", 0.3, 8, base, Color3.fromRGB(240, 240, 240), Enum.Material.Metal, DECOR)
+	local canopy = PartKit.Ellipsoid(model, "Canopy", Vector3.new(11, 2.2, 11), CFrame.new(base + Vector3.new(0, 8, 0)), color, Enum.Material.Fabric, DECOR)
+	local _ = canopy
+	local yaw = rng:NextNumber(0, math.pi * 2)
+	local towels = { Color3.fromRGB(250, 250, 250), Color3.fromRGB(80, 170, 220), Color3.fromRGB(250, 140, 170), Color3.fromRGB(250, 210, 80) }
+	for _, x in { -2.2, 2.2 } do
+		local cf = CFrame.new(base) * CFrame.Angles(0, yaw, 0) * CFrame.new(x, 0, 2)
+		if rng:NextNumber() < 0.5 then
+			PartKit.Box(model, "Lounger", Vector3.new(2.2, 1.2, 6.5), cf * CFrame.new(0, 0.6, 0), Color3.fromRGB(245, 245, 240), Enum.Material.SmoothPlastic, DECOR)
+		else
+			PartKit.Box(model, "Towel", Vector3.new(2.4, 0.08, 6), cf * CFrame.new(0, 0.05, 0), towels[rng:NextInteger(1, #towels)], Enum.Material.Fabric, DECOR)
+		end
+	end
+	return model
 end
 
 return Detail

@@ -24,6 +24,7 @@ local BUILTIN: { [string]: Def } = {
 	Click = { Id = "rbxasset://sounds/button.wav", Pitch = 1, Volume = 0.4, Library = false },
 	Land = { Id = "rbxasset://sounds/action_jump_land.mp3", Pitch = 0.8, Volume = 0.8, Library = false },
 	Crash = { Id = "rbxasset://sounds/action_jump_land.mp3", Pitch = 0.5, Volume = 1, Library = false },
+	Splash = { Id = "rbxasset://sounds/impact_water.mp3", Pitch = 0.9, Volume = 1, Library = false },
 	Cash = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.6, Volume = 0.3, Library = false },
 	LevelUp = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.0, Volume = 0.5, Library = false },
 	Bell = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 2.2, Volume = 0.5, Library = false },

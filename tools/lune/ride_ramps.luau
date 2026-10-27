@@ -14,6 +14,7 @@ local GeoWorld = require("./geoworld")
 
 local Vector3, CFrame = roblox.Vector3, roblox.CFrame
 
+local Layout = Loader.Require("ReplicatedStorage.Shared.City.Layout")
 local Bikes = Loader.Require("ReplicatedStorage.Shared.Bikes")
 local BikeStats = Loader.Require("ReplicatedStorage.Shared.BikeStats")
 local BikePhysics = Loader.Require("ReplicatedStorage.Shared.BikePhysics")
@@ -40,19 +41,26 @@ for _, a in process.args do
 end
 
 local city = roblox.deserializeModel(fs.readFile("map/City.rbxm"))[1]
-local geo = GeoWorld.new(city)
+local geo = GeoWorld.new(city, function(x: number, z: number): number?
+	return if Layout.InWater(x, z) then Layout.WATER_Y else nil
+end)
 print(string.format("world: %d solid parts", geo.Count))
 local world = geo.Physics
 
--- what to ride: tilted riding faces in the parks and the hills, approached straight up their slope
+-- what to ride: tilted riding faces in the parks and the hills, the freeway ramps and descents and
+-- the parking garage's ramps, approached straight up their slope
 local targets = {}
 for _, d in city:GetDescendants() do
 	if d:IsA("BasePart") and d.CanCollide and d.CanQuery then
 		local look = d.CFrame.LookVector
-		local park = d:FindFirstAncestor("JumpPark") or d:FindFirstAncestor("LoopPark") or d:FindFirstAncestor("Hills") or d:FindFirstAncestor("Plaza")
+		local park = d:FindFirstAncestor("JumpPark") or d:FindFirstAncestor("LoopPark") or d:FindFirstAncestor("Hills") or d:FindFirstAncestor("Plaza") or d:FindFirstAncestor("BayfrontPark")
+		local road = (d:FindFirstAncestor("Freeways") and d.Name == "Deck") or (d:FindFirstAncestor("Garage") and d.Name == "Ramp")
 		local first = d.Name ~= "Transition" or (d.Parent and d.Parent:FindFirstChild("Transition") == d)
 		local quarterFoot = d.Name == "Transition" and first
-		if park and ((look.Y > 0.08 and look.Y < 0.9) or quarterFoot) and first and d.Size.X > 6 then
+		if road and look.Y > 0.05 and look.Y < 0.5 then
+			park = d:FindFirstAncestor("Freeways") or d:FindFirstAncestor("Garage")
+		end
+		if park and ((look.Y > (if road then 0.05 else 0.08) and look.Y < 0.9) or quarterFoot) and first and d.Size.X > 6 then
 			local label = park.Name .. "/" .. (if d.Parent then d.Parent.Name else "?") .. "/" .. d.Name
 			if not filter or string.find(label, filter, 1, true) then
 				table.insert(targets, { Part = d, Label = label })
@@ -96,7 +104,11 @@ for _, target in targets do
 			start = Vector3.new(high.X, 0, high.Z) - flat * 3
 			fromY = high.Y + 3
 		end
-		local ground = world.Down(Vector3.new(start.X, fromY, start.Z), if run.Down then 8 else 200)
+		local covered = part:FindFirstAncestor("Garage") ~= nil -- decks overhead: start just above the floor
+		if covered and not run.Down then
+			fromY = low.Y + 3
+		end
+		local ground = world.Down(Vector3.new(start.X, fromY, start.Z), if run.Down or covered then 8 else 200)
 		if not ground then
 			continue
 		end

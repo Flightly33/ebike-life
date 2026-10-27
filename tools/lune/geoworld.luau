@@ -65,7 +65,9 @@ GeoWorld.Rideable = rideable
 
 type Entry = { Part: any, CF: any, Inv: any, Half: any, Shape: string, Min: any, Max: any }
 
-function GeoWorld.new(root: any)
+-- `water` (optional): the water surface's height at (x, z), or nil where there's none (the game's
+-- Terrain water isn't in the baked model)
+function GeoWorld.new(root: any, water: ((number, number) -> number?)?)
 	local self = { Cells = {} :: { [number]: { Entry } }, Count = 0, Stats = { Rays = 0, Sweeps = 0 } }
 	local function key(i: number, j: number): number
 		return (i + 4096) * 8192 + (j + 4096)
@@ -286,6 +288,10 @@ function GeoWorld.new(root: any)
 	self.Physics = {
 		Down = function(origin: any, length: number): any
 			local hit = self.Raycast(origin, Vector3.new(0, -length, 0))
+			local surface = if water then water(origin.X, origin.Z) else nil
+			if surface and origin.Y >= surface and origin.Y - length <= surface and (not hit or hit.Position.Y < surface) then
+				return { Position = Vector3.new(origin.X, surface, origin.Z), Normal = Vector3.new(0, 1, 0), Kind = "Water" }
+			end
 			if not hit then
 				return nil
 			end

@@ -1,6 +1,6 @@
 --[[
 	Landmarks: Flighty Mechanics (the dealership, where you spawn), the police station, the city
-	plaza, Central Park and the Jump Park.
+	plaza, the Jump and Loop parks, Bayfront Park and the marina.
 
 	The dealership holds a prompt named DealershipPrompt (opens the dealership menu) and one named
 	TuningPrompt (the service bay). Showroom bikes are static BikeModels on turntables.
@@ -12,6 +12,7 @@ local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local PartKit = require(script.Parent.Parent.PartKit)
 local Detail = require(script.Parent.Detail)
+local Shore = require(script.Parent.Shore)
 local Bikes = require(script.Parent.Parent.Bikes)
 local Config = require(script.Parent.Parent.Config)
 local BikeModel = require(script.Parent.Parent.Models.BikeModel)
@@ -901,52 +902,135 @@ function Landmarks.LoopPark(parent: Instance, block: LayoutModule.Block, rng: Ra
 end
 
 --------------------------------------------------------------------------------
--- Central Park (two blocks): lawns, paths, a pond, lots of trees, benches and a few small hills
+-- Bayfront Park: lawns and palm groves on the bay, a bandshell over a stage, a fountain, a grassy
+-- mound to ride over
 --------------------------------------------------------------------------------
-function Landmarks.Park(parent: Instance, blocks: { LayoutModule.Block }, rng: Random)
-	local model = PartKit.Model(parent, "CentralPark")
-	for _, block in blocks do
-		local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
-		local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
-		local lawn = PartKit.Box(model, "Lawn", Vector3.new(x1 - x0, 0.3, z1 - z0), CFrame.new(cx, Y + 0.15, cz), Props.Palette.Lawn, Enum.Material.Grass)
-		lawn:SetAttribute("Surface", "Grass")
-		local py = Y + 0.3
-		-- cross paths
-		PartKit.Box(model, "Path", Vector3.new(14, 0.2, z1 - z0), CFrame.new(cx, py + 0.1, cz), Color3.fromRGB(196, 186, 168), Enum.Material.Pavement)
-		PartKit.Box(model, "Path", Vector3.new(x1 - x0, 0.2, 14), CFrame.new(cx, py + 0.1, cz), Color3.fromRGB(196, 186, 168), Enum.Material.Pavement)
-		-- pond in one quadrant
-		local px, pz = cx - (x1 - x0) / 4, cz + (z1 - z0) / 4
-		PartKit.Post(model, "PondRim", 80, 1.8, Vector3.new(px, py, pz), Color3.fromRGB(140, 136, 128), Enum.Material.Cobblestone)
-		local water = PartKit.Post(model, "Pond", 76, 1.85, Vector3.new(px, py, pz), Color3.fromRGB(60, 120, 150), SMOOTH)
-		water.Transparency = 0.2
-		water.Reflectance = 0.35
-		-- a grass hill with a gentle rideable slope on each side
-		local hx, hz = cx + (x1 - x0) / 4, cz - (z1 - z0) / 4
-		local hill = PartKit.Box(model, "HillTop", Vector3.new(30, 6, 30), CFrame.new(hx, py + 3, hz), Props.Palette.Lawn, Enum.Material.Grass)
-		hill:SetAttribute("Surface", "Grass")
-		for _, d in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
-			local edge = Vector3.new(hx, py + 6, hz) + d * 15
-			local foot = edge + d * 26 - Vector3.new(0, 6, 0)
-			local slope = PartKit.Ramp(model, "HillSide", foot, edge, 30, Props.Palette.Lawn, Enum.Material.Grass)
-			slope:SetAttribute("Surface", "Grass")
+function Landmarks.BayPark(parent: Instance, block: LayoutModule.Block, rng: Random)
+	local model = PartKit.Model(parent, "BayfrontPark")
+	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
+	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+	local lawn = PartKit.Box(model, "Lawn", Vector3.new(x1 - x0, 0.3, z1 - z0), CFrame.new(cx, Y + 0.15, cz), Props.Palette.Lawn, Enum.Material.Grass)
+	lawn:SetAttribute("Surface", "Grass")
+	local py = Y + 0.3
+	local paving = Color3.fromRGB(222, 208, 186)
+	for _, size in { Vector3.new(14, 0.2, z1 - z0), Vector3.new(x1 - x0, 0.2, 14) } do
+		local path = PartKit.Box(model, "Path", size, CFrame.new(cx, py + 0.1, cz), paving, Enum.Material.Pavement)
+		path:SetAttribute("Surface", "Sidewalk")
+	end
+	-- the fountain at the crossing
+	PartKit.Post(model, "FountainRim", 54, 1.8, Vector3.new(cx, py, cz), Color3.fromRGB(236, 232, 224), Enum.Material.Marble)
+	local water = PartKit.Post(model, "Water", 50, 1.85, Vector3.new(cx, py, cz), Color3.fromRGB(60, 170, 210), SMOOTH)
+	water.Transparency = 0.25
+	water.Reflectance = 0.3
+	for k = 0, 5 do
+		local a = k / 6 * math.pi * 2
+		PartKit.Ball(model, "Jet", 3, Vector3.new(cx + math.cos(a) * 14, py + 6, cz + math.sin(a) * 14), Color3.fromRGB(210, 236, 255), GLASS, DECOR).Transparency = 0.5
+	end
+	PartKit.Post(model, "Spout", 2, 14, Vector3.new(cx, py, cz), Color3.fromRGB(236, 232, 224), Enum.Material.Marble)
+	PartKit.Ball(model, "Spray", 8, Vector3.new(cx, py + 15, cz), Color3.fromRGB(210, 236, 255), GLASS, DECOR).Transparency = 0.5
+
+	-- the bandshell in the north-east quarter, its stage facing the lawn to the south-west
+	local sx, sz = cx + (x1 - x0) / 4, cz - (z1 - z0) / 4
+	local toward = Vector3.new(-1, 0, 1).Unit
+	local stage = CFrame.lookAt(Vector3.new(sx, py, sz), Vector3.new(sx, py, sz) + toward)
+	PartKit.Box(model, "Stage", Vector3.new(56, 4, 30), stage * CFrame.new(0, 2, 0), Color3.fromRGB(230, 226, 218), CONCRETE)
+	PartKit.Box(model, "StageFloor", Vector3.new(54, 0.2, 28), stage * CFrame.new(0, 4.1, 0), Color3.fromRGB(110, 80, 56), Enum.Material.WoodPlanks, DECOR)
+	-- the shell: arched ribs of slabs leaning in over the back of the stage
+	for k = 0, 6 do
+		local a = math.rad(-75 + k * 25)
+		local base = stage * CFrame.new(math.sin(a) * 26, 4, 12 + (1 - math.cos(a)) * -6)
+		local top = base * CFrame.new(0, 26, -10)
+		PartKit.Slab(model, "Shell", base.Position, top.Position, 9, 1.2, Color3.fromRGB(248, 248, 244), SMOOTH)
+	end
+	PartKit.Box(model, "ShellCrown", Vector3.new(50, 2, 14), stage * CFrame.new(0, 31, 3) * CFrame.Angles(math.rad(-20), 0, 0), Color3.fromRGB(248, 248, 244), SMOOTH, NO_COLLIDE)
+	for _, x in { -22, 22 } do
+		PartKit.Box(model, "Speaker", Vector3.new(5, 12, 5), stage * CFrame.new(x, 10, -12), Color3.fromRGB(26, 26, 30), SMOOTH)
+	end
+	-- a grassy mound in the south-west quarter (rideable both ways)
+	local hx, hz = cx - (x1 - x0) / 4, cz + (z1 - z0) / 4
+	local hill = PartKit.Box(model, "HillTop", Vector3.new(34, 7, 34), CFrame.new(hx, py + 3.5, hz), Props.Palette.Lawn, Enum.Material.Grass)
+	hill:SetAttribute("Surface", "Grass")
+	for _, d in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
+		local edge = Vector3.new(hx, py + 7, hz) + d * 17
+		local foot = edge + d * 30 - Vector3.new(0, 7, 0)
+		local slope = PartKit.Ramp(model, "HillSide", foot, edge, 34, Props.Palette.Lawn, Enum.Material.Grass)
+		slope:SetAttribute("Surface", "Grass")
+	end
+	-- palm groves, benches and lamps
+	for _ = 1, 44 do
+		local x = rng:NextNumber(x0 + 8, x1 - 8)
+		local z = rng:NextNumber(z0 + 8, z1 - 8)
+		local onPath = math.abs(x - cx) < 14 or math.abs(z - cz) < 14
+		local nearFountain = (Vector3.new(x, 0, z) - Vector3.new(cx, 0, cz)).Magnitude < 44
+		local nearStage = (Vector3.new(x, 0, z) - Vector3.new(sx, 0, sz)).Magnitude < 52
+		local onHill = math.abs(x - hx) < 52 and math.abs(z - hz) < 52
+		if not (onPath or nearFountain or nearStage or onHill) then
+			Props.Palm(model, Vector3.new(x, py, z), rng)
 		end
-		-- trees and benches
-		for _ = 1, 26 do
-			local x = rng:NextNumber(x0 + 8, x1 - 8)
-			local zz = rng:NextNumber(z0 + 8, z1 - 8)
-			local onPath = math.abs(x - cx) < 14 or math.abs(zz - cz) < 14
-			local inPond = (Vector3.new(x, 0, zz) - Vector3.new(px, 0, pz)).Magnitude < 50
-			local onHill = math.abs(x - hx) < 48 and math.abs(zz - hz) < 48
-			if not onPath and not inPond and not onHill then
-				Props.Tree(model, Vector3.new(x, py, zz), rng)
+	end
+	for i = -3, 3 do
+		if i ~= 0 then
+			Props.Bench(model, CFrame.new(cx + 12, py, cz + i * 38) * CFrame.Angles(0, math.rad(90), 0))
+			Props.Lamp(model, Vector3.new(cx - 10, py, cz + i * 38 + 10))
+			Props.Lamp(model, Vector3.new(cx + i * 38 + 10, py, cz - 10))
+		end
+	end
+	local sign = PartKit.Box(model, "ParkSign", Vector3.new(30, 6, 1.2), CFrame.new(cx, py + 3, z1 - 6), Color3.fromRGB(30, 110, 90), SMOOTH)
+	PartKit.Sign(sign, Enum.NormalId.Back, "BAYFRONT PARK", Color3.fromRGB(250, 250, 245), nil, Enum.Font.GothamBold, 10)
+	return model
+end
+
+--------------------------------------------------------------------------------
+-- The marina's shore block: a yacht club on the bay, a dry-stack boat barn, parking
+-- (its docks are the Shore's, off the baywalk)
+--------------------------------------------------------------------------------
+function Landmarks.Marina(parent: Instance, block: LayoutModule.Block, rng: Random)
+	local model = PartKit.Model(parent, "Marina")
+	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
+	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+	PartKit.Box(model, "Paving", Vector3.new(x1 - x0, 0.3, z1 - z0), CFrame.new(cx, Y + 0.15, cz), Color3.fromRGB(226, 220, 206), Enum.Material.Pavement):SetAttribute("Surface", "Sidewalk")
+	local fy = Y + 0.3
+	-- the yacht club: two white storeys, glass all round, a roof terrace with sails over it
+	local club = Vector3.new(x1 - 60, fy, cz - 50)
+	local white = Color3.fromRGB(248, 248, 244)
+	PartKit.Box(model, "Club", Vector3.new(90, 13, 60), CFrame.new(club + Vector3.new(0, 6.5, 0)), white, SMOOTH)
+	local glass = PartKit.Box(model, "ShopGlass", Vector3.new(90.4, 8, 60.4), CFrame.new(club + Vector3.new(0, 5, 0)), Color3.fromRGB(80, 120, 140), GLASS, DECOR)
+	glass.Reflectance = 0.3
+	PartKit.Box(model, "UpperFloor", Vector3.new(70, 11, 46), CFrame.new(club + Vector3.new(-6, 18.5, 0)), white, SMOOTH)
+	local upper = PartKit.Box(model, "Window", Vector3.new(70.4, 6, 46.4), CFrame.new(club + Vector3.new(-6, 18.5, 0)), Color3.fromRGB(80, 120, 140), GLASS, DECOR)
+	upper.Reflectance = 0.3
+	PartKit.Box(model, "Terrace", Vector3.new(96, 1, 66), CFrame.new(club + Vector3.new(0, 13.5, 0)), Color3.fromRGB(150, 116, 80), Enum.Material.WoodPlanks)
+	for k = 0, 2 do
+		local p = club + Vector3.new(14 + k * 8, 30, -18 + k * 18)
+		PartKit.Slab(model, "Sail", p, p + Vector3.new(20, -6, 10), 16, 0.3, white, Enum.Material.Fabric, NO_COLLIDE)
+	end
+	local name = PartKit.Box(model, "ClubName", Vector3.new(40, 4, 0.3), CFrame.new(club + Vector3.new(0, 26, 23.2)), white, SMOOTH, DECOR)
+	name.Transparency = 1
+	PartKit.Sign(name, Enum.NormalId.Back, "BISCAYNE YACHT CLUB", Color3.fromRGB(20, 50, 100), nil, Enum.Font.GothamBold, 10)
+	-- the dry-stack barn: steel racks with boats on three tiers
+	local barn = Vector3.new(x0 + 60, fy, cz)
+	local steel = Color3.fromRGB(170, 176, 182)
+	PartKit.Box(model, "BarnRoof", Vector3.new(90, 2, 200), CFrame.new(barn + Vector3.new(0, 46, 0)), Color3.fromRGB(230, 230, 226), Enum.Material.CorrodedMetal)
+	for _, sx in { -1, 1 } do
+		for z = -95, 95, 38 do
+			PartKit.Box(model, "RackPost", Vector3.new(2, 45, 2), CFrame.new(barn + Vector3.new(sx * 43, 22.5, z)), steel, Enum.Material.Metal)
+		end
+	end
+	for tier = 0, 2 do
+		local y = 4 + tier * 14
+		for _, sx in { -1, 1 } do
+			PartKit.Box(model, "RackArm", Vector3.new(30, 1, 200), CFrame.new(barn + Vector3.new(sx * 26, y, 0)), steel, Enum.Material.Metal, NO_COLLIDE)
+			for z = -80, 80, 32 do
+				if rng:NextNumber() < 0.75 then
+					Shore.Boat(model, CFrame.lookAt(barn + Vector3.new(sx * 26, y + 1.5, z), barn + Vector3.new(sx * 60, y + 1.5, z)), rng)
+				end
 			end
 		end
-		for i = -2, 2 do
-			if i ~= 0 then
-				Props.Bench(model, CFrame.new(cx + 12, py, cz + i * 40) * CFrame.Angles(0, math.rad(90), 0))
-				Props.Lamp(model, Vector3.new(cx - 10, py, cz + i * 40 + 10))
-			end
-		end
+	end
+	-- a forklift, the parking between, palms
+	PartKit.Box(model, "Forklift", Vector3.new(8, 8, 12), CFrame.new(barn + Vector3.new(0, 4, -110)), Color3.fromRGB(240, 190, 30), SMOOTH)
+	for _ = 1, 10 do
+		Props.Palm(model, Vector3.new(rng:NextNumber(x0 + 120, x1 - 10), fy, rng:NextNumber(cz + 20, z1 - 10)), rng)
 	end
 	return model
 end

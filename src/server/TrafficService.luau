@@ -25,16 +25,29 @@ local rng = Random.new(777)
 local vehicles: Folder
 
 local function randomStart(): (number, number)
-	-- most traffic in the grid, some on the ring road
-	if rng:NextNumber() < 0.75 then
-		local i, j = rng:NextInteger(0, Layout.GRID_COUNT - 1), rng:NextInteger(0, Layout.GRID_COUNT - 1)
-		local node = Layout.GridNode[i][j]
+	-- most traffic in the grid, some on the freeways, some on the turnpike
+	local roll = rng:NextNumber()
+	if roll < 0.2 then
+		local chain = if rng:NextNumber() < 0.65 then Layout.I95 else Layout.I395
+		local k = rng:NextInteger(1, #chain - 1)
+		if rng:NextNumber() < 0.5 then
+			return chain[k], chain[k + 1]
+		end
+		return chain[k + 1], chain[k]
+	end
+	if roll < 0.8 then
+		-- any crossing of the mainland's grid or the island's
+		local node = Layout.GridNodes[rng:NextInteger(1, #Layout.GridNodes)]
 		local edges = Layout.Nodes[node].Edges
 		return node, Layout.OtherEnd(Layout.Edges[edges[rng:NextInteger(1, #edges)]], node)
 	end
+	-- the turnpike is a U (its ends meet Biscayne Blvd), not a loop
 	local ring = Layout.RingNodes
-	local k = rng:NextInteger(1, #ring)
-	return ring[k], ring[k % #ring + 1]
+	local k = rng:NextInteger(1, #ring - 1)
+	if rng:NextNumber() < 0.5 then
+		return ring[k], ring[k + 1]
+	end
+	return ring[k + 1], ring[k]
 end
 
 local function spawnCar(): Car

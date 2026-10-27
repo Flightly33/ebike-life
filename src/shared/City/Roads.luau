@@ -23,9 +23,30 @@ local MARK_Y = Layout.ROAD_Y + 0.025
 local PATCH = Color3.fromRGB(72, 74, 78) -- repaired asphalt, darker than the road
 local SIGN_GREEN = Color3.fromRGB(28, 104, 62)
 
--- Street names: the avenues run along Z (grid lines I), the streets along X (lines J)
-local AVENUES = { "1st Ave", "2nd Ave", "3rd Ave", "4th Ave", "5th Ave", "6th Ave", "7th Ave", "8th Ave", "9th Ave" }
-local STREETS = { "Maple St", "Oak St", "Cedar St", "Elm St", "Birch St", "Willow St", "Aspen St", "Spruce St", "Ash St" }
+-- Street names at a grid crossing: the road along Z, then the road along X (Layout's names)
+local islandNames: { [number]: { string } } = {}
+for i, column in Layout.IslandGrid do
+	for j, id in column do
+		islandNames[id] = { Layout.ISLAND_X_NAMES[i], Layout.ISLAND_Z_NAMES[j] }
+	end
+end
+local function crossingNames(node: LayoutModule.Node): (string, string)
+	if node.I and node.J then
+		return Layout.X_NAMES[node.I + 1], Layout.Z_NAMES[node.J + 1]
+	end
+	local names = islandNames[node.Id]
+	if names then
+		return names[1], names[2]
+	end
+	return "Avenue", "Street"
+end
+
+-- Road pieces the freeway and shore builders draw instead (decks, ramps, causeways)
+local OWN_KIND: { [string]: boolean } = { Freeway = true, Ramp = true, Causeway = true }
+local ringNode: { [number]: boolean } = {}
+for _, id in Layout.RingNodes do
+	ringNode[id] = true
+end
 
 local function slab(parent: Instance, name: string, center: Vector3, size: Vector3, yaw: number?): Part
 	local cf = CFrame.new(center.X, Layout.ROAD_Y - THICK / 2, center.Z) * CFrame.Angles(0, yaw or 0, 0)
@@ -109,145 +130,153 @@ function Roads.Build(city: Instance)
 	local marks = PartKit.Folder(city, "Markings")
 	local signals = PartKit.Folder(city, "Signals")
 
-	-- Grid road pieces between intersections
+	-- Street pieces (the grids, Biscayne Blvd's ends, 5th St off I-395): straight along X or Z,
+	-- cut back at grid crossings, running straight through the T-junctions part-way along a line
 	for _, edge in Layout.Edges do
 		local na, nb = Layout.Nodes[edge.A], Layout.Nodes[edge.B]
-		if na.Grid and nb.Grid then
-			local a, b = na.Position, nb.Position
-			local dir = edge.Direction
-			local ca = Layout.NodeClearance(edge.A, edge.Axis)
-			local cb = Layout.NodeClearance(edge.B, edge.Axis)
-			local p0 = a + dir * ca
-			local p1 = b - dir * cb
-			local length = (p1 - p0).Magnitude
-			local center = (p0 + p1) / 2
-			local size = if edge.Axis == "X" then Vector3.new(length, 0, edge.Width) else Vector3.new(edge.Width, 0, length)
-			slab(roads, "Road", center, size)
-			markings(marks, p0, p1, edge.Kind, edge.Width, edge.Lanes)
-			-- white edge lines along both kerbs, and a few darker repair patches in the asphalt
-			line(marks, p0 + dir * 4, p1 - dir * 4, edge.Width / 2 - 1.8, 0.4, C.White)
-			line(marks, p0 + dir * 4, p1 - dir * 4, -(edge.Width / 2 - 1.8), 0.4, C.White)
-			local rng = Random.new(edge.A * 7919 + edge.B * 104729)
-			for _ = 1, rng:NextInteger(1, 3) do
-				local along = rng:NextNumber(0.15, 0.85) * length
-				local across = rng:NextNumber(-0.35, 0.35) * edge.Width
-				local at = Vector3.new(p0.X, Layout.ROAD_Y + 0.012, p0.Z) + dir * along + Vector3.new(-dir.Z, 0, dir.X) * across
-				local size2 = Vector3.new(rng:NextNumber(3, 7), 0.02, rng:NextNumber(4, 10))
-				PartKit.Box(marks, "Patch", size2, CFrame.lookAt(at, at + dir) * CFrame.Angles(0, rng:NextNumber(-0.2, 0.2), 0), PATCH, ASPHALT, MARK)
-			end
-			-- manholes in the lanes, drains along both kerbs
-			local side = Vector3.new(-dir.Z, 0, dir.X)
-			local laneW = edge.Width / (edge.Lanes * 2)
+		if OWN_KIND[edge.Kind] or na.Elevated or nb.Elevated or (edge.Kind ~= "Street" and edge.Kind ~= "Avenue") then
+			continue
+		end
+		local a, b = na.Position, nb.Position
+		local dir = edge.Direction
+		local ca = Layout.NodeClearance(edge.A, edge.Axis)
+		local cb = Layout.NodeClearance(edge.B, edge.Axis)
+		local p0 = a + dir * ca
+		local p1 = b - dir * cb
+		local length = (p1 - p0).Magnitude
+		local center = (p0 + p1) / 2
+		local size = if edge.Axis == "X" then Vector3.new(length, 0, edge.Width) else Vector3.new(edge.Width, 0, length)
+		slab(roads, "Road", center, size)
+		-- markings stop short of the turnpike's asphalt where Biscayne Blvd meets it
+		local m0 = if ringNode[edge.A] then p0 + dir * (Layout.RING_WIDTH / 2) else p0
+		local m1 = if ringNode[edge.B] then p1 - dir * (Layout.RING_WIDTH / 2) else p1
+		markings(marks, m0, m1, edge.Kind, edge.Width, edge.Lanes)
+		-- white edge lines along both kerbs, and a few darker repair patches in the asphalt
+		line(marks, m0 + dir * 4, m1 - dir * 4, edge.Width / 2 - 1.8, 0.4, C.White)
+		line(marks, m0 + dir * 4, m1 - dir * 4, -(edge.Width / 2 - 1.8), 0.4, C.White)
+		local rng = Random.new(edge.A * 7919 + edge.B * 104729)
+		for _ = 1, rng:NextInteger(1, 3) do
+			local along = rng:NextNumber(0.15, 0.85) * length
+			local across = rng:NextNumber(-0.35, 0.35) * edge.Width
+			local at = Vector3.new(p0.X, Layout.ROAD_Y + 0.012, p0.Z) + dir * along + Vector3.new(-dir.Z, 0, dir.X) * across
+			local size2 = Vector3.new(rng:NextNumber(3, 7), 0.02, rng:NextNumber(4, 10))
+			PartKit.Box(marks, "Patch", size2, CFrame.lookAt(at, at + dir) * CFrame.Angles(0, rng:NextNumber(-0.2, 0.2), 0), PATCH, ASPHALT, MARK)
+		end
+		-- manholes in the lanes, drains along both kerbs
+		local side = Vector3.new(-dir.Z, 0, dir.X)
+		local laneW = edge.Width / (edge.Lanes * 2)
+		if length > 60 then
 			Detail.Manhole(marks, Vector3.new(center.X, MARK_Y, center.Z) + side * laneW * 0.5 + dir * (length * 0.18))
 			Detail.Manhole(marks, Vector3.new(center.X, MARK_Y, center.Z) - side * laneW * 0.5 - dir * (length * 0.3))
-			local drains = math.floor(length / 70)
-			for k = 1, drains do
-				for _, sgn in { -1, 1 } do
-					local p = Vector3.new(p0.X, MARK_Y, p0.Z) + dir * (k * length / (drains + 1)) + side * sgn * (edge.Width / 2 - 1)
-					Detail.Drain(marks, CFrame.lookAt(p, p + dir))
+		end
+		local drains = math.floor(length / 70)
+		for k = 1, drains do
+			for _, sgn in { -1, 1 } do
+				local p = Vector3.new(p0.X, MARK_Y, p0.Z) + dir * (k * length / (drains + 1)) + side * sgn * (edge.Width / 2 - 1)
+				Detail.Drain(marks, CFrame.lookAt(p, p + dir))
+			end
+		end
+		-- crosswalks and stop lines where there are lights
+		local lightsA, lightsB = Layout.HasLights(na), Layout.HasLights(nb)
+		if lightsA then
+			crosswalk(marks, p0, p1, 6, edge.Width)
+		end
+		if lightsB then
+			crosswalk(marks, p1, p0, 6, edge.Width)
+		end
+		-- stop lines across the lanes arriving at each lit end
+		local right = Vector3.new(-dir.Z, 0, dir.X)
+		-- lane arrows before the stop lines on the avenues
+		if edge.Kind == "Avenue" and length > 70 then
+			for lane = 1, edge.Lanes do
+				local o = laneW * (lane - 0.5)
+				if lightsB then
+					Detail.Arrow(marks, Vector3.new(p1.X, MARK_Y, p1.Z) - dir * 24 + side * o, dir, if lane == 1 then -1 else 0, C.White)
+				end
+				if lightsA then
+					Detail.Arrow(marks, Vector3.new(p0.X, MARK_Y, p0.Z) + dir * 24 - side * o, -dir, if lane == 1 then -1 else 0, C.White)
 				end
 			end
-			-- crosswalks and stop lines where there are lights
-			local lightsA, lightsB = Layout.HasLights(na), Layout.HasLights(nb)
-			if lightsA then
-				crosswalk(marks, p0, p1, 6, edge.Width)
-			end
-			if lightsB then
-				crosswalk(marks, p1, p0, 6, edge.Width)
-			end
-			-- stop lines across the lanes arriving at each lit end
-			local right = Vector3.new(-dir.Z, 0, dir.X)
-			-- lane arrows before the stop lines on the avenues
-			if edge.Kind == "Avenue" then
-				for lane = 1, edge.Lanes do
-					local o = laneW * (lane - 0.5)
-					if lightsB then
-						Detail.Arrow(marks, Vector3.new(p1.X, MARK_Y, p1.Z) - dir * 24 + side * o, dir, if lane == 1 then -1 else 0, C.White)
-					end
-					if lightsA then
-						Detail.Arrow(marks, Vector3.new(p0.X, MARK_Y, p0.Z) + dir * 24 - side * o, -dir, if lane == 1 then -1 else 0, C.White)
-					end
-				end
-			end
-			if lightsB then
-				local s = p1 - dir * 12
-				local from, to = s + right * 0.6, s + right * (edge.Width / 2 - 0.6)
-				local mid = (from + to) / 2
-				PartKit.Box(marks, "StopLine", Vector3.new((to - from).Magnitude, 0.05, 1.2), CFrame.lookAt(Vector3.new(mid.X, MARK_Y, mid.Z), Vector3.new(mid.X, MARK_Y, mid.Z) + dir), C.White, SMOOTH, MARK)
-			end
-			if lightsA then
-				local s = p0 + dir * 12
-				local from, to = s - right * 0.6, s - right * (edge.Width / 2 - 0.6)
-				local mid = (from + to) / 2
-				PartKit.Box(marks, "StopLine", Vector3.new((to - from).Magnitude, 0.05, 1.2), CFrame.lookAt(Vector3.new(mid.X, MARK_Y, mid.Z), Vector3.new(mid.X, MARK_Y, mid.Z) + dir), C.White, SMOOTH, MARK)
-			end
+		end
+		if lightsB then
+			local s = p1 - dir * 12
+			local from, to = s + right * 0.6, s + right * (edge.Width / 2 - 0.6)
+			local mid = (from + to) / 2
+			PartKit.Box(marks, "StopLine", Vector3.new((to - from).Magnitude, 0.05, 1.2), CFrame.lookAt(Vector3.new(mid.X, MARK_Y, mid.Z), Vector3.new(mid.X, MARK_Y, mid.Z) + dir), C.White, SMOOTH, MARK)
+		end
+		if lightsA then
+			local s = p0 + dir * 12
+			local from, to = s - right * 0.6, s - right * (edge.Width / 2 - 0.6)
+			local mid = (from + to) / 2
+			PartKit.Box(marks, "StopLine", Vector3.new((to - from).Magnitude, 0.05, 1.2), CFrame.lookAt(Vector3.new(mid.X, MARK_Y, mid.Z), Vector3.new(mid.X, MARK_Y, mid.Z) + dir), C.White, SMOOTH, MARK)
 		end
 	end
 
-	-- Intersections
+	-- Intersections (both grids)
 	local signs = PartKit.Folder(city, "StreetSigns")
-	for _, node in Layout.Nodes do
-		if node.Grid and node.I and node.J then
-			local wx = Layout.LineWidth(node.I) -- the road along Z is this wide (in X)
-			local wz = Layout.LineWidth(node.J)
-			slab(roads, "Intersection", node.Position, Vector3.new(wx, 0, wz))
-			-- a street-name sign on one corner: the avenue's name along Z, the street's along X
-			local foot = node.Position + Vector3.new(wx / 2 + 3, Layout.CURB_Y - Layout.ROAD_Y, -(wz / 2 + 7))
-			local model = PartKit.Model(signs, "StreetSign")
-			PartKit.Post(model, "Pole", 0.35, 10.5, foot, C.LampBlack, Enum.Material.Metal)
-			PartKit.Ball(model, "Cap", 0.45, foot + Vector3.new(0, 10.5, 0), C.LampBlack, Enum.Material.Metal, MARK)
-			local blades = {
-				{ Name = AVENUES[node.I + 1] or "Avenue", Y = 9.4, Along = Vector3.new(0, 0, 1) },
-				{ Name = STREETS[node.J + 1] or "Street", Y = 10.1, Along = Vector3.new(1, 0, 0) },
-			}
-			for _, blade in blades do
-				local at = foot + Vector3.new(0, blade.Y, 0)
-				local part = PartKit.Box(model, "Blade", Vector3.new(6, 0.9, 0.12), CFrame.lookAt(at, at + blade.Along:Cross(Vector3.yAxis)), SIGN_GREEN, SMOOTH, MARK)
-				for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
-					PartKit.Sign(part, face, blade.Name, Color3.fromRGB(245, 245, 240), nil, Enum.Font.GothamBold, 24)
-				end
+	for _, id in Layout.GridNodes do
+		local node = Layout.Nodes[id]
+		local wx = node.WX or Layout.STREET_WIDTH -- the road along Z is this wide (in X)
+		local wz = node.WZ or Layout.STREET_WIDTH
+		slab(roads, "Intersection", node.Position, Vector3.new(wx, 0, wz))
+		-- a street-name sign on one corner: the name of the road along Z, then the one along X
+		local alongZ, alongX = crossingNames(node)
+		local foot = node.Position + Vector3.new(wx / 2 + 3, Layout.CURB_Y - Layout.ROAD_Y, -(wz / 2 + 7))
+		local model = PartKit.Model(signs, "StreetSign")
+		PartKit.Post(model, "Pole", 0.35, 10.5, foot, C.LampBlack, Enum.Material.Metal)
+		PartKit.Ball(model, "Cap", 0.45, foot + Vector3.new(0, 10.5, 0), C.LampBlack, Enum.Material.Metal, MARK)
+		local blades = {
+			{ Name = alongZ, Y = 9.4, Along = Vector3.new(0, 0, 1) },
+			{ Name = alongX, Y = 10.1, Along = Vector3.new(1, 0, 0) },
+		}
+		for _, blade in blades do
+			local at = foot + Vector3.new(0, blade.Y, 0)
+			local part = PartKit.Box(model, "Blade", Vector3.new(7, 0.9, 0.12), CFrame.lookAt(at, at + blade.Along:Cross(Vector3.yAxis)), SIGN_GREEN, SMOOTH, MARK)
+			for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+				PartKit.Sign(part, face, blade.Name, Color3.fromRGB(245, 245, 240), nil, Enum.Font.GothamBold, 24)
 			end
-			if Layout.HasLights(node) then
-				-- corner signals: SE and NW control traffic along Z, NE and SW along X
-				local corners = {
-					{ sx = 1, sz = 1, axis = "Z", facing = Vector3.new(0, 0, 1) },
-					{ sx = -1, sz = -1, axis = "Z", facing = Vector3.new(0, 0, -1) },
-					{ sx = 1, sz = -1, axis = "X", facing = Vector3.new(1, 0, 0) },
-					{ sx = -1, sz = 1, axis = "X", facing = Vector3.new(-1, 0, 0) },
-				}
-				for _, corner in corners do
-					local base = node.Position + Vector3.new(corner.sx * (wx / 2 + 3), Layout.CURB_Y - Layout.ROAD_Y, corner.sz * (wz / 2 + 3))
-					local over = if corner.axis == "Z" then wx / 4 + 3 else wz / 4 + 3
-					Props.Signal(signals, node.Id, corner.axis, base, corner.facing, over)
-				end
+		end
+		if Layout.HasLights(node) then
+			-- corner signals: SE and NW control traffic along Z, NE and SW along X
+			local corners = {
+				{ sx = 1, sz = 1, axis = "Z", facing = Vector3.new(0, 0, 1) },
+				{ sx = -1, sz = -1, axis = "Z", facing = Vector3.new(0, 0, -1) },
+				{ sx = 1, sz = -1, axis = "X", facing = Vector3.new(1, 0, 0) },
+				{ sx = -1, sz = 1, axis = "X", facing = Vector3.new(-1, 0, 0) },
+			}
+			for _, corner in corners do
+				local base = node.Position + Vector3.new(corner.sx * (wx / 2 + 3), Layout.CURB_Y - Layout.ROAD_Y, corner.sz * (wz / 2 + 3))
+				local over = if corner.axis == "Z" then wx / 4 + 3 else wz / 4 + 3
+				Props.Signal(signals, node.Id, corner.axis, base, corner.facing, over)
 			end
 		end
 	end
 
-	-- Ring highway and country roads: straight pieces with round caps at the joints
+	-- The turnpike and the country roads: straight pieces with round caps at the joints
 	for _, edge in Layout.Edges do
-		local na, nb = Layout.Nodes[edge.A], Layout.Nodes[edge.B]
-		if not (na.Grid and nb.Grid) then
-			local a, b = na.Position, nb.Position
-			local dir = edge.Direction
-			-- a country road starts at the edge of the grid crossing / ring
-			if na.Grid then
-				a += dir * Layout.NodeClearance(edge.A, edge.Axis)
-			end
-			if nb.Grid then
-				b -= dir * Layout.NodeClearance(edge.B, edge.Axis)
-			end
-			local length = (b - a).Magnitude
-			local center = (a + b) / 2
-			local yaw = math.atan2(-dir.X, -dir.Z)
-			slab(roads, if edge.Kind == "Highway" then "Highway" else "CountryRoad", center, Vector3.new(edge.Width, 0, length), yaw)
-			local trimA = if na.Grid then 0 else edge.Width * 0.3
-			local trimB = if nb.Grid then 0 else edge.Width * 0.3
-			if edge.Kind == "Rural" and not nb.Grid then
-				trimB = Layout.RING_WIDTH / 2 + 2
-			end
-			markings(marks, a + dir * trimA, b - dir * trimB, edge.Kind, edge.Width, edge.Lanes)
+		if edge.Kind ~= "Highway" and edge.Kind ~= "Rural" then
+			continue
 		end
+		local na, nb = Layout.Nodes[edge.A], Layout.Nodes[edge.B]
+		local a, b = na.Position, nb.Position
+		local dir = edge.Direction
+		-- a country road starts at the edge of the grid crossing
+		if na.Grid then
+			a += dir * Layout.NodeClearance(edge.A, edge.Axis)
+		end
+		if nb.Grid then
+			b -= dir * Layout.NodeClearance(edge.B, edge.Axis)
+		end
+		local length = (b - a).Magnitude
+		local center = (a + b) / 2
+		local yaw = math.atan2(-dir.X, -dir.Z)
+		slab(roads, if edge.Kind == "Highway" then "Highway" else "CountryRoad", center, Vector3.new(edge.Width, 0, length), yaw)
+		local trimA = if na.Grid then 0 else edge.Width * 0.3
+		local trimB = if nb.Grid then 0 else edge.Width * 0.3
+		if edge.Kind == "Rural" and not nb.Grid then
+			trimB = Layout.RING_WIDTH / 2 + 2
+		end
+		markings(marks, a + dir * trimA, b - dir * trimB, edge.Kind, edge.Width, edge.Lanes)
 	end
 	for _, id in Layout.RingNodes do
 		local node = Layout.Nodes[id]
@@ -255,5 +284,13 @@ function Roads.Build(city: Instance)
 		PartKit.Cylinder(roads, "Joint", Layout.RING_WIDTH, THICK, cf, C.Asphalt, ASPHALT)
 	end
 end
+
+-- Exposed for the freeway and shore builders
+Roads.Slab = slab
+Roads.Line = line
+Roads.Dashes = dashes
+Roads.Markings = markings
+Roads.THICK = THICK
+Roads.MARK_Y = MARK_Y
 
 return Roads

@@ -24,6 +24,7 @@ AudioCatalog.Effects = {
 	Brake = { Keywords = { "bicycle brake squeal", "brake squeal", "bike brake" }, MaxDuration = 3, Volume = 0.35 },
 	Crash = { Keywords = { "bike crash", "body fall", "crash impact" }, MaxDuration = 3, Volume = 0.6 },
 	Land = { Keywords = { "bike landing", "heavy thud", "landing thump" }, MaxDuration = 1.5, Volume = 0.5 },
+	Splash = { Keywords = { "big water splash", "water splash", "splash" }, MaxDuration = 3, Volume = 0.6 },
 	Bell = { Keywords = { "bicycle bell", "bike bell ring", "bell ding" }, MaxDuration = 2, Volume = 0.6 },
 	Siren = { Keywords = { "police siren loop", "police siren", "siren" }, MinDuration = 2, MaxDuration = 30, Volume = 0.5 },
 	Cash = { Keywords = { "cash register", "coins", "money" }, MaxDuration = 2, Volume = 0.4 },
