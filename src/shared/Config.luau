@@ -73,12 +73,14 @@ Config.Wheelie = {
 	Damping = 0.55, -- fraction of critical damping
 	DropAccel = 7, -- rad/s² the front falls with when released
 	LoopOut = 1.02, -- rad: past this the rider loops out
+	Balance = 0.6, -- rad: the balance point the bike tips away from...
+	Unstable = 1.2, -- ...this hard (x the spring): over 1, the key alone never holds it
 	Counted = 0.12, -- rad: above this the wheelie clock runs
 	Noise = 1.4, -- rad/s² of wobble at the start
 	NoisePerSecond = 0.07, -- more wobble the longer you hold it
 	NoisePerKmh = 0.045, -- and the faster you go
-	SweetLow = 0.3, -- balance zone shown on the HUD
-	SweetHigh = 0.78,
+	SweetLow = 0.42, -- balance zone shown on the HUD (the balance point is 0.6)
+	SweetHigh = 0.7,
 }
 
 -- Turning, tuned to the reference scooter game: above walking pace the bars set a turn rate (it

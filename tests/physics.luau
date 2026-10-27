@@ -388,7 +388,8 @@ do
 		end
 		print(string.format("  %-9s from %2.0f km/h: up=%s, loops out after %s s with no corrections", id, startKmh, tostring(started), if loopedAt then string.format("%.1f", loopedAt) else ">40"))
 		check(started, id .. " pops a wheelie")
-		check(loopedAt == nil or loopedAt > 4, id .. " holds a wheelie at least 4 s with the key alone")
+		-- holding the key and the throttle isn't enough: it tips past the balance point and loops out
+		check(loopedAt ~= nil and loopedAt > 1 and loopedAt < 6, id .. " loops out within 1-6 s with the key alone (it has to be balanced)")
 	end
 	-- With corrections (tap the brake when high, the throttle when low) it can go on and on
 	local spec, state = spawn("hornet_6")
@@ -397,8 +398,8 @@ do
 	local crashed = false
 	local longest = 0
 	ride(spec, state, Modes.Defaults.SPORT, flat, 60, inp, function(_, s, events)
-		inp.Brake = if s.Wheelie > 0.78 then 1 else 0
-		inp.Throttle = if s.Wheelie < 0.45 then 1 else 0.4
+		inp.Brake = if s.Wheelie > 0.72 then 1 else 0
+		inp.Throttle = if s.Wheelie < 0.55 then 1 else 0
 		longest = math.max(longest, s.WheelieTime)
 		for _, e in events do
 			if e.Kind == "Crash" then
@@ -992,7 +993,12 @@ do
 	-- rolling off a kerb mid-wheelie
 	local kerb = makeWorld({ DropZ = -120, DropHeight = 0.6 })
 	local spec, state = spawn("hornet_6")
-	local events = ride(spec, state, Modes.Defaults.TOUR, kerb, 9, input({ Throttle = 1, Wheelie = true }))
+	-- (balanced like a rider would: throttle when low, off and a dab of brake when high)
+	local kinp = input({ Throttle = 1, Wheelie = true })
+	local events = ride(spec, state, Modes.Defaults.TOUR, kerb, 9, kinp, function(_, s)
+		kinp.Throttle = if s.Wheelie < 0.55 then 1 else 0
+		kinp.Brake = if s.Wheelie > 0.72 then 1 else 0
+	end)
 	check(not crashes(events), "a wheelie off a kerb carries on")
 	-- off a kerb mid-drift
 	spec, state = spawn("hornet_6")

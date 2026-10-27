@@ -759,7 +759,11 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		if input.Wheelie and liftable and (canLift or (s.Wheelie > 0.05 and stillUp)) then
 			local target = WH.Target + (if throttle > 0 then WH.ThrottleTrim else WH.CoastTrim) + WH.BrakeTrim * brake
 			local wobble = (WH.Noise + WH.NoisePerSecond * s.WheelieTime + WH.NoisePerKmh * kmh) * noise(s)
-			alpha = stiffness * (target - s.Wheelie) - damping * s.WheelieRate + wobble
+			-- a real wheelie is balanced, not parked: past the balance point gravity tips it further
+			-- (up toward looping out, or back down), so holding the key alone doesn't hold it. The
+			-- rider keeps it with the throttle (lifts) and the rear brake (drops).
+			local tip = WH.Unstable * stiffness * math.max(0, s.Wheelie - WH.Balance)
+			alpha = stiffness * (target - s.Wheelie) - damping * s.WheelieRate + wobble + tip
 		elseif s.Wheelie > 0 then
 			alpha = -WH.DropAccel - damping * 0.5 * s.WheelieRate - (if brake > 0 then 4 else 0)
 		else

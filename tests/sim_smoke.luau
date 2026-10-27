@@ -124,7 +124,7 @@ world:Run(8)
 local kmh = BikeController.Kmh()
 local moved = bike and (bike.PrimaryPart.Position - start).Magnitude or 0
 print(string.format("[test] %.1f km/h after 8 s, moved %.0f studs", kmh, moved))
-check(kmh > 30 and kmh <= 51, "the starter pit bike gets going, under its 50 km/h top speed")
+check(kmh > 30 and kmh <= 50 * Config.SpeedBoost + 1, "the starter pit bike gets going, under its top speed")
 check(moved > 34 * Config.STUDS_PER_METER, string.format("the bike moved (%.0f m)", moved / Config.STUDS_PER_METER))
 check(ride ~= nil and ride.State.Kmh > 20, "the server gets the rider's state")
 check((player:GetAttribute("Cash") :: number) > cashBefore, string.format("riding pays (%s -> %s)", tostring(cashBefore), tostring(player:GetAttribute("Cash"))))
@@ -150,7 +150,16 @@ for _, d in CarDriver.All do
 	end
 end
 world.Keys.LeftShift = true
-world:Run(6)
+-- balance it like a rider: throttle when the front is low, off and a dab of rear brake when high
+for _ = 1, 60 do
+	local p = BikeController.Physics
+	local w = if p then p.Wheelie else 0
+	world.Keys.W = w < 0.55
+	world.Keys.S = w > 0.72
+	world:Run(0.1)
+end
+world.Keys.W = true
+world.Keys.S = false
 local physics = BikeController.Physics
 print(string.format("[test] wheelie: active=%s time=%.1f angle=%.2f mult=%s wanted=%s heat=%s", tostring(physics and physics.WheelieActive), physics and physics.WheelieTime or 0, physics and physics.Wheelie or 0, tostring(player:GetAttribute("Mult")), tostring(player:GetAttribute("Wanted")), tostring(player:GetAttribute("Heat"))))
 check(physics ~= nil and (physics.WheelieTime > 2 or physics.Crash > 0), "a wheelie happened")
