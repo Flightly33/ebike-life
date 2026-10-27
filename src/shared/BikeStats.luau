@@ -87,14 +87,14 @@ function BikeStats.Compute(bike: Bikes.Bike, levels: Upgrades.Levels?): Spec
 	return {
 		Id = bike.Id,
 		MassKg = bike.WeightKg + BikeStats.RIDER_KG,
-		MotorW = bike.PeakW * power,
-		WheelForceN = bike.WheelTorqueNm * torque / rearRadiusM,
+		MotorW = bike.PeakW * power * Config.SpeedBoost ^ 3,
+		WheelForceN = bike.WheelTorqueNm * torque / rearRadiusM * Config.SpeedBoost,
 		RiderW = if bike.Pedals then BikeStats.RIDER_W else 0,
 		RiderForceN = if bike.Pedals then BikeStats.RIDER_FORCE_N else 0,
 		Pedals = bike.Pedals,
 		Throttle = bike.Throttle,
-		LegalKmh = bike.LegalKmh,
-		CutoffKmh = if unlocked then bike.MaxKmh else bike.LegalKmh,
+		LegalKmh = bike.LegalKmh * Config.SpeedBoost,
+		CutoffKmh = (if unlocked then bike.MaxKmh else bike.LegalKmh) * Config.SpeedBoost,
 		CdA = bike.CdA,
 		CrrRoad = bike.Crr * tire.Crr,
 		CrrOff = bike.Crr * tire.Off,
@@ -127,7 +127,7 @@ function BikeStats.TopSpeedKmh(spec: Spec, maxPower: number, assist: number): nu
 	local g = Config.Physics.Gravity
 	local rho = Config.Physics.AirDensity
 	local best = 0
-	for kmh = 1, 260 do
+	for kmh = 1, 420 do
 		local v = kmh / 3.6
 		local rider = spec.RiderW
 		local motor = 0
@@ -138,7 +138,8 @@ function BikeStats.TopSpeedKmh(spec: Spec, maxPower: number, assist: number): nu
 				motor = math.min(spec.MotorW * maxPower, rider * assist)
 			end
 		end
-		local available = rider + motor
+		-- the rear tyre can only push so hard (BikePhysics: grip x the weight on it)
+		local available = math.min(rider + motor, spec.GripRoad * spec.MassKg * g * 0.62 * v)
 		local needed = (0.5 * rho * spec.CdA * v * v + spec.CrrRoad * spec.MassKg * g) * v
 		if available >= needed then
 			best = kmh

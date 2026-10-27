@@ -31,8 +31,8 @@
       "$properties": {
         "StreamingEnabled": true,
         "Gravity": 196.2,
-        "StreamingMinRadius": 160,
-        "StreamingTargetRadius": 768,
+        "StreamingMinRadius": 384,
+        "StreamingTargetRadius": 1536,
         "StreamOutBehavior": "Opportunistic"
       },
       "City": {
@@ -79,7 +79,7 @@
       "Atmosphere": {
         "$className": "Atmosphere",
         "$properties": {
-          "Density": 0.3,
+          "Density": 0.17,
           "Offset": 0.12,
           "Color": [
             0.78,

@@ -593,7 +593,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		v = math.max(0, v + accel * dt - brakeDecel * dt)
 		if brake > 0 and spec.Regen > 0 and s.Battery > 0 then
 			local braking = math.max(0, before - v) / dt * m * before
-			s.Battery = math.min(spec.BatteryWh, s.Battery + braking * spec.Regen * dt / 3600 * Config.Battery.DrainScale)
+			s.Battery = math.min(spec.BatteryWh, s.Battery + braking * spec.Regen * dt / 3600 * Config.Battery.DrainScale / Config.SpeedBoost ^ 3)
 		end
 	elseif v < -0.05 then
 		if throttle > 0 then
@@ -614,7 +614,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 
 	-- Battery drain
 	if s.MotorPower > 0 then
-		s.Battery = math.max(0, s.Battery - s.MotorPower / P.RiderEfficiency * dt / 3600 * Config.Battery.DrainScale)
+		s.Battery = math.max(0, s.Battery - s.MotorPower / P.RiderEfficiency * dt / 3600 * Config.Battery.DrainScale / Config.SpeedBoost ^ 3)
 	end
 
 	-- Pedals and wheels

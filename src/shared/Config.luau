@@ -28,6 +28,10 @@ Config.BRAND = "Flightly"
 Config.DEALERSHIP = "Flighty Mechanics"
 Config.GAME_NAME = "E-Bike Life"
 
+-- The owner asked for 1.5x the real bikes' speed: every top speed (the controller cut-off) is this
+-- much higher, with the power and torque to reach it (aero drag grows with speed cubed)
+Config.SpeedBoost = 1.5
+
 Config.Physics = {
 	Gravity = 9.81, -- m/s², real
 	AirDensity = 1.2, -- kg/m³
@@ -156,7 +160,7 @@ Config.Economy = {
 	MinPaySpeed = 4, -- km/h before riding pays
 	BaseRate = 0.25, -- $/s once moving
 	RatePerKmh = 0.03, -- $/s per km/h
-	MaxPayKmh = 140, -- speeds above this (exploits, glitches) pay as this
+	MaxPayKmh = 210, -- speeds above this (exploits, glitches) pay as this (1.5x bikes)
 	WheeliePerSecond = 0.05, -- cash multiplier per wheelie second (1.05x after 1 s)
 	WheelieMax = 3.0,
 	OneHand = 0.25,

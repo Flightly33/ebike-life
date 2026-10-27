@@ -158,7 +158,7 @@ print("== top speeds (full throttle, TURBO, flat road)")
 for _, bike in Bikes.List do
 	local spec, state = spawn(bike.Id)
 	local reached25: number? = nil
-	ride(spec, state, Modes.Defaults.TURBO, flat, 40, input({ Throttle = 1 }), function(t, s)
+	ride(spec, state, Modes.Defaults.TURBO, flat, 90, input({ Throttle = 1 }), function(t, s)
 		if not reached25 and kmh(s) >= 25 then
 			reached25 = t
 		end
@@ -167,7 +167,7 @@ for _, bike in Bikes.List do
 	local predicted = math.min(spec.CutoffKmh, BikeStats.TopSpeedKmh(spec, 1, 3.4))
 	print(string.format("  %-10s top %5.1f km/h (limit %d, predicted %d)  0-25 %s s  battery %3d/%d Wh", bike.Id, top, spec.CutoffKmh, predicted, if reached25 then string.format("%.1f", reached25) else "-", math.floor(state.Battery), math.floor(spec.BatteryWh)))
 	check(top <= spec.CutoffKmh + 1.5, bike.Id .. " stays under its assist limit")
-	check(math.abs(top - predicted) <= 2.5, bike.Id .. " top speed matches the power balance")
+	check(math.abs(top - predicted) <= math.max(2.5, predicted * 0.03), bike.Id .. " top speed matches the power balance")
 	check(reached25 ~= nil and reached25 < 9, bike.Id .. " reaches 25 km/h in under 9 s")
 end
 
@@ -244,7 +244,8 @@ do
 	end)
 	local distance = math.abs(state.Position.Z - startZ) * Config.METERS_PER_STUD
 	print(string.format("  rear brake: %.0f km/h to stop in %.1f m", before, distance))
-	check(distance > 12 and distance < 28, "the rear brake alone stops from ~49 km/h in 12-28 m (about 0.45 g)")
+	local k = (before / 49) ^ 2 -- stopping distance grows with the square of the speed
+	check(distance > 12 * k and distance < 28 * k, "the rear brake alone stops at about 0.45 g (12-28 m from 49 km/h)")
 	-- the front brake (brake + Shift) stops much harder
 	spec, state = spawn("flit_mini")
 	ride(spec, state, Modes.Defaults.TURBO, flat, 15, input({ Throttle = 1 }))
