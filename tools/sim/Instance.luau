@@ -33,6 +33,8 @@ type State = {
 
 local states: { [any]: State } = setmetatable({}, { __mode = "k" }) :: any
 Sim.States = states
+-- Parts whose CFrame or Size changed since the world last looked (it re-bins them in its index)
+Sim.Moved = {} :: { [any]: boolean }
 
 local InstanceMT = {}
 
@@ -619,6 +621,7 @@ Methods.PVInstance = {
 		local delta = cf * pivot:Inverse()
 		for _, p in modelParts(self) do
 			states[p].Props.CFrame = delta * partCFrame(p)
+			Sim.Moved[p] = true
 		end
 	end,
 }
@@ -905,6 +908,7 @@ InstanceMT.__newindex = function(self, key, value)
 	if key == "Position" and isA(cls, "BasePart") then
 		local cf = partCFrame(self)
 		st.Props.CFrame = (cf - cf.Position) + value
+		Sim.Moved[self] = true
 		return
 	elseif key == "WorldPosition" and cls == "Attachment" then
 		local parent = st.Parent
@@ -932,6 +936,9 @@ InstanceMT.__newindex = function(self, key, value)
 	end
 	local old = st.Props[key]
 	st.Props[key] = value
+	if key == "CFrame" or key == "Size" or key == "CanQuery" then
+		Sim.Moved[self] = true
+	end
 	if old ~= value then
 		local s = st.PropSignals[key]
 		if s then

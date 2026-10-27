@@ -25,6 +25,10 @@ local CFrame, Vector3, Vector2 = roblox.CFrame, roblox.Vector3, roblox.Vector2
 local World = {}
 World.__index = World
 
+-- The spatial index's tiers (see World:IndexPart): parts reaching up to `Reach` studs from their
+-- centre, binned in `Cell`-stud squares
+local INDEX_TIERS = { { Reach = 12, Cell = 32 }, { Reach = 96, Cell = 128 }, { Reach = 1200, Cell = 1024 } }
+
 local SERVICES = {
 	"Workspace",
 	"Players",
@@ -85,6 +89,14 @@ function World.new(root: string)
 	self.InputMove = Vector3.zero -- the local player's movement input (Humanoid.MoveDirection)
 	self.FrameHooks = {} :: { (number) -> () } -- called after every frame (tests sample state here)
 	self.Parts = {} :: { [any]: boolean }
+	-- the spatial index over Parts (see World:IndexPart)
+	self.TierCells = {} :: { { [number]: { [any]: boolean } } }
+	for t in INDEX_TIERS do
+		self.TierCells[t] = {}
+	end
+	self.BigParts = {} :: { [any]: boolean }
+	self.Where = {} :: { [any]: any } -- part -> its tier (or "Big")
+	self.WhereKey = {} :: { [any]: number } -- part -> its cell in that tier
 	self.Velocities = {} :: { [any]: boolean }
 	self.Welds = {} :: { [any]: boolean }
 	self.Tags = {} :: { [string]: { [any]: boolean } }
@@ -157,6 +169,11 @@ function World:InstallHooks()
 			local cls = Sim.States[x].ClassName
 			if Sim.ClassIsA(cls, "BasePart") then
 				world.Parts[x] = if inWorkspace then true else nil
+				if inWorkspace then
+					world:IndexPart(x)
+				else
+					world:Unindex(x)
+				end
 			elseif cls == "LinearVelocity" then
 				world.Velocities[x] = if inWorkspace then true else nil
 			elseif cls == "WeldConstraint" then
@@ -171,6 +188,7 @@ function World:InstallHooks()
 	end
 	Sim.OnDestroyed = function(inst)
 		world.Parts[inst] = nil
+		world:Unindex(inst)
 		world.Velocities[inst] = nil
 		world.Welds[inst] = nil
 		for tag, set in world.Tags do
@@ -727,6 +745,117 @@ function World:Raycast(origin, direction)
 	}
 end
 
+--------------------------------------------------------------------------------
+-- Spatial index: the workspace's parts on XZ grids by their centre, so box, radius and sphere
+-- queries only look near where they ask instead of at every part of a 200k-part city. A part
+-- goes in the first tier its reach (how far it can extend from its centre) fits; bigger ones are
+-- simply listed. Parts that moved or resized (Sim.Moved) are re-binned before each query, and
+-- results are the same as a full scan's (the queries sort or tie-break deterministically).
+--------------------------------------------------------------------------------
+local BIG = "Big"
+
+local function cellKey(cx: number, cz: number): number
+	return cx * 65536 + cz
+end
+
+function World:Unindex(part)
+	local tier = self.Where[part]
+	if tier == nil then
+		return
+	end
+	if tier == BIG then
+		self.BigParts[part] = nil
+	else
+		local cell = self.TierCells[tier][self.WhereKey[part]]
+		if cell then
+			cell[part] = nil
+		end
+	end
+	self.Where[part] = nil
+	self.WhereKey[part] = nil
+end
+
+-- (reads the stored CFrame and Size straight from the part's state: this runs for every part
+-- that moved, every frame)
+function World:IndexPart(part)
+	local props = Sim.States[part].Props
+	if props.CanQuery == false then
+		-- no query ever returns it (decoration, the ambient life): keep it out
+		self:Unindex(part)
+		return
+	end
+	local cf = props.CFrame
+	local p = if cf then cf.Position else Vector3.zero
+	local s = props.Size or part.Size
+	local reach = math.max(s.X, s.Y, s.Z) * 0.87 -- (half the diagonal of a cube that size)
+	for t, tier in INDEX_TIERS do
+		if reach <= tier.Reach then
+			local key = cellKey(math.floor(p.X / tier.Cell), math.floor(p.Z / tier.Cell))
+			if self.Where[part] == t and self.WhereKey[part] == key then
+				return -- still in the same cell
+			end
+			self:Unindex(part)
+			local cells = self.TierCells[t]
+			local cell = cells[key]
+			if not cell then
+				cell = {}
+				cells[key] = cell
+			end
+			cell[part] = true
+			self.Where[part] = t
+			self.WhereKey[part] = key
+			return
+		end
+	end
+	if self.Where[part] ~= BIG then
+		self:Unindex(part)
+		self.BigParts[part] = true
+		self.Where[part] = BIG
+	end
+end
+
+function World:Reindex()
+	for part in Sim.Moved do
+		if self.Parts[part] then
+			self:IndexPart(part)
+		end
+	end
+	table.clear(Sim.Moved)
+end
+
+-- Calls visit(part) for every part that could reach into the XZ box [x0, x1] x [z0, z1]
+function World:Near(x0: number, x1: number, z0: number, z1: number, visit: (any) -> ())
+	self:Reindex()
+	for t, tier in INDEX_TIERS do
+		local cells = self.TierCells[t]
+		local r, size = tier.Reach, tier.Cell
+		local cx0, cx1 = math.floor((x0 - r) / size), math.floor((x1 + r) / size)
+		local cz0, cz1 = math.floor((z0 - r) / size), math.floor((z1 + r) / size)
+		if (cx1 - cx0 + 1) * (cz1 - cz0 + 1) > 40000 then
+			-- a huge query: every cell
+			for _, cell in cells do
+				for part in cell do
+					visit(part)
+				end
+			end
+		else
+			for cx = cx0, cx1 do
+				for cz = cz0, cz1 do
+					local cell = cells[cellKey(cx, cz)]
+					if cell then
+						for part in cell do
+							visit(part)
+						end
+					end
+				end
+			end
+		end
+	end
+	for part in self.BigParts do
+		visit(part)
+	end
+end
+
 function World:Spherecast(origin, radius, direction, params)
 	local best, bestT = nil, math.huge
 	local length = direction.Magnitude
@@ -734,13 +863,22 @@ function World:Spherecast(origin, radius, direction, params)
 		return nil
 	end
 	local dir = direction / length
-	for part in self.Parts do
-		if passes(self, part, params) and part.CanQuery ~= false then
-			local center = part.Position
-			local t = math.clamp((center - origin):Dot(dir), 0, length)
-			local closest = origin + dir * t
-			local reach = radius + math.max(part.Size.X, part.Size.Y, part.Size.Z) * 0.5
-			if (center - closest).Magnitude <= reach and (t < bestT or (t == bestT and best and Sim.Seq(part) < Sim.Seq(best))) then
+	local finish = origin + direction
+	local candidates = {}
+	self:Near(math.min(origin.X, finish.X) - radius, math.max(origin.X, finish.X) + radius, math.min(origin.Z, finish.Z) - radius, math.max(origin.Z, finish.Z) + radius, function(part)
+		table.insert(candidates, part)
+	end)
+	-- (the cheap distance test first, the filter only for parts it lets through)
+	for _, part in candidates do
+		local props = Sim.States[part].Props
+		local cf = props.CFrame
+		local center = if cf then cf.Position else Vector3.zero
+		local s = props.Size or part.Size
+		local t = math.clamp((center - origin):Dot(dir), 0, length)
+		local closest = origin + dir * t
+		local reach = radius + math.max(s.X, s.Y, s.Z) * 0.5
+		if (center - closest).Magnitude <= reach and (t < bestT or (t == bestT and best and Sim.Seq(part) < Sim.Seq(best))) then
+			if passes(self, part, params) and part.CanQuery ~= false then
 				best, bestT = part, t
 			end
 		end
@@ -753,28 +891,38 @@ end
 
 function World:QueryBox(cf, size, params)
 	local out = {}
-	for part in self.Parts do
-		if passes(self, part, params) and part.CanQuery ~= false then
-			local p = cf:PointToObjectSpace(part.Position)
-			local s = part.Size
-			if math.abs(p.X) <= size.X / 2 + s.X / 2 and math.abs(p.Y) <= size.Y / 2 + s.Y / 2 and math.abs(p.Z) <= size.Z / 2 + s.Z / 2 then
+	-- the query box's own reach on the ground, whichever way it's turned
+	local half = size / 2
+	local r, l, u = cf.RightVector, cf.LookVector, cf.UpVector
+	local hx = math.abs(r.X) * half.X + math.abs(u.X) * half.Y + math.abs(l.X) * half.Z
+	local hz = math.abs(r.Z) * half.X + math.abs(u.Z) * half.Y + math.abs(l.Z) * half.Z
+	local c = cf.Position
+	self:Near(c.X - hx, c.X + hx, c.Z - hz, c.Z + hz, function(part)
+		local props = Sim.States[part].Props
+		local pcf = props.CFrame
+		local p = cf:PointToObjectSpace(if pcf then pcf.Position else Vector3.zero)
+		local s = props.Size or part.Size
+		if math.abs(p.X) <= size.X / 2 + s.X / 2 and math.abs(p.Y) <= size.Y / 2 + s.Y / 2 and math.abs(p.Z) <= size.Z / 2 + s.Z / 2 then
+			if passes(self, part, params) and part.CanQuery ~= false then
 				table.insert(out, part)
 			end
 		end
-	end
+	end)
 	return Sim.SortList(out)
 end
 
 function World:QueryRadius(position, radius, params)
 	local out = {}
-	for part in self.Parts do
-		if passes(self, part, params) and part.CanQuery ~= false then
-			local s = part.Size
-			if (part.Position - position).Magnitude <= radius + math.max(s.X, s.Y, s.Z) / 2 then
+	self:Near(position.X - radius, position.X + radius, position.Z - radius, position.Z + radius, function(part)
+		local props = Sim.States[part].Props
+		local pcf = props.CFrame
+		local s = props.Size or part.Size
+		if ((if pcf then pcf.Position else Vector3.zero) - position).Magnitude <= radius + math.max(s.X, s.Y, s.Z) / 2 then
+			if passes(self, part, params) and part.CanQuery ~= false then
 				table.insert(out, part)
 			end
 		end
-	end
+	end)
 	return Sim.SortList(out)
 end
 
@@ -1139,6 +1287,7 @@ function World:Physics(dt: number)
 				local cf = root.CFrame
 				for part, offset in offsets do
 					Sim.States[part].Props.CFrame = cf * offset
+					Sim.Moved[part] = true
 				end
 			end
 		end
