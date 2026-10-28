@@ -59,11 +59,14 @@ def add_swatches(scene=None):
     for i, fname in enumerate(files):
         name = "Swatch__" + stem(fname)
         me = bpy.data.meshes.new(name)
+        # a small cube, not a flat quad: Studio's importer drops zero-thickness meshes
         x, y = (i % 10) * 1.5, (i // 10) * 1.5
-        me.from_pydata([(x, y, 0), (x + 1, y, 0), (x + 1, y + 1, 0), (x, y + 1, 0)], [], [(0, 1, 2, 3)])
+        v = [(x + dx, y + dy, dz) for dz in (0, 1) for dy in (0, 1) for dx in (0, 1)]
+        faces = [(0, 2, 3, 1), (4, 5, 7, 6), (0, 1, 5, 4), (2, 6, 7, 3), (0, 4, 6, 2), (1, 3, 7, 5)]
+        me.from_pydata(v, [], faces)
         uv = me.uv_layers.new(name="UVMap")
-        for loop, co in zip(uv.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
-            loop.uv = co
+        for k, loop in enumerate(uv.data):
+            loop.uv = ((0, 0), (1, 0), (1, 1), (0, 1))[k % 4]
         mat = bpy.data.materials.new(name)
         mat.use_nodes = True
         nt = mat.node_tree
