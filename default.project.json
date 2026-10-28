@@ -5,6 +5,9 @@
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
+      },
+      "VehicleMeshes": {
+        "$path": "map/VehicleMeshes.rbxm"
       }
     },
     "ServerScriptService": {
