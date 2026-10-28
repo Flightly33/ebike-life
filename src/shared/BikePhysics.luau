@@ -457,13 +457,14 @@ local function impact(s: State, events: { Event }, speed: number, into: number, 
 	if hit > 1 then
 		push(events, "Impact", hit, nil, kind)
 	end
-	-- Small street props (bins, bollards, signs) slow you but never bail you; glancing blows never do
-	if kind == "Prop" or into < P.CrashSquareness then
+	-- glancing blows never bail you; a small street prop (a bench, a bin, a bollard) stops you dead
+	-- at a crawl but throws you over the bars at speed
+	if into < P.CrashSquareness then
 		return
 	end
-	local limit = if kind == "Car" or kind == "Cop" then Config.Traffic.HitKmh / 3.6 else P.CrashImpact
+	local limit = if kind == "Car" or kind == "Cop" then Config.Traffic.HitKmh / 3.6 elseif kind == "Prop" then P.PropCrashImpact else P.CrashImpact
 	if hit > limit then
-		crash(s, events, if kind == "Wall" then "Wall" else "Hit a car")
+		crash(s, events, if kind == "Wall" then "Wall" elseif kind == "Prop" then "Hit something" else "Hit a car")
 	end
 end
 
@@ -1094,7 +1095,8 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 		push(events, "Land", airTime, flips, "Crash")
 		return
 	end
-	local tolerance = spec.Landing * (if short then 2.6 elseif airTime < 0.8 then 1.5 else 1) + math.abs(groundPitch) * 0.4
+	-- (no rescue for a bike that's tumbled: much past the tolerance, it crashes and tumbles on)
+	local tolerance = spec.Landing * (if short then 1.6 elseif airTime < 0.8 then 1.15 else 1) + math.abs(groundPitch) * 0.4
 	if fakie then
 		pitchError = 0
 		headingError = 0

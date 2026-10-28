@@ -59,7 +59,7 @@ Config.Crash = {
 Config.Physics = {
 	Gravity = 9.81, -- m/s², real
 	AirDensity = 1.2, -- kg/m³
-	StepHeight = 1.2, -- studs a wheel rolls up without stopping (kerbs are 0.4)
+	StepHeight = 0.75, -- studs a wheel rolls up without stopping (kerbs are 0.4; a bench seat isn't)
 	SnapDistance = 1.0, -- studs the ground may drop away before the bike counts as airborne (a kerb
 	-- drop isn't a jump: the wheels follow it down on the suspension)
 	MaxSteer = 0.55, -- rad of handlebar at walking pace
@@ -78,6 +78,7 @@ Config.Physics = {
 	BrakeSqueeze = 5, -- per second: how fast the brake comes on (a lever is squeezed, not snapped)
 	RiderEfficiency = 0.82, -- motor + controller efficiency for battery drain
 	CrashImpact = 9.5, -- m/s of head-on speed into a wall that bails the rider (~34 km/h)
+	PropCrashImpact = 6.5, -- m/s head-on into a bench, bin or bollard that throws you (~23 km/h)
 	CrashSquareness = 0.55, -- hits more glancing than this (0 = scrape, 1 = head-on) never bail
 	CrashTime = 3.0, -- seconds at least on the floor after a bail (ragdoll, then get up)
 	AirPitchRate = 5.2, -- rad/s of rotation when pulling back in the air (scaled by AirControl)

@@ -1006,11 +1006,15 @@ do
 	ride(spec, state, Modes.Defaults.TURBO, driftKerb, 4, input({ Throttle = 1 }))
 	events = ride(spec, state, Modes.Defaults.TURBO, driftKerb, 1.5, input({ Drift = true, Steer = 0.6 }))
 	check(not crashes(events), "drifting off a kerb doesn't bail")
-	-- a bin at full speed
+	-- a bin or bench: a bump at a crawl stops you, at full speed it throws you over the bars
 	local bin = makeWorld({ WallZ = -150, WallKind = "Prop" })
 	spec, state = spawn("storm_x")
 	events = ride(spec, state, Modes.Defaults.TURBO, bin, 8, input({ Throttle = 1 }))
-	check(not crashes(events), "hitting a bin or bollard slows you but doesn't bail")
+	check(crashes(events), "hitting a bench or bin at full speed throws you")
+	local nearBin = makeWorld({ WallZ = -12, WallKind = "Prop" })
+	spec, state = spawn("storm_x")
+	events = ride(spec, state, Modes.Defaults.ECO, nearBin, 6, input({ Throttle = 0.25 }))
+	check(not crashes(events), "rolling into a bench at a crawl just stops you")
 end
 
 print("== bunny hop")
