@@ -162,8 +162,16 @@ local function legLength(character: Model): number
 	return 1.76
 end
 
-local function park(ride: Ride)
+-- Parks the bike: stood upright on the ground under it, or (`asItLies`, after a crash) left just as
+-- it came to rest, on its side or upside down; it's stood up when its rider gets back on
+local function park(ride: Ride, asItLies: boolean?)
 	local root = ride.Root
+	if asItLies then
+		root.Anchored = true
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+		return
+	end
 	local cf = root.CFrame
 	local look = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z)
 	if look.Magnitude < 0.1 then
@@ -208,7 +216,7 @@ local function mount(ride: Ride)
 	BikeService.RideChanged:Fire(ride.Player, true)
 end
 
-local function dismount(ride: Ride)
+local function dismount(ride: Ride, asItLies: boolean?)
 	if not ride.Riding then
 		return
 	end
@@ -226,7 +234,7 @@ local function dismount(ride: Ride)
 	if character then
 		RiderLook.Clear(character)
 	end
-	park(ride)
+	park(ride, asItLies)
 	if ride.Model.Parent then
 		ride.Prompt.Enabled = true
 	end
@@ -347,6 +355,10 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 		local char = player.Character
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		if hum and hum.Health > 0 and not hum.SeatPart then
+			-- pick the bike up first if it's lying where it crashed
+			if ride.Root.CFrame.UpVector.Y < 0.95 then
+				park(ride)
+			end
 			seat:Sit(hum)
 		end
 	end))
@@ -424,7 +436,7 @@ local function bail(player: Player)
 	task.delay(BAIL_GRACE, function()
 		if ride.BailedAt and rides[player] == ride and not ride.Seat.Occupant then
 			ride.BailedAt = nil
-			dismount(ride)
+			dismount(ride, true)
 		end
 	end)
 end
@@ -436,7 +448,7 @@ local function gotUp(player: Player)
 		return
 	end
 	ride.BailedAt = nil
-	dismount(ride)
+	dismount(ride, true)
 end
 
 function BikeService.Bailed(player: Player): boolean

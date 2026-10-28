@@ -40,6 +40,22 @@ Config.GAME_NAME = "E-Bike Life"
 -- much higher, with the power and torque to reach it (aero drag grows with speed cubed)
 Config.SpeedBoost = 1.5
 
+-- Crashing out (Client/BikeController): the rider is thrown off with the momentum the bike lost
+-- in the hit, and the bike is left to Roblox's physics to tumble and slide to a stop
+Config.Crash = {
+	EjectLift = 0.35, -- upward m/s per m/s of speed lost in the hit: pitched up over the bars
+	EjectLiftMax = 7, -- m/s
+	EjectHop = 1.5, -- m/s up on any bail (the rider pushes off)
+	SpinPerMps = 0.55, -- rad/s of forward tumble per m/s lost
+	SpinMax = 9, -- rad/s
+	BikeSpinShare = 0.6, -- of that tumble the bike takes (it pivots on whatever it hit)
+	BikeDensity = 0.9, -- the tumbling bike's collision box (water is 1)
+	BikeFriction = 0.55,
+	BikeElasticity = 0.12,
+	RestSpeed = 3, -- m/s: the rider gets up once slower than this (after Physics.CrashTime)
+	GetUpMax = 8, -- s: gets up by then whatever
+}
+
 Config.Physics = {
 	Gravity = 9.81, -- m/s², real
 	AirDensity = 1.2, -- kg/m³
@@ -63,7 +79,7 @@ Config.Physics = {
 	RiderEfficiency = 0.82, -- motor + controller efficiency for battery drain
 	CrashImpact = 9.5, -- m/s of head-on speed into a wall that bails the rider (~34 km/h)
 	CrashSquareness = 0.55, -- hits more glancing than this (0 = scrape, 1 = head-on) never bail
-	CrashTime = 3.0, -- seconds on the floor after a bail (ragdoll, then back on)
+	CrashTime = 3.0, -- seconds at least on the floor after a bail (ragdoll, then get up)
 	AirPitchRate = 5.2, -- rad/s of rotation when pulling back in the air (scaled by AirControl)
 	AirSpinRate = 6.5, -- rad/s of spin when steering in the air (scaled by AirControl)
 	LandingHeading = 0.75, -- rad between facing and travel a landing tolerates

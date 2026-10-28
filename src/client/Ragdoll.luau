@@ -5,8 +5,8 @@
 	avatars). Each joint gets a BallSocketConstraint with sensible twist limits and the original
 	joint is switched off; Stop() switches them back on.
 
-	Plain physics: the body leaves the bike with exactly the bike's velocity and nothing added. What
-	makes Roblox ragdolls explode is parts that overlap pushing each other apart, so only the body
+	Plain physics: the body leaves the bike with the velocity (and tumble) BikeController works out
+	from the crash, then Roblox's physics flies and rolls it. What makes Roblox ragdolls explode is parts that overlap pushing each other apart, so only the body
 	parts themselves collide (never hats, hair or layered clothing), and the two parts of every joint
 	ignore each other.
 ]]
@@ -54,7 +54,7 @@ local function isBody(part: BasePart, character: Model): boolean
 	return part.Parent == character and part.Name ~= "HumanoidRootPart"
 end
 
-function Ragdoll.Start(character: Model, velocity: Vector3)
+function Ragdoll.Start(character: Model, velocity: Vector3, spin: Vector3?)
 	if Ragdoll.Active then
 		return
 	end
@@ -119,10 +119,11 @@ function Ragdoll.Start(character: Model, velocity: Vector3)
 	end
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
 	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-	-- carry on exactly as fast as the bike was going
+	-- launched: every body part leaves with the same velocity and tumble (a rigid throw; the joints
+	-- loosen as it flies)
 	for part in state.Collide do
 		part.AssemblyLinearVelocity = velocity
-		part.AssemblyAngularVelocity = Vector3.zero
+		part.AssemblyAngularVelocity = spin or Vector3.zero
 	end
 end
 

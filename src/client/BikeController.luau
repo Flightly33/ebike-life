@@ -15,6 +15,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Bikes = require(Shared.Bikes)
@@ -56,7 +57,6 @@ local batteries: { [Model]: number } = {}
 local sendClock = 0
 local lastImpact = 0
 local bailing = false
-local bailedAt = 0
 local chargeLeft = 0
 local warnedEmpty = false
 local restoreCollide: { [BasePart]: boolean } = {}
@@ -67,6 +67,13 @@ local trailClock = 0
 local TRAIL_LENGTH = 8
 local splashedAt: number? = nil
 local connections: { RBXScriptConnection } = {}
+-- the bike's frame, velocity and spin before this frame's physics step (what a crash starts from:
+-- the step itself has already settled the crashed bike flat on the ground)
+local before = { CFrame = CFrame.identity, Velocity = Vector3.zero, Spin = Vector3.zero }
+-- after a crash: the collision box the bike tumbles on under Roblox's physics, and when it began
+local tumble: BasePart? = nil
+local tumbleSince = 0
+local crashOut: (character: Model) -> ()
 
 local function modeTable(): Modes.Mode
 	local data = State.Get()
@@ -139,6 +146,79 @@ local function sendTrick(kind: string, value: number?, extra: number?, text: str
 	Remotes.Event("Trick"):FireServer(kind, value, extra, text)
 end
 
+-- Off the bike for real. The rider flies on with the bike's velocity from just before the hit, plus
+-- the momentum the bike lost in it turned up and over the bars: a hard stop at a fence throws them
+-- high and tumbling, a scrape barely lifts them. The bike is handed to Roblox's physics on a
+-- collision box with its pre-crash velocity and spin, to bounce, roll and slide where the forces
+-- take it; nothing stands it back up until its rider picks it up (BikeService, on getting back on).
+crashOut = function(character: Model)
+	local part, s, spec = root, BikeController.Physics, BikeController.Spec
+	if not part or not s or not spec then
+		return
+	end
+	local C = Config.Crash
+	local M = Config.STUDS_PER_METER
+	local v = before.Velocity
+	local lost = v - s.Velocity
+	local hit = Vector3.new(lost.X, 0, lost.Z)
+	local flat = Vector3.new(v.X, 0, v.Z)
+	local dir = if hit.Magnitude > 0.5 then hit.Unit elseif flat.Magnitude > 0.5 then flat.Unit else before.CFrame.LookVector
+	dir = Vector3.new(dir.X, 0, dir.Z)
+	dir = if dir.Magnitude > 1e-3 then dir.Unit else Vector3.new(0, 0, -1)
+	local lostMps = hit.Magnitude / M
+	local lift = math.min(lostMps * C.EjectLift, C.EjectLiftMax) + C.EjectHop
+	local over = Vector3.yAxis:Cross(dir) -- the axis of a forward tumble
+	local spin = math.min(lostMps * C.SpinPerMps, C.SpinMax)
+
+	-- the bike goes back to where the step found it, before it was laid flat
+	part.CFrame = before.CFrame
+	if antiGravity then
+		antiGravity:Destroy()
+		antiGravity = nil
+	end
+	local box = Instance.new("Part")
+	box.Name = "EB_Tumble"
+	local length = spec.Wheelbase + spec.WheelRadius + spec.RearWheelRadius
+	local height = math.max(spec.WheelRadius, spec.RearWheelRadius) * 2 + 0.6 * M
+	box.Size = Vector3.new(0.45 * M, height, length)
+	box.Transparency = 1
+	box.CanQuery = false
+	box.CanTouch = false
+	box.CustomPhysicalProperties = PhysicalProperties.new(C.BikeDensity, C.BikeFriction, C.BikeElasticity)
+	box.CFrame = before.CFrame * CFrame.new(0, height / 2, 0)
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = part
+	weld.Part1 = box
+	weld.Parent = box
+	-- the rider starts inside the box: they ignore each other for a moment
+	for _, d in character:GetDescendants() do
+		if d:IsA("BasePart") then
+			local nc = Instance.new("NoCollisionConstraint")
+			nc.Part0 = box
+			nc.Part1 = d
+			nc.Parent = box
+			Debris:AddItem(nc, 0.6)
+		end
+	end
+	box.Parent = part
+	tumble = box
+	tumbleSince = os.clock()
+	part.AssemblyLinearVelocity = v
+	part.AssemblyAngularVelocity = before.Spin + over * (spin * C.BikeSpinShare)
+
+	Ragdoll.Start(character, v + Vector3.new(0, lift * M, 0), over * spin + before.Spin * 0.5)
+end
+
+-- Back on your feet where you landed; the bike stays as it came to rest, and you walk over and get
+-- back on (its Enter prompt stands it up)
+local function getUp()
+	bailing = false
+	tumble = nil
+	Ragdoll.Stop(player.Character)
+	Remotes.Event("GotUp"):FireServer()
+	BikeController.Stop()
+end
+
 local function onEvent(event: BikePhysics.Event)
 	local kind = event.Kind
 	local position = if root then root.Position else nil
@@ -177,19 +257,12 @@ local function onEvent(event: BikePhysics.Event)
 		local character = player.Character
 		if character and root and not bailing then
 			bailing = true
-			bailedAt = os.clock()
 			Remotes.Event("Bail"):FireServer()
-			local s = BikeController.Physics
-			Ragdoll.Start(character, if s then s.Velocity else root.AssemblyLinearVelocity)
+			crashOut(character)
 		end
 	elseif kind == "Recover" then
 		if bailing then
-			-- back on your feet where you landed; the bike stays where it slid to, and you walk over and
-			-- get back on (its Enter prompt)
-			bailing = false
-			Ragdoll.Stop(player.Character)
-			Remotes.Event("GotUp"):FireServer()
-			BikeController.Stop()
+			getUp()
 			return
 		end
 	elseif kind == "Impact" then
@@ -247,11 +320,32 @@ local function step(dt: number)
 		end
 	end
 
+	if tumble then
+		-- crashed: the bike is Roblox's physics' now; the camera watches the rider
+		local body = Ragdoll.Focus()
+		local view = CFrame.new(body or part.Position) * CFrame.fromEulerAnglesYXZ(0, s.Yaw, 0)
+		BikeCamera.Update(dt, view, nil, 0, true)
+		local character = player.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		local speed = if hrp and hrp:IsA("BasePart") then hrp.AssemblyLinearVelocity.Magnitude / Config.STUDS_PER_METER else 0
+		local t = os.clock() - tumbleSince
+		if (t >= Config.Physics.CrashTime and speed < Config.Crash.RestSpeed) or t >= Config.Crash.GetUpMax then
+			getUp()
+		end
+		return
+	end
+
 	Input.SetAirborne(not s.Grounded)
 	local input = Input.Read()
 	BikeController.Input = input
+	before.CFrame = part.CFrame
+	before.Velocity = s.Velocity
 	local events = BikePhysics.Step(s, spec, modeTable(), input, World.Physics, dt)
 	local cf = BikePhysics.GetCFrame(s, spec)
+	-- how fast it turned this frame (a crash hands that spin on to the tumble)
+	local turn = before.CFrame.Rotation:Inverse() * cf.Rotation
+	local axis, angle = turn:ToAxisAngle()
+	local spinNow = if dt > 0 and angle == angle then before.CFrame.Rotation * axis * (angle / dt) else Vector3.zero
 	part.CFrame = cf
 	part.AssemblyLinearVelocity = s.Velocity
 	part.AssemblyAngularVelocity = Vector3.zero
@@ -263,6 +357,8 @@ local function step(dt: number)
 	for _, event in events do
 		onEvent(event)
 	end
+	-- (after the events: a crash this frame tumbles on with last frame's spin, not the step's snap)
+	before.Spin = spinNow
 	-- remember dry ground; after a splash, go back to the oldest spot remembered
 	trailClock += dt
 	if trailClock >= 0.5 and s.Grounded and not s.Wet and s.Crash <= 0 then
@@ -296,13 +392,6 @@ local function step(dt: number)
 	local body = Ragdoll.Focus()
 	if body then
 		cf = CFrame.new(body) * (cf - cf.Position)
-	end
-	if bailing and os.clock() - bailedAt > 9 then
-		-- never got back on (bike gone, too far): end the ride
-		bailing = false
-		Ragdoll.Stop(player.Character)
-		BikeController.Stop()
-		return
 	end
 	-- the chassis really moves on its suspension now: just a touch of buzz on top
 	BikeCamera.Rough = if s.Offroad then 0.25 elseif s.Surface == "Sidewalk" then 0.08 else 0.03
@@ -338,6 +427,7 @@ function BikeController.Stop()
 		return
 	end
 	BikeController.Active = false
+	tumble = nil
 	game:GetService("RunService"):UnbindFromRenderStep("EB_Ride")
 	for _, c in connections do
 		c:Disconnect()
@@ -365,6 +455,11 @@ function BikeController.Start(model: Model)
 		return
 	end
 	root = part
+	tumble = nil
+	local old = part:FindFirstChild("EB_Tumble")
+	if old then
+		old:Destroy()
+	end
 	BikeController.Model = model
 	BikeController.Bike = bike
 	BikeController.Spec = spec
