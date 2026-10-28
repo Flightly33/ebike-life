@@ -196,10 +196,10 @@ local function fillTerrain(city: Instance)
 end
 
 function CityService.Init()
-	-- the owner's PBR texture sets, if any (AssetIds.Materials)
+	-- the realism pack's PBR materials, if it's been imported (Shared/Materials)
 	local variants = Materials.Apply()
 	if variants > 0 then
-		print(string.format("[CityService] %d custom PBR materials applied", variants))
+		print(string.format("[CityService] %d PBR materials from the realism pack", variants))
 	end
 	local city = Workspace:FindFirstChild("City")
 	if not city then

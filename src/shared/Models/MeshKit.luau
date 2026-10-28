@@ -54,6 +54,9 @@ MeshKit.Slots = {
 	Stone = { Color = Color3.fromRGB(206, 200, 186), Material = Enum.Material.Limestone },
 	Bark = { Color = Color3.fromRGB(86, 64, 46), Material = Enum.Material.Wood },
 	Birch = { Color = Color3.fromRGB(226, 222, 212), Material = Enum.Material.Wood },
+	-- vegetation's plain pieces (the rest wear the realism pack's SurfaceAppearances)
+	Coconut = { Color = Color3.fromRGB(92, 77, 36), Material = SM },
+	Crownshaft = { Color = Color3.fromRGB(84, 120, 51), Material = SM },
 } :: { [string]: Slot }
 
 -- Slots the player's paint (or a car's colour) decides

@@ -31,6 +31,7 @@ local Economy = require(Shared.Economy)
 local Layout = require(Shared.City.Layout)
 local Remotes = require(Shared.Remotes)
 local Upgrades = require(Shared.Upgrades)
+local Weather = require(Shared.Weather)
 
 local BikeService = require(script.Parent.BikeService)
 local DataService = require(script.Parent.DataService)
@@ -158,6 +159,18 @@ local commands: { [string]: Handler } = {
 			player.Character:PivotTo(target)
 		end
 		return true, "Teleported to " .. value
+	end,
+	weather = function(_player, value)
+		-- hold one kind of weather for everyone, or "Auto" to let the spells run (Shared/Weather)
+		if value == "Auto" then
+			ReplicatedStorage:SetAttribute("WeatherOverride", "")
+			return true, "Weather: changing by itself"
+		end
+		if type(value) ~= "string" or not Weather.Kinds[value] then
+			return false, "Give Auto, Clear, Cloudy or Overcast"
+		end
+		ReplicatedStorage:SetAttribute("WeatherOverride", value)
+		return true, "Weather: " .. value
 	end,
 	time = function(_player, value)
 		local hours = tonumber(value)

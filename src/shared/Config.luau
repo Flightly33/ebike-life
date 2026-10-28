@@ -15,6 +15,9 @@ local Config = {}
 Config.WORLD_SCALE = 1.25
 Config.METERS_PER_STUD = 0.35
 Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
+-- the city's own studs per real metre (it's authored at 1 stud = 0.28 m, built at WORLD_SCALE):
+-- what the PBR materials' tiles are sized by
+Config.CITY_STUDS_PER_METER = Config.WORLD_SCALE / 0.28
 Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
 -- Bike and car models are built from real dimensions in metres at this scale (the same one)
 -- Bikes are drawn at this times life size. 1.0 is where a default avatar fits the whole line-up:
@@ -214,6 +217,20 @@ Config.DayNight = {
 
 -- The two graphics modes the player picks on join (Client/Graphics; Menus > Settings changes it).
 -- Ultra is the full look; Performance drops what costs most on phones and older computers.
+-- The weather (Shared/Weather): spells of sunny, partly cloudy and overcast, the same for everyone
+Config.Weather = {
+	SpellSeconds = 300, -- how long a spell lasts
+	BlendSeconds = 75, -- the last part of it, easing into the next
+	Odds = { Clear = 0.5, Cloudy = 0.32, Overcast = 0.18 }, -- Miami: mostly sun
+}
+
+-- The realism pack (Shared/Materials): base materials whose quarter-turned copy should be used, if
+-- the pattern of the normal one runs the wrong way on the city's parts (roof tile courses along the
+-- slope instead of across it, planks across a boardwalk)
+Config.Realism = {
+	Turned = {} :: { [string]: boolean }, -- e.g. { ClayRoofTiles = true }
+}
+
 Config.Graphics = {
 	Ultra = {
 		Shadows = true,

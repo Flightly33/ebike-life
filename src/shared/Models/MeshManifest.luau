@@ -179,18 +179,28 @@ local M: { [string]: { Entry } } = {
 		{ Name = "Kit_Meter__Main__Glass", Group = "Main", Slot = "Glass", Center = Vector3.new(0.0000, 4.1800, -0.3300), Size = Vector3.new(0.5500, 0.3500, 0.0200) },
 		{ Name = "Kit_Meter__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, 4.1200, -0.0000), Size = Vector3.new(0.8500, 1.3400, 0.7600) },
 	},
-	["Kit_Tree_Birch"] = {
-		{ Name = "Kit_Tree_Birch__Main__Birch", Group = "Main", Slot = "Birch", Center = Vector3.new(0.0000, 6.6764, 0.0142), Size = Vector3.new(5.0395, 13.6471, 5.0108) },
-		{ Name = "Kit_Tree_Birch__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 5.4000, -0.0143), Size = Vector3.new(0.9336, 8.4416, 0.9194) },
-		{ Name = "Kit_Tree_Birch__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(-0.3462, 14.0112, 0.0813), Size = Vector3.new(9.0388, 7.1927, 8.2587) },
+	["Kit_Palm_Coconut"] = {
+		{ Name = "Kit_Palm_Coconut__Main__PalmBark", Group = "Main", Slot = "PalmBark", Center = Vector3.new(0.4601, 4.3110, -0.0000), Size = Vector3.new(1.7381, 8.6837, 0.8197) },
+		{ Name = "Kit_Palm_Coconut__Main__PalmFrond", Group = "Main", Slot = "PalmFrond", Center = Vector3.new(1.2818, 7.3286, -0.2098), Size = Vector3.new(9.1111, 5.3099, 9.4256) },
+		{ Name = "Kit_Palm_Coconut__Main__PalmFrondDead", Group = "Main", Slot = "PalmFrondDead", Center = Vector3.new(1.0442, 6.5665, -0.0230), Size = Vector3.new(2.1265, 3.4671, 2.3533) },
+		{ Name = "Kit_Palm_Coconut__Main__Coconut", Group = "Main", Slot = "Coconut", Center = Vector3.new(1.1443, 8.1896, 0.0218), Size = Vector3.new(0.6136, 0.4101, 0.6753) },
 	},
-	["Kit_Tree_Broadleaf"] = {
-		{ Name = "Kit_Tree_Broadleaf__Main__Bark", Group = "Main", Slot = "Bark", Center = Vector3.new(0.1484, 5.6334, -0.0699), Size = Vector3.new(8.2054, 11.7332, 8.0441) },
-		{ Name = "Kit_Tree_Broadleaf__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(-0.4621, 11.3854, -0.2816), Size = Vector3.new(12.0255, 7.4594, 13.7544) },
+	["Kit_Palm_Royal"] = {
+		{ Name = "Kit_Palm_Royal__Main__RoyalTrunk", Group = "Main", Slot = "RoyalTrunk", Center = Vector3.new(0.0000, 5.9991, -0.0000), Size = Vector3.new(0.8600, 12.0026, 0.8821) },
+		{ Name = "Kit_Palm_Royal__Main__Crownshaft", Group = "Main", Slot = "Crownshaft", Center = Vector3.new(0.0273, 13.1307, -0.0000), Size = Vector3.new(0.4582, 2.2615, 0.4700) },
+		{ Name = "Kit_Palm_Royal__Main__PalmFrond", Group = "Main", Slot = "PalmFrond", Center = Vector3.new(0.1263, 13.1567, 0.3884), Size = Vector3.new(8.9264, 4.9054, 8.3969) },
 	},
-	["Kit_Tree_Conifer"] = {
-		{ Name = "Kit_Tree_Conifer__Main__Bark", Group = "Main", Slot = "Bark", Center = Vector3.new(0.2223, 6.9892, -0.0000), Size = Vector3.new(8.7708, 14.0215, 8.9900) },
-		{ Name = "Kit_Tree_Conifer__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0697, 8.4967, 0.0041), Size = Vector3.new(9.5841, 12.3900, 9.4453) },
+	["Kit_Tree_Oak"] = {
+		{ Name = "Kit_Tree_Oak__Main__OakBark", Group = "Main", Slot = "OakBark", Center = Vector3.new(-0.0235, 3.2528, 0.0071), Size = Vector3.new(9.0591, 6.6612, 9.1783) },
+		{ Name = "Kit_Tree_Oak__Main__OakLeaves", Group = "Main", Slot = "OakLeaves", Center = Vector3.new(-0.0210, 5.3049, 0.1582), Size = Vector3.new(13.0796, 5.5376, 13.4624) },
+	},
+	["Kit_Tree_OakTall"] = {
+		{ Name = "Kit_Tree_OakTall__Main__OakBark", Group = "Main", Slot = "OakBark", Center = Vector3.new(-0.0985, 4.3494, -0.0305), Size = Vector3.new(6.6891, 8.8158, 6.1125) },
+		{ Name = "Kit_Tree_OakTall__Main__OakLeaves", Group = "Main", Slot = "OakLeaves", Center = Vector3.new(-0.0075, 7.4691, -0.0126), Size = Vector3.new(9.0306, 6.8471, 9.1206) },
+	},
+	["Kit_Tree_Pine"] = {
+		{ Name = "Kit_Tree_Pine__Main__PineBark", Group = "Main", Slot = "PineBark", Center = Vector3.new(0.1127, 8.0135, 0.0162), Size = Vector3.new(5.3142, 16.0276, 0.7524) },
+		{ Name = "Kit_Tree_Pine__Main__PineNeedles", Group = "Main", Slot = "PineNeedles", Center = Vector3.new(0.1181, 13.5547, -0.0244), Size = Vector3.new(6.7969, 7.4905, 2.1181) },
 	},
 	["Kit_Window"] = {
 		{ Name = "Kit_Window__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.1400), Size = Vector3.new(5.7000, 7.2000, 0.3800) },

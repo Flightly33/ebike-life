@@ -7,3 +7,4 @@ roblox.toml
 node_modules/
 blender/out/renders/
 blender/__pycache__/
+blender/out/textures/

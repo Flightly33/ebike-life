@@ -1,7 +1,8 @@
 --[[
 	DayNight (client): runs the shared clock (Shared/DayNight) on this client and dresses the world
 	for the hour:
-	  - Lighting, the sky, Atmosphere, Bloom, colour grading and sun rays blend between the looks;
+	  - Lighting, the sky, Atmosphere, Bloom, colour grading and sun rays blend between the looks,
+	    with the weather (Shared/Weather: sunny, partly cloudy, overcast) laid over them;
 	  - at dusk the street lamps glow, and the nearest ones (the graphics mode's LampLights within
 	    Config.DayNight.LampRange) cast real light;
 	  - a stable share of windows light up warm (each window always the same way);
@@ -17,6 +18,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local DayNightShared = require(Shared.DayNight)
+local Weather = require(Shared.Weather)
 
 local BikeController = require(script.Parent.BikeController)
 local Graphics = require(script.Parent.Graphics)
@@ -109,28 +111,43 @@ local function watchCity(city: Instance)
 	city.DescendantRemoving:Connect(untrack)
 end
 
-local function applyLook(look: DayNightShared.Look, hour: number)
+local OVERCAST_SKY = Color3.fromRGB(196, 202, 210)
+local OVERCAST_DECAY = Color3.fromRGB(150, 156, 166)
+local OVERCAST_CLOUD = Color3.fromRGB(150, 154, 162)
+local OVERCAST_TINT = Color3.fromRGB(240, 244, 250)
+
+local function scaled(c: Color3, k: number): Color3
+	return Color3.new(math.min(c.R * k, 1), math.min(c.G * k, 1), math.min(c.B * k, 1))
+end
+
+-- The hour's look with the weather laid over it: cloud cover, how much sun gets through (and how
+-- soft the shadows are), haze, a cooler, flatter grade under cloud, and the wind
+local function applyLook(look: DayNightShared.Look, hour: number, w: Weather.Conditions)
+	local cool = w.Cool
 	Lighting.ClockTime = hour
-	Lighting.Brightness = look.Brightness
-	Lighting.ExposureCompensation = look.Exposure
+	Lighting.Brightness = look.Brightness * (0.35 + 0.65 * w.Sun)
+	Lighting.ExposureCompensation = look.Exposure + 0.15 * cool
 	Lighting.Ambient = look.Ambient
-	Lighting.OutdoorAmbient = look.Outdoor
-	Lighting.ColorShift_Top = look.ShiftTop
+	Lighting.OutdoorAmbient = scaled(look.Outdoor, 1 + 0.3 * cool)
+	Lighting.ColorShift_Top = look.ShiftTop:Lerp(OVERCAST_SKY, cool * 0.7)
 	Lighting.ColorShift_Bottom = look.ShiftBottom
+	pcall(function()
+		Lighting.ShadowSoftness = w.Softness
+	end)
 	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 	if atmosphere then
-		atmosphere.Density = look.AtmoDensity
-		atmosphere.Color = look.AtmoColor
-		atmosphere.Decay = look.AtmoDecay
-		atmosphere.Haze = look.AtmoHaze
-		atmosphere.Glare = look.AtmoGlare
+		atmosphere.Density = look.AtmoDensity + 0.12 * w.Haze
+		atmosphere.Color = look.AtmoColor:Lerp(OVERCAST_SKY, cool * 0.8)
+		atmosphere.Decay = look.AtmoDecay:Lerp(OVERCAST_DECAY, cool * 0.8)
+		atmosphere.Haze = look.AtmoHaze + 1.3 * w.Haze
+		atmosphere.Glare = look.AtmoGlare * w.Sun * w.Sun
 	end
 	local grade = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
 	if grade then
-		grade.TintColor = look.Tint
+		grade.TintColor = look.Tint:Lerp(OVERCAST_TINT, cool * 0.6)
 		grade.Brightness = look.GradeBrightness
-		grade.Contrast = look.Contrast
-		grade.Saturation = look.Saturation
+		grade.Contrast = look.Contrast + w.Contrast
+		grade.Saturation = look.Saturation + w.Saturation
 	end
 	local bloom = Lighting:FindFirstChildOfClass("BloomEffect")
 	if bloom then
@@ -140,13 +157,17 @@ local function applyLook(look: DayNightShared.Look, hour: number)
 	local terrain = Workspace:FindFirstChildOfClass("Terrain")
 	local clouds = terrain and terrain:FindFirstChildOfClass("Clouds")
 	if clouds then
-		clouds.Color = look.Cloud
-		clouds.Cover = look.CloudCover
+		clouds.Color = look.Cloud:Lerp(OVERCAST_CLOUD, cool * 0.7)
+		clouds.Cover = math.max(w.Cover, look.CloudCover * 0.6)
+		clouds.Density = w.Density
 	end
 	local rays = Lighting:FindFirstChildOfClass("SunRaysEffect")
 	if rays then
-		rays.Intensity = look.SunRays
+		rays.Intensity = look.SunRays * w.Sun * w.Sun * w.Sun
 	end
+	pcall(function()
+		Workspace.GlobalWind = Vector3.new(w.Wind, 0, w.Wind * 0.45)
+	end)
 end
 
 -- Switch the city's lights on or off (windows a few hundred a frame, so dusk doesn't hitch)
@@ -282,6 +303,12 @@ function DayNight.Hour(): number
 	return DayNightShared.Hour(Workspace:GetServerTimeNow(), offset())
 end
 
+-- The weather now (Shared/Weather), and its kind
+function DayNight.Weather(): (Weather.Conditions, Weather.Kind)
+	local override = ReplicatedStorage:GetAttribute("WeatherOverride")
+	return Weather.At(Workspace:GetServerTimeNow(), if type(override) == "string" and override ~= "" then override else nil)
+end
+
 function DayNight.Init()
 	-- drifting clouds (the engine's own, no parts), blown by a light wind
 	local terrain = Workspace:FindFirstChildOfClass("Terrain")
@@ -291,9 +318,6 @@ function DayNight.Init()
 		clouds.Cover = 0.45
 		clouds.Parent = terrain
 	end
-	pcall(function()
-		Workspace.GlobalWind = Vector3.new(6, 0, 3)
-	end)
 	task.spawn(function()
 		local city = Workspace:WaitForChild("City", 60)
 		if city then
@@ -311,7 +335,7 @@ function DayNight.Init()
 			lookClock = 0
 			local hour = DayNight.Hour()
 			local look = DayNightShared.LookAt(hour)
-			applyLook(look, hour)
+			applyLook(look, hour, (DayNight.Weather()))
 			local night = look.Night > 0.5
 			if night ~= nightOn then
 				setNight(night)

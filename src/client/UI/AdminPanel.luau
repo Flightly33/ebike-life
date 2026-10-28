@@ -120,6 +120,13 @@ function AdminPanel.new(gui: Instance, open: () -> ()): Panel.Panel
 		end, 100)
 	end
 
+	local weather = row("Weather")
+	for _, kind in { "Auto", "Clear", "Cloudy", "Overcast" } do
+		button(weather, kind, if kind == "Auto" then C.Green else C.Gray, function()
+			run("weather", kind)
+		end, 100)
+	end
+
 	order += 1
 	Theme.Label({ Text = "Teleport", Size = UDim2.new(1, -10, 0, 22), TextSize = 20, Align = Enum.TextXAlignment.Left, LayoutOrder = order, Parent = scroll })
 	order += 1

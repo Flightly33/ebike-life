@@ -257,6 +257,52 @@ do
 	check(DayNight.LookAt(1).Night > 0.9 and DayNight.LookAt(13).Night < 0.01, "night is lit, noon isn't")
 end
 
+-- Weather: the spells come up in about their odds, ease into each other with no jumps, and the
+-- admin override holds one kind
+do
+	local Weather = Loader.Require("ReplicatedStorage.Shared.Weather")
+	local cfg = Config.Weather
+	local counts: { [string]: number } = { Clear = 0, Cloudy = 0, Overcast = 0 }
+	local spells = 4000
+	for i = 1, spells do
+		local kind = Weather.KindOf(i)
+		counts[kind] += 1
+	end
+	local total = 0
+	for _, odds in cfg.Odds do
+		total += odds
+	end
+	for kind, n in counts do
+		local want = cfg.Odds[kind] / total
+		check(math.abs(n / spells - want) < 0.04, string.format("%s spells come up %.2f of the time (odds %.2f)", kind, n / spells, want))
+	end
+	-- the biggest change over one second of server time, as a share of how far that value goes
+	-- from one kind to another, across a few hours of spells
+	local range: { [string]: number } = {}
+	for key in Weather.Kinds.Clear do
+		local lo, hi = math.huge, -math.huge
+		for _, conditions in Weather.Kinds do
+			lo, hi = math.min(lo, (conditions :: any)[key]), math.max(hi, (conditions :: any)[key])
+		end
+		range[key] = math.max(hi - lo, 1e-6)
+	end
+	local worst = 0
+	local before = Weather.At(1e6)
+	for t = 1e6 + 1, 1e6 + 6 * 3600 do
+		local now = Weather.At(t)
+		for key, value in now do
+			worst = math.max(worst, math.abs(value - (before :: any)[key]) / range[key])
+		end
+		before = now
+	end
+	-- a smoothstep over BlendSeconds peaks at 1.5 / BlendSeconds of the way a second
+	check(worst < 2 / cfg.BlendSeconds, string.format("the weather eases from spell to spell (worst step %.3f of the range a second)", worst))
+	local held, kind = Weather.At(1e6, "Overcast")
+	check(kind == "Overcast" and held.Cover == Weather.Kinds.Overcast.Cover, "the admin override holds its kind")
+	local free = Weather.At(1e6, "")
+	check(free.Cover > 0, "an empty override lets the spells run")
+end
+
 if failures > 0 then
 	print(string.format("%d consistency check(s) failed", failures))
 	process.exit(1)

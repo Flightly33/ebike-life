@@ -106,8 +106,8 @@ function Props.Tree(parent: Instance, base: Vector3, rng: Random, size: number?)
 end
 
 -- A palm: a slender, slightly curving ringed trunk and a crown of drooping fronds. Its own model
--- name ("Palm"), so the city kit's tree meshes leave it alone. Coconut palms lean and carry
--- coconuts; royal palms stand straight with a smooth pale trunk and a green crownshaft.
+-- name ("Palm"), which the city kit swaps for its palm meshes by `Species`. Coconut palms lean and
+-- carry coconuts; royal palms stand straight with a smooth pale trunk and a green crownshaft.
 local PALM_FRONDS = { Color3.fromRGB(70, 128, 52), Color3.fromRGB(84, 140, 58), Color3.fromRGB(96, 146, 62), Color3.fromRGB(62, 116, 50) }
 function Props.Palm(parent: Instance, base: Vector3, rng: Random, size: number?)
 	local s = size or rng:NextNumber(0.85, 1.2)

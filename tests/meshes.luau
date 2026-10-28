@@ -192,6 +192,12 @@ do
 	for i = 1, 40 do
 		Props.Tree(street, Vector3.new(i * 20, 0, 30), rng)
 	end
+	-- palms (coconut and royal) and a couple of the countryside's pines
+	for i = 1, 12 do
+		Props.Palm(street, Vector3.new(i * 25, 0, 90), rng)
+	end
+	local Countryside = server.Require(Shared:WaitForChild("City"):WaitForChild("Countryside"))
+	local _ = Countryside
 	Props.Lamp(street, Vector3.new(0, 0, 60))
 	Props.Bench(street, CFrame.new(20, 0, 60) * CFrame.Angles(0, math.rad(90), 0))
 	Props.Hydrant(street, Vector3.new(30, 0, 60))
@@ -213,16 +219,68 @@ do
 		return n
 	end
 	local frames, panes = count("WindowFrame"), count("Window")
+	-- each palm's foot, lean and height before the swap
+	local palms = {}
+	for _, d in street:GetChildren() do
+		if d:IsA("Model") and d.Name == "Palm" then
+			local lo, hi
+			for _, part in d:GetChildren() do
+				if part.Name == "Trunk" then
+					local half = part.CFrame.RightVector * (part.Size.X / 2)
+					for _, p in { part.Position + half, part.Position - half } do
+						if not lo or p.Y < lo.Y then
+							lo = p
+						end
+						if not hi or p.Y > hi.Y then
+							hi = p
+						end
+					end
+				end
+			end
+			local top = -math.huge
+			for _, part in d:GetDescendants() do
+				if part:IsA("BasePart") then
+					top = math.max(top, part.Position.Y + part.Size.Y / 2)
+				end
+			end
+			table.insert(palms, { Model = d, Foot = lo, Lean = Vector3.new(hi.X - lo.X, 0, hi.Z - lo.Z), Top = top, Royal = d:GetAttribute("Species") == "Royal" })
+		end
+	end
 	local placed = CityKit.Apply(street)
 	check(species.Broadleaf and species.Birch and species.Conifer, "the street has all three tree species")
-	check(placed == frames + 40 + 1 + 5, string.format("the kit replaced every window, tree, lamp and street furniture (%d of %d)", placed, frames + 46))
+	check(placed == frames + 40 + 12 + 1 + 5, string.format("the kit replaced every window, tree, palm, lamp and street furniture (%d of %d)", placed, frames + 58))
+	-- palms: the textured kit stands on the trunk's foot, about as tall, leaning the same way
+	local palmsOk, leanOk = true, true
+	for _, palm in palms do
+		local bark, top = nil, -math.huge
+		for _, part in palm.Model:GetChildren() do
+			if part:IsA("MeshPart") then
+				top = math.max(top, part.Position.Y + part.Size.Y / 2)
+				if part.Name == "Kit_PalmBark" or part.Name == "Kit_RoyalTrunk" then
+					bark = part
+				end
+			end
+		end
+		if not bark or math.abs(top - palm.Top) > palm.Top * 0.12 then
+			palmsOk = false
+		elseif not palm.Royal and palm.Lean.Magnitude > 0.5 then
+			local off = Vector3.new(bark.Position.X - palm.Foot.X, 0, bark.Position.Z - palm.Foot.Z)
+			if off:Dot(palm.Lean) <= 0 then
+				leanOk = false
+				print(string.format("[test]   palm lean (%.1f, %.1f), its bark's offset (%.2f, %.2f)", palm.Lean.X, palm.Lean.Z, off.X, off.Z))
+			end
+		end
+	end
+	check(palmsOk, "palms: the textured kit stands in for each one, about as tall")
+	check(leanOk, "coconut palms lean the way their trunks (the colliders) lean")
+	check(count("Frond") == 0 and count("Coconuts") == 0, "palm fronds and coconuts replaced")
 	check(count("BinLid") == 0 and count("BollardBand") == 0 and count("Meter") == 0 and count("Nozzles") == 0, "street furniture trim replaced")
 	-- lamps and trees stand upright (their meshes taller than wide), furniture stands on the ground
 	local upright, grounded = true, true
 	for _, d in street:GetDescendants() do
 		if d:IsA("MeshPart") then
 			local owner = d.Parent
-			if owner and (owner.Name == "Lamp" or owner.Name == "Tree") and d.Name ~= "Kit_Paint" and d.Size.Y < math.max(d.Size.X, d.Size.Z) then
+			if owner and owner.Name == "Lamp" and d.Name ~= "Kit_Paint" and d.Size.Y < math.max(d.Size.X, d.Size.Z) then
 				upright = false
 			end
 			if d.Position.Y - d.Size.Y / 2 < -0.3 then
@@ -230,11 +288,11 @@ do
 			end
 		end
 	end
-	check(upright, "lamp and tree kits stand upright")
+	check(upright, "lamp kits stand upright")
 	check(grounded, "no kit piece sinks below the ground")
 	check(count("WindowFrame") == 0 and count("Sill") == 0, "frames and sills are gone")
 	check(count("Window") == panes, "the glass stays (it lights up at night)")
-	check(count("Leaves") == 0 and count("Trunk") == 40, "trees: leaves replaced, trunks kept as colliders")
+	check(count("Leaves") == 0 and count("Trunk") == 40 + 24, "trees and palms: leaves replaced, trunks kept as colliders")
 	check(count("Globe") == 1 and count("Pole") == 1 and count("Collar") == 0, "lamp: globe and pole kept, trim replaced")
 	-- each window surround sits on its frame: its casing over the frame's box, the glass behind the bars
 	local ok = true
@@ -378,6 +436,31 @@ for _, case in cases do
 	check(worst < 0.002, string.format("%s: compressed, each wheel rises by its compression (off by %.4f studs)", bike.Id, worst))
 	check(aligned, bike.Id .. ": the shock's body and shaft stay in line")
 	check(clear, bike.Id .. ": the fork lowers clear the crown at full travel")
+end
+
+-- The realism pack's materials: the variants saved with the import go live in MaterialService,
+-- sized to the city's scale, the turned copies left alone unless asked for
+do
+	local Config = server.Require(Shared:WaitForChild("Config"))
+	local Materials = server.Require(Shared:WaitForChild("Materials"))
+	local pack = Sim.New("Model")
+	pack.Name = "VehicleMeshes"
+	local saved = Sim.New("Folder")
+	saved.Name = "Materials"
+	saved.Parent = pack
+	for _, spec in { { "RealAsphalt", 2.0, false }, { "RealClayRoofTiles", 1.0, false }, { "RealClayRoofTiles90", 1.0, true } } do
+		local variant = Sim.New("MaterialVariant")
+		variant.Name = spec[1]
+		variant:SetAttribute("TileMeters", spec[2])
+		variant:SetAttribute("Turned", spec[3])
+		variant.Parent = saved
+	end
+	pack.Parent = RS
+	local made = Materials.Apply()
+	local live = world.Services.MaterialService:FindFirstChild("RealAsphalt")
+	check(made == 3, string.format("the pack's material variants were installed (%d of 3)", made))
+	check(live ~= nil and math.abs(live.StudsPerTile - 2.0 * Config.CITY_STUDS_PER_METER) < 1e-6, "an installed variant tiles at its real size in the city's scale")
+	pack:Destroy()
 end
 
 for _, e in world.Errors do

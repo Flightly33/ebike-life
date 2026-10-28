@@ -4,8 +4,8 @@
 	rubber tyres, shingle or clay-tile house roofs, leather and fabric seats, glass that reflects,
 	glossy paint on vehicle bodies. Colours are left alone (the builders choose them).
 
-	The owner can go further with their own PBR textures: AssetIds.Materials (MaterialVariants,
-	made at startup by Shared/Materials) override the base materials everywhere at once.
+	The realism pack goes further: its PBR MaterialVariants (Shared/Materials) override the base
+	materials everywhere at once, so the roles chosen here pick up real textures too.
 ]]
 
 local Realism = {}

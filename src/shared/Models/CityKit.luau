@@ -7,8 +7,11 @@
 	                 sash with glazing bars, moulded sill on corbels, lintel and keystone), fitted to
 	                 the frame; the glass ("Window") stays a part, set back into the new reveal, so
 	                 the windows still light up at night.
-	  Trees          each "Tree" model becomes its species' mesh ("Species" attribute), scaled to the
-	                 model and tinted its leaves' colour; the trunk stays as an invisible collider.
+	  Trees, palms   each "Tree", "Palm" and "Pine" model becomes its species' textured mesh from
+	                 the realism pack (blender/vegetation.py: live oaks, coconut and royal palms,
+	                 slash pines), scaled to the model's height and turned to its trunk's lean; the
+	                 trunk stays as an invisible collider. (An older import's flat-coloured trees,
+	                 "Kit_Tree_<Species>", are used if that's all there is.)
 	  Lamps          each "Lamp" model becomes the Victorian post; the pole stays as an invisible
 	                 collider and the globe stays a part (it glows at night).
 
@@ -22,6 +25,12 @@ local CityKit = {}
 
 local WINDOW_FRAME = Vector3.new(5.7, 7.2, 0.3)
 local TREES = { Broadleaf = "Kit_Tree_Broadleaf", Birch = "Kit_Tree_Birch", Conifer = "Kit_Tree_Conifer" }
+-- the realism pack's vegetation by model name and species ("Default" when there's no species)
+local VEGETATION: { [string]: { [string]: string } } = {
+	Tree = { Broadleaf = "Kit_Tree_Oak", Birch = "Kit_Tree_OakTall", Conifer = "Kit_Tree_Pine", Default = "Kit_Tree_Oak" },
+	Palm = { Coconut = "Kit_Palm_Coconut", Royal = "Kit_Palm_Royal", Default = "Kit_Palm_Coconut" },
+	Pine = { Default = "Kit_Tree_Pine" },
+}
 
 type Piece = MeshKit.Piece
 
@@ -127,6 +136,63 @@ local function windows(frames: { BasePart }, sills: { [string]: BasePart }, pane
 	end
 end
 
+-- The ends of a model's trunk (its "Trunk" cylinders run along their own X): the lowest and the
+-- highest end
+local function trunkEnds(model: Instance): (Vector3?, Vector3?)
+	local lo: Vector3?, hi: Vector3? = nil, nil
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") and part.Name == "Trunk" then
+			local half = part.CFrame.RightVector * (part.Size.X / 2)
+			for _, p in { part.Position + half, part.Position - half } do
+				if lo == nil or p.Y < (lo :: Vector3).Y then
+					lo = p
+				end
+				if hi == nil or p.Y > (hi :: Vector3).Y then
+					hi = p
+				end
+			end
+		end
+	end
+	return lo, hi
+end
+
+-- A tree or palm: the kit stands on the trunk's foot, as tall as the model, leaning the same way
+-- (every vegetation kit leans toward its +X); the trunk stays as the collider, the rest goes
+local function plant(model: Model, pieces: { Piece }, turn: number): boolean
+	local base, top = trunkEnds(model)
+	if not base or not top then
+		return false
+	end
+	local foot, tip = base :: Vector3, top :: Vector3
+	local cf, size = boxIn(model, CFrame.new(foot))
+	local height = (cf.Position.Y + size.Y / 2) - foot.Y
+	local kc, ks = bounds(pieces)
+	local kitTop = kc.Y + ks.Y / 2
+	if height <= 0 or kitTop <= 0 then
+		return false
+	end
+	local k = height / kitTop
+	local lean = Vector3.new(tip.X - foot.X, 0, tip.Z - foot.Z)
+	local yaw
+	if lean.Magnitude > 0.005 * height then
+		yaw = math.atan2(-lean.Z, lean.X)
+	else
+		-- upright (royal palms, trees): a steady turn from where it stands, so neighbours differ
+		yaw = ((foot.X * 12.9898 + foot.Z * 78.233) % 6.2832)
+	end
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") then
+			if part.Name == "Trunk" then
+				hide(part)
+			else
+				part:Destroy()
+			end
+		end
+	end
+	place(pieces, model, CFrame.new(foot) * CFrame.Angles(0, yaw, 0), Vector3.zero, Vector3.new(k, k, k), Color3.new(0, 0, 0), turn)
+	return true
+end
+
 -- Apply the kit to a city (the baked map or a fresh build). Returns how many pieces it replaced.
 function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 	local step = pace or function() end
@@ -160,7 +226,7 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 				loose[d.Name] = list
 			end
 		elseif d:IsA("Model") then
-			if d.Name == "Tree" then
+			if d.Name == "Tree" or d.Name == "Palm" or d.Name == "Pine" then
 				table.insert(trees, d)
 			elseif d.Name == "Lamp" then
 				table.insert(lamps, d)
@@ -180,6 +246,18 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 
 	for _, model in trees do
 		local species = model:GetAttribute("Species")
+		local kinds = VEGETATION[model.Name]
+		local real = kinds and MeshKit.Pieces(kinds[if type(species) == "string" and kinds[species] then species else "Default"])
+		if real then
+			if plant(model, real, turn) then
+				done += 1
+			end
+			step()
+			continue
+		end
+		if model.Name ~= "Tree" then
+			continue
+		end
 		local pieces = MeshKit.Pieces(TREES[if type(species) == "string" then species else "Broadleaf"] or TREES.Broadleaf)
 		if not pieces then
 			continue

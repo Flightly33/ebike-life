@@ -250,9 +250,7 @@ def bench():
 
 def build_all():
     window()
-    tree("Broadleaf", 11)
-    tree("Birch", 23)
-    tree("Conifer", 37)
+    # (the trees are textured meshes now: blender/vegetation.py)
     lamp()
     bin_()
     bollard()

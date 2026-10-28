@@ -1,62 +1,64 @@
 --[[
-	Materials: the owner's optional PBR texture sets (AssetIds.Materials) as MaterialVariants that
-	replace Roblox's base materials across the whole place. Run once on the server at startup
-	(MaterialService replicates). Sets without a ColorMap are skipped, so with none filled in the
-	game uses Roblox's own photo-scanned 2022 materials.
+	Materials: the PBR material library (blender/textures.py: asphalt, pavement slabs, concrete,
+	stucco, brick, roof tiles, grass, sand...) in the game, replacing Roblox's base materials
+	everywhere they're used, the terrain's included.
+
+	A MaterialVariant's texture maps can only be set in Studio, not by game scripts, so the
+	variants are made by the owner's one-off setup (tools/studio/SetupRealism.luau, after importing
+	Vehicles.fbx) and travel in ReplicatedStorage.VehicleMeshes.Materials. At startup the server
+	copies them into MaterialService (which replicates), sizes each to the city's scale (its tile's
+	real metres times Config.CITY_STUDS_PER_METER) and makes it the override for its base material.
+	Without the pack the game keeps Roblox's own 2022 materials.
+
+	Directional materials (roof tiles, shingles, planks) come in two turns; Config.Realism.Turned
+	picks the quarter-turned copy for a base material if its pattern runs the wrong way in Studio.
 ]]
 
 local MaterialService = game:GetService("MaterialService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local AssetIds = require(script.Parent.AssetIds)
+local Config = require(script.Parent.Config)
 
 local Materials = {}
 
-local function asset(id: string): string
-	if id == "" then
-		return ""
+-- The pack's variants (nil without the import)
+function Materials.Pack(): Instance?
+	local ok, root = pcall(function()
+		return ReplicatedStorage:FindFirstChild("VehicleMeshes")
+	end)
+	if not ok or typeof(root) ~= "Instance" then
+		return nil
 	end
-	if string.find(id, "://", 1, true) then
-		return id
-	end
-	return "rbxassetid://" .. id
+	return (root :: Instance):FindFirstChild("Materials")
 end
 
 function Materials.Apply(): number
+	local folder = Materials.Pack()
+	if not folder then
+		return 0
+	end
 	local made = 0
-	for name, textures in AssetIds.Materials do
-		if textures.ColorMap ~= "" then
-			local ok, base = pcall(function()
-				return (Enum.Material :: any)[name]
-			end)
-			if ok and base then
-				local variant = Instance.new("MaterialVariant")
-				variant.Name = "Real" .. name
-				variant.BaseMaterial = base
-				-- the maps are Content properties (ColorMapContent...) on current Roblox, plain
-				-- strings (ColorMap...) on older builds: set whichever this one has
-				for _, map in { "ColorMap", "NormalMap", "RoughnessMap", "MetalnessMap" } do
-					local id = asset((textures :: any)[map])
-					if id ~= "" then
-						local ok = pcall(function()
-							(variant :: any)[map .. "Content"] = (Content :: any).fromUri(id)
-						end)
-						if not ok then
-							pcall(function()
-								(variant :: any)[map] = id
-							end)
-						end
-					end
-				end
-				variant.StudsPerTile = textures.StudsPerTile
-				variant.Parent = MaterialService
-				pcall(function()
-					MaterialService:SetBaseMaterialOverride(base, variant.Name)
-				end)
-				made += 1
-			else
-				warn("[Materials] no Roblox material called " .. name)
-			end
+	for _, variant in folder:GetChildren() do
+		if not variant:IsA("MaterialVariant") then
+			continue
 		end
+		local copy = MaterialService:FindFirstChild(variant.Name)
+		if not (copy and copy:IsA("MaterialVariant")) then
+			copy = variant:Clone()
+		end
+		local live = copy :: MaterialVariant
+		local tile = variant:GetAttribute("TileMeters")
+		if type(tile) == "number" then
+			live.StudsPerTile = tile * Config.CITY_STUDS_PER_METER
+		end
+		live.Parent = MaterialService
+		local base = live.BaseMaterial
+		if (variant:GetAttribute("Turned") == true) == (Config.Realism.Turned[base.Name] == true) then
+			pcall(function()
+				MaterialService:SetBaseMaterialOverride(base, live.Name)
+			end)
+		end
+		made += 1
 	end
 	return made
 end

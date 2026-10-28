@@ -16,6 +16,7 @@ MeshParts when they're there and falls back to its part-built models when they'r
 import json
 import math
 import os
+import re
 import sys
 
 import bpy
@@ -25,6 +26,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import meshkit as K  # noqa: E402
 import emoto  # noqa: E402
 import citykit  # noqa: E402
+import realism_pack  # noqa: E402
+import vegetation  # noqa: E402
 from meshkit import B, Vector as V  # noqa: E402,F401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -1320,11 +1323,17 @@ def main():
         car(kind, d)
         car_kinds.append(name)
         colors[name] = {"Paint": car_paint.get(kind, (0.62, 0.05, 0.06)), "Blue": (0.1, 0.3, 0.85), "Red": (0.6, 0.08, 0.08)}
-    if not only or any(name.startswith("Kit_") for name in only):
+    kits = not only or any(name.startswith("Kit_") for name in only)
+    if kits:
         citykit.build_all()
-        for name in ("Kit_Window", "Kit_Tree_Broadleaf", "Kit_Tree_Birch", "Kit_Tree_Conifer", "Kit_Lamp", "Kit_Bin", "Kit_Bollard", "Kit_Meter", "Kit_Hydrant", "Kit_Bench"):
-            colors[name] = {"Paint": (0.55, 0.62, 0.3) if "Tree" in name else (0.9, 0.88, 0.82)}
+        for name in ("Kit_Window", "Kit_Lamp", "Kit_Bin", "Kit_Bollard", "Kit_Meter", "Kit_Hydrant", "Kit_Bench"):
+            colors[name] = {"Paint": (0.9, 0.88, 0.82)}
     manifest = K.build_objects()
+    if kits:
+        # the trees and palms (textured, built with their own UVs) and the PBR library's images
+        manifest.update(vegetation.build_all())
+        realism_pack.kit_materials()
+        realism_pack.add_swatches()
     os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
     total = 0
     for veh, items in manifest.items():
@@ -1335,14 +1344,23 @@ def main():
     print("total tris", total)
     print("pieces", K.STATS["pieces"], "flipped outward", K.STATS["flipped"])
     write_manifest(manifest)
-    bpy.ops.export_scene.fbx(filepath=os.path.join(HERE, "out", "Vehicles.fbx"), use_selection=False, object_types={"EMPTY", "MESH"}, apply_unit_scale=True, axis_forward="-Z", axis_up="Y", mesh_smooth_type="FACE", add_leaf_bones=False, bake_anim=False)
+    bpy.ops.export_scene.fbx(filepath=os.path.join(HERE, "out", "Vehicles.fbx"), use_selection=False, object_types={"EMPTY", "MESH"}, apply_unit_scale=True, axis_forward="-Z", axis_up="Y", mesh_smooth_type="FACE", add_leaf_bones=False, bake_anim=False, path_mode="COPY", embed_textures=True)
     print("wrote blender/out/Vehicles.fbx")
+    if kits:
+        realism_pack.write_snippet(world_scale())
     ids = arg("--render")
     if ids:
         setup_materials(colors)
         if ids == ["all"]:
             ids = list(manifest.keys())
         render(ids, os.path.join(HERE, "out", "renders"), car_kinds)
+
+
+def world_scale():
+    """Config.WORLD_SCALE, read from the game's Config (the city's studs per design stud)."""
+    with open(os.path.join(ROOT, "src", "shared", "Config.luau")) as f:
+        m = re.search(r"Config\.WORLD_SCALE\s*=\s*([0-9.]+)", f.read())
+    return float(m.group(1)) if m else 1.0
 
 
 def write_manifest(manifest):
