@@ -199,7 +199,7 @@ local function pads(city: Instance)
 	local outerS = Layout.Line(Layout.GRID_COUNT - 1) + Layout.LineWidthZ(Layout.GRID_COUNT - 1) / 2
 	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, -ringIn, outerN - swOut)
 	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, outerS + swOut, ringIn)
-	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, -3780 - Layout.AVENUE_WIDTH / 2, -ringOut)
+	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, Layout.BAY_NORTH_Z - Layout.AVENUE_WIDTH / 2, -ringOut)
 	pad(bayWest - Layout.AVENUE_SIDEWALK, bayWest, ringOut, Layout.SOUTH_ZS[1] - Layout.STREET_WIDTH / 2 - swOut)
 
 	-- the islands' edges: Miami Beach and Key Biscayne
@@ -303,8 +303,9 @@ local function streetscape(city: Instance, rng: Random)
 	local xs = Layout.ISLAND_XS
 	local oceanDr = xs[#xs] + Layout.ISLAND_X_WIDTHS[#xs] / 2
 	local westAve = xs[1] - Layout.ISLAND_X_WIDTHS[1] / 2
-	Props.Streetscape(folder, Vector3.new(oceanDr + 3, Y, isl.MinZ + 240), Vector3.new(oceanDr + 3, Y, isl.MaxZ - 240), rng, "Palm", Vector3.new(-1, 0, 0))
-	Props.Streetscape(folder, Vector3.new(westAve - 3, Y, isl.MinZ + 240), Vector3.new(westAve - 3, Y, isl.MaxZ - 240), rng, "Palm", Vector3.new(1, 0, 0))
+	local tip = 240 * Layout.SPREAD -- clear of the parks at the island's ends
+	Props.Streetscape(folder, Vector3.new(oceanDr + 3, Y, isl.MinZ + tip), Vector3.new(oceanDr + 3, Y, isl.MaxZ - tip), rng, "Palm", Vector3.new(-1, 0, 0))
+	Props.Streetscape(folder, Vector3.new(westAve - 3, Y, isl.MinZ + tip), Vector3.new(westAve - 3, Y, isl.MaxZ - tip), rng, "Palm", Vector3.new(1, 0, 0))
 end
 
 local BUSY: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Midtown = true, Plaza = true, Dealership = true, Police = true, ArtDeco = true, Condo = true, Havana = true, HavanaPark = true }
@@ -329,8 +330,8 @@ local function furniture(city: Instance, rng: Random)
 			local length = (side.b - side.a).Magnitude
 			local dir = (side.b - side.a).Unit
 			local avenue = block.Grid == "Main" and Layout.IsAvenue(side.line)
-			-- the lamps and trees sit every 40 studs from Props.Streetscape; furniture goes between
-			local slots = math.floor(length / 40)
+			-- a bench, bin or rack every ~17 m
+			local slots = math.floor(length / 60)
 			for k = 1, slots - 1 do
 				local p = side.a + dir * (k * length / slots + 12)
 				local face = CFrame.lookAt(p, p + side.road)
@@ -410,7 +411,8 @@ local function islandEnds(city: Instance, rng: Random)
 			local cz = (z0 + z1) / 2
 			local path = PartKit.Box(folder, "Path", Vector3.new(beachX - westAve, 0.3, 12), CFrame.new((westAve + beachX) / 2, 0.15, cz), Color3.fromRGB(214, 200, 178), Enum.Material.Pavement)
 			path:SetAttribute("Surface", "Sidewalk")
-			for _ = 1, math.floor((z1 - z0) * (beachX - isl.MinX) / 1500) do
+			-- (a palm every ~300 m², a little sparser than the plan drew them)
+			for _ = 1, math.floor((z1 - z0) * (beachX - isl.MinX) / 3600) do
 				local x = rng:NextNumber(isl.MinX + 20, beachX - 10)
 				local z = rng:NextNumber(z0 + 8, z1 - 8)
 				if math.abs(z - cz) > 12 then
@@ -423,6 +425,57 @@ local function islandEnds(city: Instance, rng: Random)
 				Props.Lamp(folder, Vector3.new(x + 20, 0.3, cz + 9))
 			end
 		end
+	end
+end
+
+-- The stunt parks keep the size they were tuned to be ridden at (the first city's, 1.25 times life
+-- size): each is built in its lot shrunk back by Layout.SPREAD, then grown by it about the lot's
+-- middle (the loops' radius and shift with it)
+local function stuntPark(build: (Instance, LayoutModule.Block, Random) -> Model, blocks: Instance, block: LayoutModule.Block, rng: Random)
+	local S = Layout.SPREAD
+	local cx, cz = (block.LotMinX + block.LotMaxX) / 2, (block.LotMinZ + block.LotMaxZ) / 2
+	local small = table.clone(block)
+	small.MinX, small.MaxX = cx + (block.MinX - cx) / S, cx + (block.MaxX - cx) / S
+	small.LotMinX, small.LotMaxX = cx + (block.LotMinX - cx) / S, cx + (block.LotMaxX - cx) / S
+	small.MinZ, small.MaxZ = cz + (block.MinZ - cz) / S, cz + (block.MaxZ - cz) / S
+	small.LotMinZ, small.LotMaxZ = cz + (block.LotMinZ - cz) / S, cz + (block.LotMaxZ - cz) / S
+	local model = build(blocks, small, rng)
+	PartKit.ScaleAbout(model, Vector3.new(cx, Layout.CURB_Y, cz), S)
+	for _, d in model:GetDescendants() do
+		for _, attribute in { "LoopRadius", "LoopShift" } do
+			local value = d:GetAttribute(attribute)
+			if type(value) == "number" then
+				d:SetAttribute(attribute, value * S)
+			end
+		end
+	end
+end
+
+-- Flighty Mechanics on the south middle of its block (Layout.DEALERSHIP_DEPTH deep, along the
+-- street the riders spawn on), lawns and palms either side, a customer car park behind it
+local function dealership(blocks: Instance, block: LayoutModule.Block, rng: Random)
+	local front = table.clone(block)
+	front.LotMinZ = math.max(block.LotMinZ, block.LotMaxZ - Layout.DEALERSHIP_DEPTH)
+	local cx = (block.LotMinX + block.LotMaxX) / 2
+	local half = math.min(block.LotMaxX - block.LotMinX, Layout.DEALERSHIP_WIDTH) / 2
+	front.LotMinX, front.LotMaxX = cx - half, cx + half
+	Landmarks.Dealership(blocks, front, rng)
+	local sides = PartKit.Folder(blocks, "DealershipGrounds")
+	for _, side in { -1, 1 } do
+		local x0, x1 = if side < 0 then block.LotMinX else front.LotMaxX, if side < 0 then front.LotMinX else block.LotMaxX
+		if x1 - x0 > 20 then
+			local lawn = PartKit.Box(sides, "Lawn", Vector3.new(x1 - x0, 0.3, front.LotMaxZ - front.LotMinZ), CFrame.new((x0 + x1) / 2, Y + 0.15, (front.LotMinZ + front.LotMaxZ) / 2), C.Lawn, Enum.Material.Grass)
+			lawn:SetAttribute("Surface", "Grass")
+			for k = 0, math.floor((front.LotMaxZ - front.LotMinZ) / 60) - 1 do
+				Props.Palm(sides, Vector3.new((x0 + x1) / 2 + rng:NextNumber(-8, 8), Y + 0.3, front.LotMinZ + 30 + k * 60), rng)
+			end
+		end
+	end
+	local back = front.LotMinZ - 12
+	if back - block.LotMinZ > 60 then
+		local folder = PartKit.Folder(blocks, "DealershipParking")
+		Buildings.ParkingLot(folder, block.LotMinX + 6, block.LotMaxX - 6, block.LotMinZ + 6, back, Y, rng, 0.3)
+		Detail.Hedge(folder, Vector3.new(block.LotMinX + 6, Y, back + 6), Vector3.new(block.LotMaxX - 6, Y, back + 6), 4)
 	end
 end
 
@@ -439,7 +492,7 @@ function Builder.Build(): Model
 	for _, block in Layout.Blocks do
 		local district = block.District
 		if district == "Dealership" then
-			Landmarks.Dealership(blocks, block, rng)
+			dealership(blocks, block, rng)
 		elseif district == "Police" then
 			Landmarks.Police(blocks, block, rng)
 		elseif district == "Plaza" then
@@ -449,11 +502,7 @@ function Builder.Build(): Model
 		elseif district == "Marina" then
 			Landmarks.Marina(blocks, block, rng)
 		elseif district == "Jump" then
-			if block.Bx == 1 then
-				Landmarks.LoopPark(blocks, block, rng)
-			else
-				Landmarks.JumpPark(blocks, block, rng)
-			end
+			stuntPark(if block.Bx == 1 then Landmarks.LoopPark else Landmarks.JumpPark, blocks, block, rng)
 		elseif not Neighborhoods.Fill(blocks, block, rng) then
 			Buildings.Fill(blocks, block, rng)
 		end

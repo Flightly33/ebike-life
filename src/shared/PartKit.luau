@@ -206,11 +206,16 @@ end
 -- Scales a built (static) model about the world origin: positions, sizes, attachments, light
 -- ranges, prompt distances; SurfaceGui text keeps its size on screen
 function PartKit.Scale(root: Instance, k: number)
+	PartKit.ScaleAbout(root, Vector3.zero, k)
+end
+
+-- Scales everything under `root` by `k` about the point `pivot`
+function PartKit.ScaleAbout(root: Instance, pivot: Vector3, k: number)
 	for _, d in root:GetDescendants() do
 		if d:IsA("BasePart") then
 			local cf = d.CFrame
 			d.Size *= k
-			d.CFrame = CFrame.new(cf.Position * k) * (cf - cf.Position)
+			d.CFrame = CFrame.new(pivot + (cf.Position - pivot) * k) * (cf - cf.Position)
 		elseif d:IsA("Attachment") then
 			d.Position *= k
 		elseif d:IsA("PointLight") or d:IsA("SpotLight") or d:IsA("SurfaceLight") then

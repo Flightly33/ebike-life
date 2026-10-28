@@ -32,6 +32,7 @@ local BAYWALK = Color3.fromRGB(214, 200, 178)
 local DECK_WOOD = Color3.fromRGB(150, 116, 80)
 
 local MAX_PART = 2000
+local S = Layout.SPREAD -- plan positions are spread (City/Layout)
 
 -- Boxes covering a rect, split into pieces no bigger than MAX_PART (the part size limit)
 local function tiles(parent: Instance, name: string, rect: LayoutModule.Rect, top: number, thickness: number, color: Color3, material: Enum.Material, surface: string?)
@@ -235,12 +236,14 @@ function Shore.Build(city: Instance, rng: Random)
 			bank:SetAttribute("Surface", "Mud")
 		end
 	end
-	-- invisible walls at the map edge
+	-- invisible walls at the map edge (in pieces within the part size limit)
+	local edgePieces = math.ceil(2 * W / MAX_PART)
+	local piece = 2 * W / edgePieces
 	for _, d in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
 		local along = Vector3.new(d.Z, 0, -d.X)
-		for k = 0, 4 do
-			local center = d * (W + 2) + along * (-W + W / 5 + k * W * 2 / 5) + Vector3.new(0, 100, 0)
-			local size = if d.X ~= 0 then Vector3.new(4, 260, W * 2 / 5 + 8) else Vector3.new(W * 2 / 5 + 8, 260, 4)
+		for k = 0, edgePieces - 1 do
+			local center = d * (W + 2) + along * (-W + piece / 2 + k * piece) + Vector3.new(0, 100, 0)
+			local size = if d.X ~= 0 then Vector3.new(4, 260, piece + 8) else Vector3.new(piece + 8, 260, 4)
 			local wall = PartKit.Box(ground, "Boundary", size, CFrame.new(center), Color3.new(1, 1, 1), SMOOTH, { Transparency = 1, Shadow = false })
 			wall:SetAttribute("Surface", "Wall")
 		end
@@ -250,8 +253,8 @@ function Shore.Build(city: Instance, rng: Random)
 	local walls = PartKit.Folder(folder, "Seawall")
 	local wallTop = Y
 	local wallH = wallTop - Layout.SEABED_Y
-	for k = 0, 4 do
-		PartKit.Box(walls, "Seawall", Vector3.new(3, wallH, W * 2 / 5), CFrame.new(shoreX - 1.5, Layout.SEABED_Y + wallH / 2, -W + W / 5 + k * W * 2 / 5), SEAWALL, CONCRETE)
+	for k = 0, edgePieces - 1 do
+		PartKit.Box(walls, "Seawall", Vector3.new(3, wallH, piece), CFrame.new(shoreX - 1.5, Layout.SEABED_Y + wallH / 2, -W + piece / 2 + k * piece), SEAWALL, CONCRETE)
 	end
 	local walk = PartKit.Folder(folder, "Baywalk")
 	local bayEdge = Layout.Line(Layout.BAY_INDEX) + Layout.AVENUE_WIDTH / 2
@@ -267,8 +270,8 @@ function Shore.Build(city: Instance, rng: Random)
 		table.insert(gaps, { link.Z - width / 2 - 2, link.Z + width / 2 + 2 })
 	end
 	local thickness = Y + 0.4
-	for _, piece in runs(-3800, 3620, gaps) do
-		local z0, z1 = piece[1], piece[2]
+	for _, run in runs(-3800 * S, 3620 * S, gaps) do
+		local z0, z1 = run[1], run[2]
 		local cz, d = (z0 + z1) / 2, z1 - z0
 		local w = shoreX - 3 - bayEdge
 		local pave = PartKit.Box(walk, "Pavement", Vector3.new(w, thickness, d), CFrame.new(bayEdge + w / 2, Y - thickness / 2, cz), BAYWALK, Enum.Material.Pavement)
@@ -284,7 +287,7 @@ function Shore.Build(city: Instance, rng: Random)
 			PartKit.Post(walk, "RailPost", 0.35, 3.4, Vector3.new(shoreX - 3.6, Y, z0 + k * d / math.max(n, 1)), Color3.fromRGB(235, 235, 232), Enum.Material.Metal, DECOR)
 		end
 		-- palms, lights and benches
-		palmsAlong(walk, Vector3.new(bayEdge + 9, Y, z0 + 6), Vector3.new(bayEdge + 9, Y, z1 - 6), 48, rng)
+		palmsAlong(walk, Vector3.new(bayEdge + 9, Y, z0 + 6), Vector3.new(bayEdge + 9, Y, z1 - 6), 64, rng)
 		local lights = math.floor(d / 100)
 		for k = 1, lights do
 			local z = z0 + k * d / (lights + 1)
@@ -351,7 +354,7 @@ function Shore.Build(city: Instance, rng: Random)
 			verge:SetAttribute("Surface", "Grass")
 			revetment(causeways, Vector3.new(wcx, 0, z + side * crest / 2), Vector3.new(0, 0, side), wlen)
 			guardRail(causeways, Vector3.new(w0 + 4, Layout.ROAD_Y, z + side * (roadW / 2 + 1)), Vector3.new(w1 - 4, Layout.ROAD_Y, z + side * (roadW / 2 + 1)))
-			palmsAlong(causeways, Vector3.new(w0 + 30, Layout.ROAD_Y, z + side * (roadW / 2 + 8)), Vector3.new(w1 - 30, Layout.ROAD_Y, z + side * (roadW / 2 + 8)), 70, rng)
+			palmsAlong(causeways, Vector3.new(w0 + 30, Layout.ROAD_Y, z + side * (roadW / 2 + 8)), Vector3.new(w1 - 30, Layout.ROAD_Y, z + side * (roadW / 2 + 8)), 90, rng)
 		end
 		for i = 1, math.floor(wlen / 120) do
 			local x = w0 + i * wlen / (math.floor(wlen / 120) + 1)
@@ -395,7 +398,7 @@ function Shore.Build(city: Instance, rng: Random)
 	local placed, tries = 0, 0
 	while placed < 14 and tries < 400 do
 		tries += 1
-		local p = Vector3.new(rng:NextNumber(shoreX + 200, Layout.ISLAND.MinX - 120), Layout.WATER_Y, rng:NextNumber(-3600, 3600))
+		local p = Vector3.new(rng:NextNumber(shoreX + 200, Layout.ISLAND.MinX - 120), Layout.WATER_Y, rng:NextNumber(-3600 * S, 3600 * S))
 		local clear = Layout.InWater(p.X, p.Z) and Layout.InWater(p.X + 70, p.Z) and Layout.InWater(p.X - 70, p.Z) and math.abs(p.Z - Layout.I395_Z) > 140
 		for _, link in Layout.Causeways do
 			if math.abs(p.Z - link.Z) < 140 then

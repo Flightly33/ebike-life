@@ -5,14 +5,19 @@
 	share one scale, 1 m ≈ 2.86 studs (1 stud = 0.35 m), which matches a Roblox avatar.
 
 	The city is authored in Roblox's standard units (1 stud = 0.28 m) and built at WORLD_SCALE times
-	that. It's built large on purpose (like most Roblox cities): at 1.25 a door is ~9 studs, a storey
-	~15 and a lane ~16, so the player reads as small next to the buildings. This is the one knob for
-	how big the city feels.
+	that: 0.8 (0.28 / 0.35) is true size next to the riders, the bikes and the cars (the owner asked
+	for real-world scale): a lane is 10 studs, a storey ~9, a door ~6. Where things are on the plan
+	(the streets, blocks, islands and places) is spread by CITY_SPREAD, so the map stays the size it
+	was when the city was drawn 1.25 times life size, with more room in every block.
 ]]
 
 local Config = {}
 
-Config.WORLD_SCALE = 1.25
+Config.WORLD_SCALE = 0.8
+-- the plan's distances are authored at 1/CITY_SPREAD of real (the first city's layout, drawn at
+-- WORLD_SCALE 1.25): City/Layout spreads every position by it and keeps every size real, so in game
+-- studs the map, the road graph and the places are where they were
+Config.CITY_SPREAD = 1.25 / Config.WORLD_SCALE
 Config.METERS_PER_STUD = 0.35
 Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
 -- the city's own studs per real metre (it's authored at 1 stud = 0.28 m, built at WORLD_SCALE):
@@ -38,7 +43,7 @@ Config.SpeedBoost = 1.5
 Config.Physics = {
 	Gravity = 9.81, -- m/s², real
 	AirDensity = 1.2, -- kg/m³
-	StepHeight = 1.2, -- studs a wheel rolls up without stopping (kerbs are 0.625)
+	StepHeight = 1.2, -- studs a wheel rolls up without stopping (kerbs are 0.4)
 	SnapDistance = 1.0, -- studs the ground may drop away before the bike counts as airborne (a kerb
 	-- drop isn't a jump: the wheels follow it down on the suspension)
 	MaxSteer = 0.55, -- rad of handlebar at walking pace
@@ -294,7 +299,7 @@ Config.Police = {
 	-- Tactics
 	-- no PIT or ramming: police don't use contact on motorcycles (it's deadly force)
 	FollowGap = 24, -- studs the chasing car keeps behind a moving rider
-	FlankOffset = 16, -- studs to the side a pacing car rides
+	FlankOffset = 11, -- studs to the side a pacing car rides (a lane over: lanes are 10 studs)
 	BoxInKmh = 12, -- below this the cars close in and block the rider in
 	InterceptAhead = 6, -- seconds ahead an interceptor aims for
 	RoadblockStars = 3,

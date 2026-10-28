@@ -14,6 +14,8 @@ local PartKit = require(script.Parent.Parent.PartKit)
 
 local Everglades = {}
 
+local S = Layout.SPREAD -- plan positions are spread (City/Layout)
+
 local SMOOTH = Enum.Material.SmoothPlastic
 local METAL = Enum.Material.Metal
 local DECOR = { Collide = false, Query = false, Touch = false, Shadow = false }
@@ -122,7 +124,7 @@ function Everglades.Build(city: Instance, rng: Random)
 
 	-- the airboat tour stop: gift shop south of the trail, a dock on the canal north of it
 	local stop = PartKit.Folder(folder, "AirboatTours")
-	local shopX = -3950
+	local shopX = -3950 * S
 	local shopZ = trailZ + roadHalf + 40
 	local lot = PartKit.Box(stop, "Lot", Vector3.new(120, 0.3, 50), CFrame.new(shopX + 30, 0.15, shopZ - 6), Color3.fromRGB(176, 166, 140), Enum.Material.Ground)
 	lot:SetAttribute("Surface", "Dirt")
@@ -156,7 +158,8 @@ function Everglades.Build(city: Instance, rng: Random)
 	-- the boardwalk loop: from the trail south over the marsh, west, back north; a tower at the far
 	-- corner with a ramp up to its deck
 	local walk = PartKit.Folder(folder, "Boardwalk")
-	local bx0, bx1 = -3620, -3880
+	local bx0 = -3620 * S
+	local bx1 = bx0 - 260
 	local bz0, bz1 = trailZ + roadHalf + 30, trailZ + 560
 	local h = 3
 	PartKit.Ramp(walk, "BoardwalkRamp", Vector3.new(bx0, 0, bz0 - 24), Vector3.new(bx0, h, bz0), 10, DECK, Enum.Material.WoodPlanks):SetAttribute("Surface", "Ramp")
@@ -177,19 +180,19 @@ function Everglades.Build(city: Instance, rng: Random)
 	-- dirt trails through the marsh (ridable off-road)
 	local trails = PartKit.Folder(folder, "Trails")
 	local points = {
-		Vector3.new(-3500, 0, trailZ - roadHalf - 40),
-		Vector3.new(-3500, 0, -700),
-		Vector3.new(-3800, 0, -1000),
-		Vector3.new(-4050, 0, -700),
-		Vector3.new(-4050, 0, -200),
-		Vector3.new(-3750, 0, trailZ - roadHalf - 40),
+		Vector3.new(-3500 * S, 0, trailZ - roadHalf - 40),
+		Vector3.new(-3500 * S, 0, -700 * S),
+		Vector3.new(-3800 * S, 0, -1000 * S),
+		Vector3.new(-4050 * S, 0, -700 * S),
+		Vector3.new(-4050 * S, 0, -200 * S),
+		Vector3.new(-3750 * S, 0, trailZ - roadHalf - 40),
 	}
 	for k = 1, #points - 1 do
 		local a, b = points[k], points[k + 1]
 		local strip = PartKit.Slab(trails, "Trail", a + Vector3.new(0, 0.15, 0), b + Vector3.new(0, 0.15, 0), 9, 0.3, Color3.fromRGB(150, 128, 92), Enum.Material.Ground)
 		strip:SetAttribute("Surface", "Dirt")
 	end
-	local south = { Vector3.new(-3450, 0, trailZ + roadHalf + 40), Vector3.new(-3450, 0, 1500), Vector3.new(-3700, 0, 2400), Vector3.new(-4100, 0, 2600) }
+	local south = { Vector3.new(-3450 * S, 0, trailZ + roadHalf + 40), Vector3.new(-3450 * S, 0, 1500 * S), Vector3.new(-3700 * S, 0, 2400 * S), Vector3.new(-4100 * S, 0, 2600 * S) }
 	for k = 1, #south - 1 do
 		local strip = PartKit.Slab(trails, "Trail", south[k] + Vector3.new(0, 0.15, 0), south[k + 1] + Vector3.new(0, 0.15, 0), 9, 0.3, Color3.fromRGB(150, 128, 92), Enum.Material.Ground)
 		strip:SetAttribute("Surface", "Dirt")
@@ -214,7 +217,7 @@ function Everglades.Build(city: Instance, rng: Random)
 		if hammocks >= 12 then
 			break
 		end
-		local x, z = rng:NextNumber(-W + 60, edge - 40), rng:NextNumber(-2200, W - 60)
+		local x, z = rng:NextNumber(-W + 60, edge - 40), rng:NextNumber(-2200 * S, W - 60)
 		if free(x, z, 40) then
 			hammocks += 1
 			for _ = 1, rng:NextInteger(5, 9) do
@@ -235,7 +238,7 @@ function Everglades.Build(city: Instance, rng: Random)
 		if clumps >= 160 then
 			break
 		end
-		local x, z = rng:NextNumber(-W + 20, edge - 10), rng:NextNumber(-2200, W - 20)
+		local x, z = rng:NextNumber(-W + 20, edge - 10), rng:NextNumber(-2200 * S, W - 20)
 		if free(x, z, 6) then
 			clumps += 1
 			sawgrass(life, Vector3.new(x, 0, z), rng)

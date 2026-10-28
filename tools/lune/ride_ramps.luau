@@ -60,7 +60,8 @@ for _, d in city:GetDescendants() do
 		if road and look.Y > 0.05 and look.Y < 0.5 then
 			park = d:FindFirstAncestor("Freeways") or d:FindFirstAncestor("Garage")
 		end
-		if park and ((look.Y > (if road then 0.05 else 0.08) and look.Y < 0.9) or quarterFoot) and first and d.Size.X > 6 then
+		-- (a leaning tree's trunk is tilted too, but it's a collider, not a riding face)
+		if park and d.Name ~= "Trunk" and ((look.Y > (if road then 0.05 else 0.08) and look.Y < 0.9) or quarterFoot) and first and d.Size.X > 6 then
 			local label = park.Name .. "/" .. (if d.Parent then d.Parent.Name else "?") .. "/" .. d.Name
 			if not filter or string.find(label, filter, 1, true) then
 				table.insert(targets, { Part = d, Label = label })

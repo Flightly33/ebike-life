@@ -80,11 +80,11 @@ end
 -- funnel, orange lifeboats along the sides, a pool deck
 function Port.CruiseShip(parent: Instance, cf: CFrame, length: number, rng: Random): Model
 	local model = PartKit.Model(parent, "CruiseShip")
-	local beam = 70
+	local beam = length * 0.13
 	local white = Color3.fromRGB(248, 248, 246)
 	hull(model, cf, length, beam, 30, white, Color3.fromRGB(20, 40, 90))
-	local decks = 8
-	local deckH = 9
+	local decks = 12
+	local deckH = 10.5 -- 2.9 m
 	for k = 0, decks - 1 do
 		local f = 1 - k * 0.04
 		local y = 30 + k * deckH
@@ -123,7 +123,7 @@ end
 -- A container ship: a dark hull, stacks of boxes the length of her, the bridge house aft
 function Port.ContainerShip(parent: Instance, cf: CFrame, length: number, rng: Random): Model
 	local model = PartKit.Model(parent, "ContainerShip")
-	local beam = 64
+	local beam = length * 0.14
 	hull(model, cf, length, beam, 22, Color3.fromRGB(40, 44, 52), Color3.fromRGB(150, 40, 36))
 	local bays = 10
 	for k = 0, bays - 1 do
@@ -165,10 +165,11 @@ function Port.Build(city: Instance, rng: Random)
 		end
 	end
 	for k = 0, 2 do
-		crane(folder, Vector3.new(p.MinX + 120 + k * 180, Layout.ROAD_Y, p.MaxZ - 30), Vector3.new(0, 0, 1))
+		crane(folder, Vector3.new(cx - 260 + k * 260, Layout.ROAD_Y, p.MaxZ - 30), Vector3.new(0, 0, 1))
 	end
-	-- the container ship alongside the south quay
-	Port.ContainerShip(folder, CFrame.lookAt(Vector3.new(cx, Layout.WATER_Y, p.MaxZ + 40), Vector3.new(cx - 1, Layout.WATER_Y, p.MaxZ + 40)), 520, rng)
+	-- the container ship alongside the south quay (a 230 m feeder)
+	local boxLength = 820
+	Port.ContainerShip(folder, CFrame.lookAt(Vector3.new(cx, Layout.WATER_Y, p.MaxZ + boxLength * 0.07 + 8), Vector3.new(cx - 1, Layout.WATER_Y, p.MaxZ + boxLength * 0.07 + 8)), boxLength, rng)
 
 	-- the cruise terminal (north), two ships off it
 	local term = Vector3.new(cx, Layout.ROAD_Y, (p.MinZ + roadZ) / 2 - 10)
@@ -184,7 +185,9 @@ function Port.Build(city: Instance, rng: Random)
 	local sign = PartKit.Box(terminal, "TerminalSign", Vector3.new(120, 8, 0.4), CFrame.new(term + Vector3.new(0, 24, 45.4)), Color3.fromRGB(30, 30, 34), SMOOTH, DECOR)
 	sign.Transparency = 1
 	PartKit.Sign(sign, Enum.NormalId.Back, "PORT OF MIAMI · CRUISE TERMINAL", Color3.fromRGB(20, 60, 120), nil, Enum.Font.GothamBold, 5)
-	Port.CruiseShip(folder, CFrame.lookAt(Vector3.new(cx, Layout.WATER_Y, p.MinZ - 45), Vector3.new(cx + 1, Layout.WATER_Y, p.MinZ - 45)), 580, rng)
+	-- (a 250 m cruise ship, alongside the north quay)
+	local cruiseLength = 900
+	Port.CruiseShip(folder, CFrame.lookAt(Vector3.new(cx, Layout.WATER_Y, p.MinZ - cruiseLength * 0.065 - 8), Vector3.new(cx + 1, Layout.WATER_Y, p.MinZ - cruiseLength * 0.065 - 8)), cruiseLength, rng)
 
 	-- light towers and a gatehouse at the bridge end
 	for _, at in { Vector3.new(p.MinX + 40, Layout.ROAD_Y, yardZ0 - 6), Vector3.new(cx, Layout.ROAD_Y, yardZ0 - 6), Vector3.new(p.MaxX - 40, Layout.ROAD_Y, yardZ0 - 6) } do

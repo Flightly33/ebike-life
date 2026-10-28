@@ -34,7 +34,7 @@ local GIRDER = 3.2 -- concrete box girder under it
 local EMBANK_H = 10 -- lower than this above the ground, a deck is an embankment
 local BARRIER_H = 3.2
 local BARRIER_W = 1.4
-local PIER_STEP = 52
+local PIER_STEP = 110 -- ~31 m spans
 local LAMP_STEP = 150
 
 local H = Layout.FREEWAY_Y
@@ -274,7 +274,7 @@ end
 local function freewayPaint(parent: Instance, a: Vector3, b: Vector3, median: boolean)
 	for _, side in { -1, 1 } do
 		for lane = 1, 2 do
-			dashed(parent, a, b, side * LANE * lane, 12, 28, 0.5, C.White)
+			dashed(parent, a, b, side * LANE * lane, 10.9, 32.7, 0.5, C.White) -- 10 ft dashes, 30 ft gaps
 		end
 		stripe(parent, a, b, side * LANE * 3, 0.6, C.White)
 		stripe(parent, a, b, side * (if median then 1.6 else 0.6), 0.5, C.Yellow)
@@ -441,7 +441,7 @@ function Freeways.Build(city: Instance)
 		local mouth = Vector3.new(foot.X, foot.Y, foot.Z + toward * streetHalf)
 		PartKit.Slab(decks, "RampRoad", mouth, base, RW, SURFACE, C.Asphalt, ASPHALT)
 		span(decks, base, top, RW)
-		dashed(paint, mouth, top, 0, 9, 9, 0.5, C.Yellow)
+		dashed(paint, mouth, top, 0, 10.9, 32.7, 0.5, C.Yellow)
 		stripe(paint, mouth, top, RW / 2 - 1.4, 0.45, C.White)
 		stripe(paint, mouth, top, -(RW / 2 - 1.4), 0.45, C.White)
 		local side = ramp.Side

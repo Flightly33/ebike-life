@@ -53,7 +53,8 @@ local TILE = Color3.fromRGB(176, 84, 52)
 -- A broad shade tree for the Gables and the Grove: a banyan (aerial roots dropping from wide
 -- limbs) or a live oak. Its own model ("Banyan"), so the city kit leaves it.
 function Neighborhoods.Banyan(parent: Instance, base: Vector3, rng: Random, size: number?)
-	local s = size or rng:NextNumber(0.9, 1.3)
+	-- (drawn at 2/3 of a real banyan: 1.5 spreads its crown ~15 m)
+	local s = (size or rng:NextNumber(0.9, 1.3)) * 1.5
 	local model = PartKit.Model(parent, "Banyan")
 	local bark = Color3.fromRGB(120, 108, 92)
 	local h = 13 * s
@@ -214,10 +215,14 @@ function Neighborhoods.Bungalow(parent: Instance, center: Vector3, front: Vector
 	return model
 end
 
-local function houseRow(folder: Instance, block: LayoutModule.Block, rng: Random, perSide: number, build: (Vector3, Vector3, number) -> (), setback: number)
+-- A row of houses along the north and south streets of a block, each on a lot about `lotWidth`
+-- wide and `lotDepth` deep (a back hedge at its end), facing its street `setback` from it
+local function houseRow(folder: Instance, block: LayoutModule.Block, rng: Random, lotWidth: number, build: (Vector3, Vector3, number) -> (), setback: number, lotDepth: number)
 	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
 	local w, d = x1 - x0, z1 - z0
 	local cz = (z0 + z1) / 2
+	local perSide = math.max(2, math.floor(w / lotWidth + 0.5))
+	local back = math.min(d / 2 - 2, lotDepth)
 	for _, side in { -1, 1 } do
 		local front = Vector3.new(0, 0, side)
 		local each = w / perSide
@@ -226,8 +231,9 @@ local function houseRow(folder: Instance, block: LayoutModule.Block, rng: Random
 			local hz = cz + side * (d / 2 - setback)
 			build(Vector3.new(hx, Y + 0.3, hz), front, each)
 		end
-		-- back fence or hedge between the rows
-		Detail.Hedge(folder, Vector3.new(x0 + 2, Y + 0.3, cz + side * 2), Vector3.new(x1 - 2, Y + 0.3, cz + side * 2), 5)
+		-- back hedge at the end of the lots
+		local hedgeZ = cz + side * (d / 2 - back)
+		Detail.Hedge(folder, Vector3.new(x0 + 2, Y + 0.3, hedgeZ), Vector3.new(x1 - 2, Y + 0.3, hedgeZ), 5)
 	end
 end
 
@@ -244,10 +250,11 @@ local function havana(folder: Instance, block: LayoutModule.Block, rng: Random)
 	local x0, x1, z0, z1 = block.LotMinX, block.LotMaxX, block.LotMinZ, block.LotMaxZ
 	local w, d = x1 - x0, z1 - z0
 	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
-	-- one- and two-storey shops along both streets, painted bright; a car park behind
+	-- one- and two-storey shops along both streets (~24 m frontages), painted bright; a car park
+	-- behind
 	for _, side in { -1, 1 } do
 		local front = Vector3.new(0, 0, side)
-		local n = 4
+		local n = math.max(4, math.floor(w / 85 + 0.5))
 		local each = w / n
 		for i = 0, n - 1 do
 			local bw = each - rng:NextNumber(2, 6)
@@ -331,14 +338,16 @@ end
 --------------------------------------------------------------------------------
 local function gables(folder: Instance, block: LayoutModule.Block, rng: Random)
 	lawn(folder, block)
-	houseRow(folder, block, rng, 3, function(at: Vector3, front: Vector3, each: number)
+	-- villas on ~28 m lots, 45 m deep
+	houseRow(folder, block, rng, 100, function(at: Vector3, front: Vector3, each: number)
 		Neighborhoods.Villa(folder, at, front, rng, each)
-	end, 60)
+	end, 60, 160)
 	-- banyans down the middle
 	local x0, x1 = block.LotMinX, block.LotMaxX
 	local cz = (block.LotMinZ + block.LotMaxZ) / 2
-	for i = 0, 2 do
-		Neighborhoods.Banyan(folder, Vector3.new(x0 + (i + 0.5) * (x1 - x0) / 3, Y + 0.3, cz + rng:NextNumber(-12, 12)), rng)
+	local n = math.max(3, math.floor((x1 - x0) / 110))
+	for i = 0, n - 1 do
+		Neighborhoods.Banyan(folder, Vector3.new(x0 + (i + 0.5) * (x1 - x0) / n, Y + 0.3, cz + rng:NextNumber(-20, 20)), rng)
 	end
 end
 
@@ -403,7 +412,7 @@ local function grove(folder: Instance, block: LayoutModule.Block, rng: Random)
 		local d = z1 - z0
 		for _, side in { -1, 1 } do
 			local front = Vector3.new(0, 0, side)
-			local n = 3
+			local n = math.max(3, math.floor((x1 - x0) / 110 + 0.5))
 			local each = (x1 - x0) / n
 			for i = 0, n - 1 do
 				local bd = rng:NextNumber(60, 80)
@@ -414,14 +423,15 @@ local function grove(folder: Instance, block: LayoutModule.Block, rng: Random)
 		return
 	end
 	lawn(folder, block, Color3.fromRGB(84, 140, 64))
-	houseRow(folder, block, rng, 4, function(at: Vector3, front: Vector3, _each: number)
+	-- bungalows on ~24 m lots, 40 m deep
+	houseRow(folder, block, rng, 85, function(at: Vector3, front: Vector3, _each: number)
 		Neighborhoods.Bungalow(folder, at, front, rng)
-	end, 50)
+	end, 50, 145)
 	-- the canopy: big shade trees through the gardens, palms by the street
 	local z0, z1 = block.LotMinZ, block.LotMaxZ
-	for _ = 1, 7 do
+	for _ = 1, math.max(7, math.floor((x1 - x0) / 50)) do
 		local x = rng:NextNumber(x0 + 12, x1 - 12)
-		local z = (z0 + z1) / 2 + rng:NextNumber(-30, 30)
+		local z = (z0 + z1) / 2 + rng:NextNumber(-(z1 - z0) / 4, (z1 - z0) / 4)
 		if rng:NextNumber() < 0.55 then
 			Neighborhoods.Banyan(folder, Vector3.new(x, Y + 0.3, z), rng, rng:NextNumber(0.8, 1.1))
 		else
@@ -476,20 +486,21 @@ end
 --------------------------------------------------------------------------------
 local function mansions(folder: Instance, block: LayoutModule.Block, rng: Random)
 	lawn(folder, block)
-	houseRow(folder, block, rng, 2, function(at: Vector3, front: Vector3, each: number)
+	-- mansions on ~32 m lots
+	houseRow(folder, block, rng, 115, function(at: Vector3, front: Vector3, each: number)
 		Neighborhoods.Mansion(folder, at, front, rng, each)
-	end, 50)
+	end, 50, 170)
 end
 
 local function keyHomes(folder: Instance, block: LayoutModule.Block, rng: Random)
 	lawn(folder, block)
-	houseRow(folder, block, rng, 3, function(at: Vector3, front: Vector3, each: number)
+	houseRow(folder, block, rng, 105, function(at: Vector3, front: Vector3, each: number)
 		if rng:NextNumber() < 0.5 then
 			Neighborhoods.Mansion(folder, at, front, rng, each)
 		else
 			Neighborhoods.Villa(folder, at, front, rng, each)
 		end
-	end, 55)
+	end, 55, 165)
 end
 
 -- Crandon Park: picnic shelters under the palms; at the south tip, the lighthouse and its cottage
@@ -506,7 +517,7 @@ local function keyPark(folder: Instance, block: LayoutModule.Block, rng: Random)
 		end
 		PartKit.Box(folder, "PicnicTable", Vector3.new(12, 3, 4), CFrame.new(p + Vector3.new(0, 1.5, 0)), Color3.fromRGB(160, 120, 80), Enum.Material.WoodPlanks, NO_COLLIDE)
 	end
-	for _ = 1, 14 do
+	for _ = 1, 22 do
 		Props.Palm(folder, Vector3.new(rng:NextNumber(x0 + 10, x1 - 10), fy, rng:NextNumber(z0 + 10, z1 - 10)), rng)
 	end
 	if block.Bz == #Layout.KEY_ZS - 2 then

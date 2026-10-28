@@ -31,7 +31,7 @@ page.on("console", (msg) => {
 await page.setContent("<html><body style='margin:0;background:#000'></body></html>");
 await page.addScriptTag({ path: path.join(here, "node_modules/three/build/three.min.js") });
 
-await page.evaluate((parts) => {
+await page.evaluate(() => {
 	const T = window.THREE;
 	const scene = new T.Scene();
 	scene.background = new T.Color(0x9fc8ec);
@@ -62,57 +62,7 @@ await page.evaluate((parts) => {
 		wedge.computeVertexNormals();
 	}
 	const geos = { Block: box, Cylinder: cyl, Ball: sphere, Ellipsoid: sphere, Wedge: wedge };
-
-	const groups = {};
-	const m4 = new T.Matrix4();
-	const scl = new T.Matrix4();
-	const color = new T.Color();
-	const singles = [];
-	for (const p of parts) {
-		const [x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22] = p.cf;
-		m4.set(r00, r01, r02, x, r10, r11, r12, y, r20, r21, r22, z, 0, 0, 0, 1);
-		scl.makeScale(p.size[0], p.size[1], p.size[2]);
-		const matrix = m4.clone().multiply(scl);
-		const shape = geos[p.shape] ? p.shape : "Block";
-		const special = p.material === "Neon" || p.transparency > 0.05 || p.material === "Glass" || p.material === "Foil" || p.material === "Metal";
-		if (special) {
-			singles.push({ p, matrix, shape });
-			continue;
-		}
-		const key = shape;
-		(groups[key] ||= []).push({ p, matrix });
-	}
-	for (const [shape, list] of Object.entries(groups)) {
-		const mat = new T.MeshStandardMaterial({ roughness: 0.85, metalness: 0.0 });
-		const mesh = new T.InstancedMesh(geos[shape], mat, list.length);
-		list.forEach((e, i) => {
-			mesh.setMatrixAt(i, e.matrix);
-			color.setRGB(e.p.color[0], e.p.color[1], e.p.color[2], T.SRGBColorSpace);
-			mesh.setColorAt(i, color);
-		});
-		mesh.castShadow = true;
-		mesh.receiveShadow = true;
-		scene.add(mesh);
-	}
-	for (const { p, matrix, shape } of singles) {
-		const c = new T.Color().setRGB(p.color[0], p.color[1], p.color[2], T.SRGBColorSpace);
-		let mat;
-		if (p.material === "Neon") {
-			mat = new T.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.4 });
-		} else if (p.material === "Glass") {
-			mat = new T.MeshStandardMaterial({ color: c, roughness: 0.1, metalness: 0.5, transparent: p.transparency > 0.05, opacity: 1 - p.transparency * 0.8 });
-		} else if (p.material === "Metal" || p.material === "Foil") {
-			mat = new T.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: 0.7 });
-		} else {
-			mat = new T.MeshStandardMaterial({ color: c, roughness: 0.8, transparent: true, opacity: 1 - p.transparency });
-		}
-		const mesh = new T.Mesh(geos[shape], mat);
-		mesh.matrixAutoUpdate = false;
-		mesh.matrix.copy(matrix);
-		mesh.castShadow = p.transparency < 0.5;
-		mesh.receiveShadow = true;
-		scene.add(mesh);
-	}
+	window.__geos = geos;
 
 	const renderer = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 	renderer.shadowMap.enabled = true;
@@ -122,7 +72,67 @@ await page.evaluate((parts) => {
 	renderer.toneMappingExposure = 1.0;
 	document.body.appendChild(renderer.domElement);
 	window.__renderer = renderer;
-}, parts);
+});
+
+// the parts go over in chunks (one huge argument crashes the page on a big city)
+const CHUNK = 20000;
+for (let i = 0; i < parts.length; i += CHUNK) {
+	await page.evaluate((parts) => {
+		const T = window.THREE;
+		const scene = window.__scene;
+		const geos = window.__geos;
+		const groups = {};
+		const m4 = new T.Matrix4();
+		const scl = new T.Matrix4();
+		const color = new T.Color();
+		const singles = [];
+		for (const p of parts) {
+			const [x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22] = p.cf;
+			m4.set(r00, r01, r02, x, r10, r11, r12, y, r20, r21, r22, z, 0, 0, 0, 1);
+			scl.makeScale(p.size[0], p.size[1], p.size[2]);
+			const matrix = m4.clone().multiply(scl);
+			const shape = geos[p.shape] ? p.shape : "Block";
+			const special = p.material === "Neon" || p.transparency > 0.05 || p.material === "Glass" || p.material === "Foil" || p.material === "Metal";
+			if (special) {
+				singles.push({ p, matrix, shape });
+				continue;
+			}
+			const key = shape;
+			(groups[key] ||= []).push({ p, matrix });
+		}
+		for (const [shape, list] of Object.entries(groups)) {
+			const mat = new T.MeshStandardMaterial({ roughness: 0.85, metalness: 0.0 });
+			const mesh = new T.InstancedMesh(geos[shape], mat, list.length);
+			list.forEach((e, i) => {
+				mesh.setMatrixAt(i, e.matrix);
+				color.setRGB(e.p.color[0], e.p.color[1], e.p.color[2], T.SRGBColorSpace);
+				mesh.setColorAt(i, color);
+			});
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			scene.add(mesh);
+		}
+		for (const { p, matrix, shape } of singles) {
+			const c = new T.Color().setRGB(p.color[0], p.color[1], p.color[2], T.SRGBColorSpace);
+			let mat;
+			if (p.material === "Neon") {
+				mat = new T.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.4 });
+			} else if (p.material === "Glass") {
+				mat = new T.MeshStandardMaterial({ color: c, roughness: 0.1, metalness: 0.5, transparent: p.transparency > 0.05, opacity: 1 - p.transparency * 0.8 });
+			} else if (p.material === "Metal" || p.material === "Foil") {
+				mat = new T.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: 0.7 });
+			} else {
+				mat = new T.MeshStandardMaterial({ color: c, roughness: 0.8, transparent: true, opacity: 1 - p.transparency });
+			}
+			const mesh = new T.Mesh(geos[shape], mat);
+			mesh.matrixAutoUpdate = false;
+			mesh.matrix.copy(matrix);
+			mesh.castShadow = p.transparency < 0.5;
+			mesh.receiveShadow = true;
+			scene.add(mesh);
+		}
+	}, parts.slice(i, i + CHUNK));
+}
 
 for (const view of views) {
 	const dataUrl = await page.evaluate((view) => {

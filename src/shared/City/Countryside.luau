@@ -18,6 +18,8 @@ type Rect = LayoutModule.Rect
 
 local Countryside = {}
 
+local S = Layout.SPREAD -- plan positions are spread (City/Layout); the hills keep their ridden size
+
 local SMOOTH = Enum.Material.SmoothPlastic
 local GRASS = Enum.Material.Grass
 local DECOR = { Collide = false, Query = false, Touch = false, Shadow = false }
@@ -108,7 +110,8 @@ end
 
 -- A slash pine (the pine rockland's tree): a tall bare trunk and a small, open crown
 local function pine(parent: Instance, base: Vector3, rng: Random, size: number?)
-	local s = size or rng:NextNumber(0.9, 1.3)
+	-- (drawn at 2/3 of a real slash pine: 1.5 makes them ~15 m)
+	local s = (size or rng:NextNumber(0.9, 1.3)) * 1.5
 	local model = PartKit.Model(parent, "Pine")
 	local height = rng:NextNumber(30, 40) * s
 	local lean = Vector3.new(rng:NextNumber(-1.2, 1.2), 0, rng:NextNumber(-1.2, 1.2)) * s
@@ -383,29 +386,32 @@ local function nursery(parent: Instance, area: Rect, rng: Random)
 	table.insert(reserved, area)
 end
 
--- A rideable grass hill: a flat top and four slopes
+-- A rideable grass hill: a flat top and four slopes (sized for riding, not to the city's scale:
+-- `HILL` times the size they were drawn at)
+local HILL = S
 local function hill(parent: Instance, spot: Vector3, h: number)
-	local top = PartKit.Box(parent, "HillTop", Vector3.new(70, h, 70), CFrame.new(spot + Vector3.new(0, h / 2, 0)), Props.Palette.Grass, GRASS)
+	local half = 35 * HILL
+	local top = PartKit.Box(parent, "HillTop", Vector3.new(half * 2, h, half * 2), CFrame.new(spot + Vector3.new(0, h / 2, 0)), Props.Palette.Grass, GRASS)
 	top:SetAttribute("Surface", "Grass")
 	for _, dir in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
-		local edge = spot + Vector3.new(0, h, 0) + dir * 35
+		local edge = spot + Vector3.new(0, h, 0) + dir * half
 		local foot = edge + dir * (h * 3.2) - Vector3.new(0, h, 0)
-		local slope = PartKit.Ramp(parent, "HillSide", foot, edge, 70, Props.Palette.Grass, GRASS)
+		local slope = PartKit.Ramp(parent, "HillSide", foot, edge, half * 2, Props.Palette.Grass, GRASS)
 		slope:SetAttribute("Surface", "Grass")
 	end
-	local reach = 35 + h * 3.2
+	local reach = half + h * 3.2
 	table.insert(reserved, Layout.Rects.New(spot.X - reach, spot.X + reach, spot.Z - reach, spot.Z + reach))
 end
 
 -- Where the hills go (open land in the north, between Little Havana and the airport, by the
 -- turnpike's west side, and along the south edge)
 Countryside.HILLS = {
-	Vector3.new(1050, 0, -3200),
-	Vector3.new(-2500, 0, -1600),
-	Vector3.new(-1700, 0, -900),
-	Vector3.new(-900, 0, 3950),
-	Vector3.new(900, 0, 3950),
-	Vector3.new(-2600, 0, 4000),
+	Vector3.new(1050, 0, -3200) * S,
+	Vector3.new(-2500, 0, -1600) * S,
+	Vector3.new(-1700, 0, -900) * S,
+	Vector3.new(-900, 0, 3950) * S,
+	Vector3.new(900, 0, 3950) * S,
+	Vector3.new(-2600, 0, 4000) * S,
 }
 
 function Countryside.Build(city: Instance, rng: Random)
@@ -415,8 +421,8 @@ function Countryside.Build(city: Instance, rng: Random)
 	-- the hills first (rideable, so they get exactly their spots)
 	local hills = PartKit.Folder(folder, "Hills")
 	for _, spot in Countryside.HILLS do
-		local h = rng:NextNumber(14, 24)
-		local reach = 35 + 24 * 3.2
+		local h = rng:NextNumber(14, 24) * HILL
+		local reach = 35 * HILL + 24 * HILL * 3.2
 		if Countryside.Blocked(spot.X, spot.Z, reach) then
 			warn(string.format("[Countryside] hill at %.0f, %.0f is blocked; skipped", spot.X, spot.Z))
 			continue
@@ -425,13 +431,15 @@ function Countryside.Build(city: Instance, rng: Random)
 	end
 
 	-- golf: the north course (lakes in play) and the Gables course
-	golfCourse(folder, "BISCAYNE LINKS", Layout.Rects.New(-1100, 800, -4100, -2560), CFrame.new(0, 0, -2490) * CFrame.Angles(0, math.pi, 0), rng)
-	golfCourse(folder, "GRANADA GOLF CLUB", Layout.Rects.New(-2840, -2196, 1140, 2100), CFrame.new(-2290, 0, 1240) * CFrame.Angles(0, -math.pi / 2, 0), rng)
-	-- the north course's drive up from the turnpike
-	local drive = PartKit.Slab(folder, "ClubDrive", Vector3.new(0, Layout.ROAD_Y, -Layout.RING_HALF - Layout.RING_WIDTH / 2), Vector3.new(0, Layout.ROAD_Y, -2430), 22, 0.4, Color3.fromRGB(88, 90, 94), Enum.Material.Asphalt)
+	golfCourse(folder, "BISCAYNE LINKS", Layout.Rects.New(-1100 * S, 800 * S, -4100 * S, -2560 * S), CFrame.new(0, 0, -2490 * S) * CFrame.Angles(0, math.pi, 0), rng)
+	golfCourse(folder, "GRANADA GOLF CLUB", Layout.Rects.New(-2840 * S, -2196 * S, 1140 * S, 2100 * S), CFrame.new(-2290 * S, 0, 1240 * S) * CFrame.Angles(0, -math.pi / 2, 0), rng)
+	-- the north course's drive up from the turnpike to the clubhouse's car park
+	local drive = PartKit.Slab(folder, "ClubDrive", Vector3.new(0, Layout.ROAD_Y, -Layout.RING_HALF - Layout.RING_WIDTH / 2), Vector3.new(0, Layout.ROAD_Y, -2490 * S + 60), 22, 0.4, Color3.fromRGB(88, 90, 94), Enum.Material.Asphalt)
 	drive:SetAttribute("Surface", "Asphalt")
 
-	nursery(folder, Layout.Rects.New(-2300, -1820, 3720, 3980), rng)
+	-- (the nursery keeps its real size where its plan spot is spread to)
+	local nurseryX, nurseryZ = -2060 * S, 3850 * S
+	nursery(folder, Layout.Rects.New(nurseryX - 240, nurseryX + 240, nurseryZ - 130, nurseryZ + 130), rng)
 
 	-- woods: clumps of oaks, palms and pines over the open land
 	local woods = PartKit.Folder(folder, "Woods")
@@ -443,7 +451,7 @@ function Countryside.Build(city: Instance, rng: Random)
 		local cx, cz = rng:NextNumber(-W, Layout.SHORE_X), rng:NextNumber(-W, W)
 		if not Countryside.Blocked(cx, cz, 30) then
 			-- pine rockland in the south-west, hammocks (oaks, palms) elsewhere
-			local pines = if cz > 1000 and cx < -1000 then 0.75 elseif cz < -2000 then 0.45 else 0.2
+			local pines = if cz > 1000 * S and cx < -1000 * S then 0.75 elseif cz < -2000 * S then 0.45 else 0.2
 			local n = rng:NextInteger(5, 14)
 			for _ = 1, n do
 				local p = Vector3.new(cx + rng:NextNumber(-60, 60), 0, cz + rng:NextNumber(-60, 60))
@@ -462,7 +470,7 @@ function Countryside.Build(city: Instance, rng: Random)
 			local a = Layout.Nodes[edge.A].Position
 			local dir = edge.Direction
 			local side = Vector3.new(-dir.Z, 0, dir.X)
-			for along = 30, edge.Length - 30, 70 do
+			for along = 30, edge.Length - 30, 100 do
 				for _, sgn in { -1, 1 } do
 					if rng:NextNumber() < 0.45 then
 						local p = Vector3.new(a.X, 0, a.Z) + dir * (along + rng:NextNumber(-10, 10)) + side * sgn * (edge.Width / 2 + 20)

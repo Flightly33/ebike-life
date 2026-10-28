@@ -283,8 +283,11 @@ do
 			if owner and owner.Name == "Lamp" and d.Name ~= "Kit_Paint" and d.Size.Y < math.max(d.Size.X, d.Size.Z) then
 				upright = false
 			end
-			if d.Position.Y - d.Size.Y / 2 < -0.3 then
+			-- (a tree's roots are buried a little, in proportion to its size)
+			local tree = owner and (owner.Name == "Tree" or owner.Name == "Palm" or owner.Name == "Pine")
+			if d.Position.Y - d.Size.Y / 2 < -(if tree then math.max(0.3, d.Size.Y * 0.02) else 0.3) then
 				grounded = false
+				print(string.format("[test]   %s in %s reaches %.2f below the ground (size %s)", d.Name, if owner then owner.Name else "?", -(d.Position.Y - d.Size.Y / 2), tostring(d.Size)))
 			end
 		end
 	end

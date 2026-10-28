@@ -195,7 +195,15 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 			end
 		end
 		if open then
-			Detail.Windows(model, face, faceW, floorH, h - 2, floorH, style, 3)
+			-- the street face gets the full set; the back and the open ends plainer, wider-spaced
+			-- windows without sills
+			local faceStyle = style
+			if out ~= front then
+				faceStyle = table.clone(style)
+				faceStyle.Spacing = style.Spacing * 1.4
+				faceStyle.Sill = false
+			end
+			Detail.Windows(model, face, faceW, floorH, h - 2, floorH, faceStyle, 3)
 		end
 		-- string course between floors on the street face
 		if out == front then
@@ -481,15 +489,18 @@ function Buildings.ParkedCar(parent: Instance, cf: CFrame, rng: Random, kind: st
 end
 
 -- Painted parking stalls in a row along `dir` from `a` (on the ground, the row's kerb-side end),
--- `depth` deep toward `into`, and cars in some of them
-local function stalls(parent: Instance, a: Vector3, dir: Vector3, into: Vector3, count: number, depth: number, fill: number, rng: Random)
+-- `depth` deep toward `into`, and cars in some of them (no more than `budget.Cars` more, if given)
+local function stalls(parent: Instance, a: Vector3, dir: Vector3, into: Vector3, count: number, depth: number, fill: number, rng: Random, budget: { Cars: number }?)
 	local width = 9.5
 	for i = 0, count do
 		local p = a + dir * (i * width) + into * (depth / 2)
 		PartKit.Box(parent, "StallLine", Vector3.new(0.45, 0.05, depth), CFrame.lookAt(p, p + into) + Vector3.new(0, 0.03, 0), Color3.fromRGB(236, 236, 230), SMOOTH, DECOR)
 	end
 	for i = 0, count - 1 do
-		if rng:NextNumber() < fill then
+		if rng:NextNumber() < fill and (not budget or budget.Cars > 0) then
+			if budget then
+				budget.Cars -= 1
+			end
 			local p = a + dir * ((i + 0.5) * width) + into * (depth / 2)
 			-- nose in (or backed in)
 			local face = if rng:NextNumber() < 0.8 then into else -into
@@ -498,24 +509,54 @@ local function stalls(parent: Instance, a: Vector3, dir: Vector3, into: Vector3,
 	end
 end
 
--- A surface car park over a rect at height `y`: double rows of stalls along X with aisles, light
--- poles and palm islands at the row ends
+-- A surface car park over a rect at height `y`: up to LOT_ROWS double rows of stalls along X with
+-- aisles, light poles and palm islands at the row ends; any depth left over is a planted lawn
+-- either side. Never more than LOT_CARS cars (each is a dozen parts), the middle rows first.
+local LOT_CARS = 32
+local LOT_ROWS = 2
 function Buildings.ParkingLot(parent: Instance, x0: number, x1: number, z0: number, z1: number, y: number, rng: Random, fill: number?)
 	local model = PartKit.Model(parent, "CarPark")
 	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
-	PartKit.Box(model, "Asphalt", Vector3.new(x1 - x0, 0.2, z1 - z0), CFrame.new(cx, y + 0.1, cz), Color3.fromRGB(70, 72, 76), Enum.Material.Asphalt)
-	local top = y + 0.2
 	local depth, aisle = 18, 24
 	local unit = depth * 2 + aisle
-	local rows = math.max(1, math.floor((z1 - z0 - aisle) / unit))
+	local rows = math.clamp(math.floor((z1 - z0 - aisle) / unit), 1, LOT_ROWS)
 	local used = rows * unit + aisle
+	local paved = math.min(z1 - z0, used + 8)
+	PartKit.Box(model, "Asphalt", Vector3.new(x1 - x0, 0.2, paved), CFrame.new(cx, y + 0.1, cz), Color3.fromRGB(70, 72, 76), Enum.Material.Asphalt)
+	local spare = (z1 - z0 - paved) / 2
+	if spare > 4 then
+		for _, side in { -1, 1 } do
+			local lz = cz + side * (paved / 2 + spare / 2)
+			local lawn = PartKit.Box(model, "Lawn", Vector3.new(x1 - x0, 0.3, spare), CFrame.new(cx, y + 0.15, lz), C.Lawn, Enum.Material.Grass)
+			lawn:SetAttribute("Surface", "Grass")
+			-- a few shade trees and palms on it
+			for _ = 1, if spare > 16 then math.min(5, math.floor((x1 - x0) * spare / 9000)) else 0 do
+				local p = Vector3.new(rng:NextNumber(x0 + 10, x1 - 10), y + 0.3, lz + rng:NextNumber(-spare / 2 + 6, spare / 2 - 6))
+				if rng:NextNumber() < 0.5 then
+					Props.Palm(model, p, rng)
+				else
+					Props.Tree(model, p, rng, 0.9)
+				end
+			end
+		end
+	end
+	local top = y + 0.2
 	local start = cz - used / 2 + aisle
 	local count = math.floor((x1 - x0 - 34) / 9.5)
 	local rowX = cx - count * 9.5 / 2
+	local budget = { Cars = LOT_CARS }
+	-- the rows from the middle out, so a capped lot is full in the middle, empty at the edges
+	local order = {}
 	for r = 0, rows - 1 do
+		table.insert(order, r)
+	end
+	table.sort(order, function(a, b)
+		return math.abs(a - (rows - 1) / 2) < math.abs(b - (rows - 1) / 2)
+	end)
+	for _, r in order do
 		local mid = start + r * unit + depth
-		stalls(model, Vector3.new(rowX, top, mid), Vector3.new(1, 0, 0), Vector3.new(0, 0, -1), count, depth, fill or 0.35, rng)
-		stalls(model, Vector3.new(rowX, top, mid), Vector3.new(1, 0, 0), Vector3.new(0, 0, 1), count, depth, fill or 0.35, rng)
+		stalls(model, Vector3.new(rowX, top, mid), Vector3.new(1, 0, 0), Vector3.new(0, 0, -1), count, depth, fill or 0.35, rng, budget)
+		stalls(model, Vector3.new(rowX, top, mid), Vector3.new(1, 0, 0), Vector3.new(0, 0, 1), count, depth, fill or 0.35, rng, budget)
 		-- island at each row end: kerbed grass with a palm, a light at one end
 		for _, side in { -1, 1 } do
 			local ix = if side < 0 then rowX - 8 else rowX + count * 9.5 + 8
@@ -675,23 +716,38 @@ local function towerBlock(folder: Instance, block: LayoutModule.Block, rng: Rand
 		return rng:NextNumber(range[1], range[2])
 	end
 	local narrow = w < 200
+	-- the block's ground: paving round the buildings, a garden of palms in what's left
+	local paving = PartKit.Box(folder, "Plaza", Vector3.new(w, 0.3, d), CFrame.new(cx, Y + 0.15, cz), Color3.fromRGB(214, 206, 192), Enum.Material.Pavement)
+	paving:SetAttribute("Surface", "Sidewalk")
 	if narrow or rng:NextNumber() < 0.55 then
-		-- two towers on podiums, one in each half (along the block's long side)
+		-- two towers on podiums, one in each half (along the block's long side); a podium is at
+		-- most ~85 m long, the rest of the half a garden
 		for _, half in { -1, 1 } do
 			local pcx, pcz, pw, pd
 			if narrow or d >= w then
-				pw, pd = w - 8, d / 2 - 14
+				pw, pd = math.min(w - 8, 300), d / 2 - 14
 				pcx, pcz = cx, cz + half * d / 4
 			else
-				pw, pd = w / 2 - 14, d - 8
+				pw, pd = w / 2 - 14, math.min(d - 8, 300)
 				pcx, pcz = cx + half * w / 4, cz
 			end
 			if offices and rng:NextNumber() < 0.35 then
-				officeTower(folder, pcx, pcz, pw * 0.7, pd * 0.7, height(), rng)
+				officeTower(folder, pcx, pcz, math.min(pw * 0.7, 170), math.min(pd * 0.7, 130), height(), rng)
 			else
 				local top = Buildings.Podium(folder, pcx, pcz, pw, pd, rng:NextInteger(3, 6), rng)
 				local tw, td = math.min(pw * 0.5, 90), math.min(pd * 0.62, 80)
 				Buildings.CondoTower(folder, pcx - pw * 0.15, pcz, tw, td, height() - (top - Y), top, rng)
+			end
+		end
+		-- palms in the garden left beside the podiums (if the podiums leave one)
+		local acrossX = narrow or d >= w
+		local span = if acrossX then w else d
+		if span / 2 - 8 > 170 then
+			for _ = 1, 6 do
+				local side = if rng:NextNumber() < 0.5 then -1 else 1
+				local off = side * rng:NextNumber(165, span / 2 - 8)
+				local p = if acrossX then Vector3.new(cx + off, Y + 0.3, cz + rng:NextNumber(-d / 2 + 10, d / 2 - 10)) else Vector3.new(cx + rng:NextNumber(-w / 2 + 10, w / 2 - 10), Y + 0.3, cz + off)
+				Props.Palm(folder, p, rng)
 			end
 		end
 	else
@@ -708,10 +764,13 @@ local function towerBlock(folder: Instance, block: LayoutModule.Block, rng: Rand
 					end
 					Props.Bench(folder, CFrame.new(qcx, Y + 0.3, qcz))
 				elseif offices and rng:NextNumber() < 0.45 then
-					officeTower(folder, qcx, qcz, w / 2 - rng:NextNumber(18, 30), d / 2 - rng:NextNumber(18, 30), height() * 0.85, rng)
+					officeTower(folder, qcx, qcz, math.min(w / 2 - rng:NextNumber(18, 30), 150), math.min(d / 2 - rng:NextNumber(18, 30), 130), height() * 0.85, rng)
 				else
-					local tw, td = w / 2 - rng:NextNumber(30, 44), d / 2 - rng:NextNumber(30, 44)
-					Buildings.CondoTower(folder, qcx, qcz, tw, td, height() * 0.8, Y, rng)
+					-- a condo on a podium of its own
+					local pw, pd = w / 2 - 16, d / 2 - 16
+					local top = Buildings.Podium(folder, qcx, qcz, pw, pd, rng:NextInteger(2, 4), rng)
+					local tw, td = math.min(pw * 0.5, 95), math.min(pd * 0.6, 85)
+					Buildings.CondoTower(folder, qcx - pw * 0.15, qcz, tw, td, height() * 0.8 - (top - Y), top, rng)
 				end
 			end
 		end
@@ -940,7 +999,7 @@ function Buildings.FastFood(parent: Instance, x0: number, x1: number, z0: number
 	-- parking along the street side and the right of the building
 	local rowZ = -D / 2 + 26
 	local count = math.max(0, math.floor((W * 0.5 - 6) / 9.5))
-	stalls(model, (look * CFrame.new(W * 0.5 - 4 - count * 9.5, top, rowZ)).Position, (look.RightVector), -look.LookVector, count, 16, 0.45, rng)
+	stalls(model, (look * CFrame.new(W * 0.5 - 4 - count * 9.5, top, rowZ)).Position, (look.RightVector), -look.LookVector, count, 16, 0.45, rng, { Cars = 10 })
 	-- patio, bins, palms
 	for i = 0, 1 do
 		local at = building * CFrame.new(bw / 2 + 6, 0, -bd / 2 + 6 + i * 9)
@@ -983,8 +1042,9 @@ function Buildings.StripMall(parent: Instance, x0: number, x1: number, z0: numbe
 	PartKit.Box(model, "Parapet", Vector3.new(W - 11, 3, bd + 1), row * CFrame.new(0, bh + 1.5, 0), wall:Lerp(Color3.new(1, 1, 1), 0.3), Enum.Material.Plaster)
 	local count = math.floor((W - 30) / 9.5)
 	local mid = -D / 2 + (D - bd - 8) / 2
-	stalls(model, (look * CFrame.new(-count * 9.5 / 2, 0.2, mid)).Position, look.RightVector, -look.LookVector, count, 17, 0.35, rng)
-	stalls(model, (look * CFrame.new(-count * 9.5 / 2, 0.2, mid)).Position, look.RightVector, look.LookVector, count, 17, 0.35, rng)
+	local cars = { Cars = 16 }
+	stalls(model, (look * CFrame.new(-count * 9.5 / 2, 0.2, mid)).Position, look.RightVector, -look.LookVector, count, 17, 0.35, rng, cars)
+	stalls(model, (look * CFrame.new(-count * 9.5 / 2, 0.2, mid)).Position, look.RightVector, look.LookVector, count, 17, 0.35, rng, cars)
 	local brand = pick(rng, BRANDS)
 	local _ = brand
 	local base = (look * CFrame.new(W / 2 - 10, 0.2, -D / 2 + 6)).Position
@@ -1100,6 +1160,7 @@ end
 local LEVEL_H = 11
 function Buildings.Garage(parent: Instance, cx: number, cz: number, w: number, d: number, levels: number, rng: Random): Model
 	local model = PartKit.Model(parent, "Garage")
+	local budget = { Cars = LOT_CARS }
 	local concrete = Color3.fromRGB(196, 194, 188)
 	local slab = 1.4
 	local laneW = 24
@@ -1140,8 +1201,8 @@ function Buildings.Garage(parent: Instance, cx: number, cz: number, w: number, d
 			local count = math.floor((d - run - 40) / 2 / 9.5)
 			for _, sz in { -1, 1 } do
 				local zStart = if sz < 0 then cz - d / 2 + 6 else rz1 + 14
-				stalls(model, Vector3.new(cx - 2, y, zStart), Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0), count, 17, 0.25, rng)
-				stalls(model, Vector3.new(cx + 2, y, zStart), Vector3.new(0, 0, 1), Vector3.new(1, 0, 0), count, 17, 0.25, rng)
+				stalls(model, Vector3.new(cx - 2, y, zStart), Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0), count, 17, 0.25, rng, budget)
+				stalls(model, Vector3.new(cx + 2, y, zStart), Vector3.new(0, 0, 1), Vector3.new(1, 0, 0), count, 17, 0.25, rng, budget)
 			end
 		end
 	end
@@ -1263,7 +1324,7 @@ local function wynwoodBlock(folder: Instance, block: LayoutModule.Block, rng: Ra
 	-- warehouses along the north and south streets with murals on every street face
 	for _, side in { -1, 1 } do
 		local front = Vector3.new(0, 0, side)
-		local n = rng:NextInteger(2, 3)
+		local n = math.max(2, math.floor(w / rng:NextNumber(130, 170) + 0.5)) -- 35 - 50 m frontages
 		local each = w / n
 		for i = 0, n - 1 do
 			local bw, bd = each - rng:NextNumber(6, 12), rng:NextNumber(70, 95)
@@ -1315,7 +1376,7 @@ local function midtownBlock(folder: Instance, block: LayoutModule.Block, rng: Ra
 	-- pastel shops and flats along the north and south streets, a car park in the middle
 	for _, side in { -1, 1 } do
 		local front = Vector3.new(0, 0, side)
-		local n = 3
+		local n = math.max(3, math.floor(w / 150 + 0.5)) -- ~40 m frontages
 		local each = w / n
 		for i = 0, n - 1 do
 			local bw = each - rng:NextNumber(4, 10)
@@ -1376,18 +1437,19 @@ end
 -- The car park under a freeway deck: rows of stalls between the piers (x or z the deck's axis)
 local function underDeckParking(folder: Instance, x0: number, x1: number, z0: number, z1: number, y: number, axis: string, rng: Random)
 	local model = PartKit.Model(folder, "UnderDeckParking")
+	local budget = { Cars = LOT_CARS }
 	if axis == "Z" then
 		local cx = (x0 + x1) / 2
 		local count = math.floor((z1 - z0 - 20) / 9.5)
 		local start = z0 + 10
-		stalls(model, Vector3.new(cx - 12, y, start), Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0), count, 18, 0.35, rng)
-		stalls(model, Vector3.new(cx + 12, y, start), Vector3.new(0, 0, 1), Vector3.new(1, 0, 0), count, 18, 0.35, rng)
+		stalls(model, Vector3.new(cx - 12, y, start), Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0), count, 18, 0.35, rng, budget)
+		stalls(model, Vector3.new(cx + 12, y, start), Vector3.new(0, 0, 1), Vector3.new(1, 0, 0), count, 18, 0.35, rng, budget)
 	else
 		local cz = (z0 + z1) / 2
 		local count = math.floor((x1 - x0 - 20) / 9.5)
 		local start = x0 + 10
-		stalls(model, Vector3.new(start, y, cz - 12), Vector3.new(1, 0, 0), Vector3.new(0, 0, -1), count, 18, 0.35, rng)
-		stalls(model, Vector3.new(start, y, cz + 12), Vector3.new(1, 0, 0), Vector3.new(0, 0, 1), count, 18, 0.35, rng)
+		stalls(model, Vector3.new(start, y, cz - 12), Vector3.new(1, 0, 0), Vector3.new(0, 0, -1), count, 18, 0.35, rng, budget)
+		stalls(model, Vector3.new(start, y, cz + 12), Vector3.new(1, 0, 0), Vector3.new(0, 0, 1), count, 18, 0.35, rng, budget)
 	end
 end
 
@@ -1435,10 +1497,12 @@ local function suburbBlock(folder: Instance, block: LayoutModule.Block, rng: Ran
 	local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
 	local lawn = PartKit.Box(folder, "Lawns", Vector3.new(w, 0.3, d), CFrame.new(cx, Y + 0.15, cz), Props.Palette.Lawn, Enum.Material.Grass)
 	lawn:SetAttribute("Surface", "Grass")
+	local lotDepth = math.min(d / 2 - 2, 140)
 	for _, side in { -1, 1 } do
 		local front = Vector3.new(0, 0, side)
-		local n = 4
+		local n = math.max(4, math.floor(w / 82 + 0.5))
 		local each = w / n
+		local fenceZ = cz + side * (d / 2 - lotDepth)
 		for i = 0, n - 1 do
 			local hx = x0 + each * (i + 0.5) + 6 * side
 			local hz = cz + side * (d / 2 - 42)
@@ -1447,7 +1511,7 @@ local function suburbBlock(folder: Instance, block: LayoutModule.Block, rng: Ran
 			if rng:NextNumber() < 0.75 then
 				Props.Palm(folder, Vector3.new(hx + 24 * side, Y + 0.3, cz + side * (d / 2 - 12)), rng, rng:NextNumber(0.7, 0.95))
 			end
-			local yardZ = cz + side * 22
+			local yardZ = (hz + fenceZ) / 2 - side * 8
 			if rng:NextNumber() < 0.6 then
 				local pw, pd = rng:NextNumber(16, 22), rng:NextNumber(9, 12)
 				local px = hx - 4 * side
@@ -1462,7 +1526,14 @@ local function suburbBlock(folder: Instance, block: LayoutModule.Block, rng: Ran
 				Props.Tree(folder, Vector3.new(hx, Y + 0.3, yardZ), rng)
 			end
 			-- back fence (white vinyl)
-			PartKit.Box(folder, "Fence", Vector3.new(each - 2, 5, 0.5), CFrame.new(x0 + each * (i + 0.5), Y + 2.8, cz + side * 2), Color3.fromRGB(245, 245, 240), Enum.Material.SmoothPlastic)
+			PartKit.Box(folder, "Fence", Vector3.new(each - 2, 5, 0.5), CFrame.new(x0 + each * (i + 0.5), Y + 2.8, fenceZ), Color3.fromRGB(245, 245, 240), Enum.Material.SmoothPlastic)
+		end
+	end
+	-- the green between the back fences: a row of shade trees
+	local green = d - 2 * lotDepth
+	if green > 30 then
+		for k = 0, math.floor(w / 70) - 1 do
+			Props.Tree(folder, Vector3.new(x0 + 35 + k * 70 + rng:NextNumber(-10, 10), Y + 0.3, cz + rng:NextNumber(-green / 4, green / 4)), rng)
 		end
 	end
 end

@@ -79,6 +79,7 @@ local function view(name: string, pos: any, look: any, fov: number?)
 	table.insert(views, { name = name, pos = { pos.X, pos.Y, pos.Z }, look = { look.X, look.Y, look.Z }, fov = fov or 60, width = 1280, height = 720 })
 end
 local K = Config.WORLD_SCALE
+local KS = K * Config.CITY_SPREAD -- plan positions (City/Layout spreads them)
 local function blockCenter(block: any): any
 	return Vector3.new((block.LotMinX + block.LotMaxX) / 2, Layout.CURB_Y, (block.LotMinZ + block.LotMaxZ) / 2)
 end
@@ -106,15 +107,15 @@ local bridge = Layout.Nodes[Layout.I395[#Layout.I395 - 2]].Position
 view("bridge", bridge + Vector3.new(-200 * K, 30, 160 * K), bridge + Vector3.new(200 * K, 0, 0))
 view("causeway", Vector3.new(Layout.SHORE_X + 60 * K, 22, Layout.CAUSEWAY_ZS[2] + 120 * K), Vector3.new(Layout.ISLAND.MinX, 0, Layout.CAUSEWAY_ZS[2]))
 -- the skyline from the island, the beach, the garage, aerials
-view("skyline", Vector3.new(Layout.ISLAND.MinX + 20 * K, 30, 300 * K), Vector3.new(800 * K, 160, 0), 70)
-view("beach", Vector3.new(Layout.BEACH_X - 10 * K, 14, 400 * K), Vector3.new(Layout.SURF_X, 0, 100 * K), 70)
+view("skyline", Vector3.new(Layout.ISLAND.MinX + 20 * K, 30, 300 * KS), Vector3.new(800 * KS, 160, 0), 70)
+view("beach", Vector3.new(Layout.BEACH_X - 10 * K, 14, 400 * KS), Vector3.new(Layout.SURF_X, 0, 100 * KS), 70)
 local park = Layout.FindDistrict("Parking")
 if park then
 	local c = blockCenter(park)
 	view("garage", c + Vector3.new(-150 * K, 70, 200 * K), c + Vector3.new(-50 * K, 10, 0))
 end
-view("aerial_downtown", Vector3.new(-200 * K, 900, 900 * K), Vector3.new(900 * K, 0, -100 * K), 60)
-view("aerial_beach", Vector3.new(3000 * K, 600, 1400 * K), Vector3.new(2200 * K, 0, -200 * K), 60)
+view("aerial_downtown", Vector3.new(-200 * KS, 900, 900 * KS), Vector3.new(900 * KS, 0, -100 * KS), 60)
+view("aerial_beach", Vector3.new(3000 * KS, 600, 1400 * KS), Vector3.new(2200 * KS, 0, -200 * KS), 60)
 for _, place in { { "dealership", Layout.Places.Dealership }, { "looppark", blockCenter(Layout.BlockAt(1, 3)) }, { "baypark", Layout.Places.Park }, { "marina", blockCenter(Layout.FindDistrict("Marina")) } } do
 	local at: Vector3 = place[2]
 	table.insert(views, { name = place[1], pos = { at.X + 90, at.Y + 55, at.Z + 90 }, look = { at.X, at.Y + 8, at.Z }, fov = 60, width = 1280, height = 720 })
@@ -145,9 +146,9 @@ for _, place in { { "airport", Layout.Places.Airport, 260 }, { "port", Layout.Pl
 	local d: number = place[3]
 	table.insert(views, { name = "aerial_" .. place[1], pos = { at.X + d, at.Y + d * 0.7, at.Z + d }, look = { at.X, at.Y + 6, at.Z }, fov = 60, width = 1280, height = 720 })
 end
-view("aerial_golf", Vector3.new(400 * K, 500, -2300 * K), Vector3.new(-100 * K, 0, -3300 * K), 60)
-view("aerial_south", Vector3.new(-1500 * K, 900, 4400 * K), Vector3.new(-1000 * K, 0, 2600 * K), 60)
-view("aerial_west", Vector3.new(-1500 * K, 1100, 600 * K), Vector3.new(-3300 * K, 0, -200 * K), 60)
+view("aerial_golf", Vector3.new(400 * KS, 500, -2300 * KS), Vector3.new(-100 * KS, 0, -3300 * KS), 60)
+view("aerial_south", Vector3.new(-1500 * KS, 900, 4400 * KS), Vector3.new(-1000 * KS, 0, 2600 * KS), 60)
+view("aerial_west", Vector3.new(-1500 * KS, 1100, 600 * KS), Vector3.new(-3300 * KS, 0, -200 * KS), 60)
 table.insert(views, { name = "map", pos = { 0, 3000, 0 }, look = { 0, 0, 0 }, fov = 60, width = 1400, height = 1400, ortho = Layout.WORLD_HALF * 2 })
 
 fs.writeFile(process.args[1], serde.encode("json", Preview.Export(city)))

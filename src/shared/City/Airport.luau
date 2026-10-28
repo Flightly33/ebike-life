@@ -25,6 +25,7 @@ local CONCRETE = Enum.Material.Concrete
 local DECOR = { Collide = false, Query = false, Touch = false, Shadow = false }
 local NO_COLLIDE = { Collide = false, Query = false, Touch = false }
 local MARK_Y = Layout.ROAD_Y + 0.03
+local TAXI_W = 82 -- 23 m, an airliner taxiway
 
 export type Livery = { Name: string, Tail: Color3, Stripe: Color3, Belly: Color3 }
 Airport.Liveries = {
@@ -119,9 +120,10 @@ function Airport.Build(city: Instance, rng: Random)
 	end
 	for _, endX in { x0, x1 } do
 		local inward = if endX == x0 then 1 else -1
-		for k = -3, 3 do
+		-- the threshold's piano keys across most of the width
+		for k = -4, 4 do
 			if k ~= 0 then
-				paint(runway, Vector3.new(endX + inward * 25, 0, z + k * 8.5), east, 40, 4.5, C.White)
+				paint(runway, Vector3.new(endX + inward * 30, 0, z + k * 17), east, 50, 7, C.White)
 			end
 		end
 		local number = PartKit.Box(runway, "RunwayNumber", Vector3.new(30, 0.05, 24), CFrame.new(endX + inward * 70, MARK_Y, z) * CFrame.Angles(0, if inward > 0 then math.rad(90) else math.rad(-90), 0), C.White, SMOOTH, DECOR)
@@ -129,7 +131,7 @@ function Airport.Build(city: Instance, rng: Random)
 		PartKit.Sign(number, Enum.NormalId.Top, if inward > 0 then "09" else "27", C.White, nil, Enum.Font.GothamBold, 3)
 		for k = 0, 2 do
 			for _, sz in { -1, 1 } do
-				paint(runway, Vector3.new(endX + inward * (200 + k * 70), 0, z + sz * 13), east, 30, 4, C.White)
+				paint(runway, Vector3.new(endX + inward * (220 + k * 80), 0, z + sz * 30), east, 40, 6, C.White)
 			end
 		end
 		-- approach lights out past the end
@@ -151,15 +153,15 @@ function Airport.Build(city: Instance, rng: Random)
 	-- the taxiway alongside, its links to the runway and the apron, yellow centre lines
 	local taxi = PartKit.Folder(folder, "Taxiways")
 	local tz = A.TaxiwayZ
-	pavement(taxi, "Taxiway", Vector3.new(x0 + 50, 0, tz), Vector3.new(x1 - 50, 0, tz), 44)
+	pavement(taxi, "Taxiway", Vector3.new(x0 + 50, 0, tz), Vector3.new(x1 - 50, 0, tz), TAXI_W)
 	paint(taxi, Vector3.new((x0 + x1) / 2, 0, tz), east, x1 - x0 - 120, 0.8, C.Yellow)
 	for _, x in { x0 + 70, (x0 + x1) / 2, x1 - 70 } do
-		pavement(taxi, "Taxiway", Vector3.new(x, 0, z + half), Vector3.new(x, 0, tz - 22), 44)
-		paint(taxi, Vector3.new(x, 0, (z + half + tz - 22) / 2), Vector3.new(0, 0, 1), (tz - 22) - (z + half), 0.8, C.Yellow)
+		pavement(taxi, "Taxiway", Vector3.new(x, 0, z + half), Vector3.new(x, 0, tz - TAXI_W / 2), TAXI_W)
+		paint(taxi, Vector3.new(x, 0, (z + half + tz - TAXI_W / 2) / 2), Vector3.new(0, 0, 1), (tz - TAXI_W / 2) - (z + half), 0.8, C.Yellow)
 	end
 	local apron = A.Apron
 	for _, x in { apron.MinX + 150, (apron.MinX + apron.MaxX) / 2, apron.MaxX - 150 } do
-		pavement(taxi, "Taxiway", Vector3.new(x, 0, tz + 22), Vector3.new(x, 0, apron.MinZ), 44)
+		pavement(taxi, "Taxiway", Vector3.new(x, 0, tz + TAXI_W / 2), Vector3.new(x, 0, apron.MinZ), TAXI_W)
 	end
 
 	-- the apron: concrete, stand markings, airliners nosed in to the jet bridges

@@ -102,15 +102,19 @@ function Detail.Storefront(parent: Instance, face: CFrame, width: number, height
 	PartKit.Box(parent, "Fascia", Vector3.new(width, 2.6, 0.6), face * CFrame.new(0, height + 1.3, -0.3), frame, SMOOTH, DECOR)
 	local sign = PartKit.Box(parent, "ShopSign", Vector3.new(math.min(w - 4, 30), 2.2, 0.3), face * CFrame.new(0, height + 1.3, -0.65), Color3.fromRGB(245, 242, 235), SMOOTH, DECOR)
 	PartKit.Sign(sign, Enum.NormalId.Front, name, color, nil, Enum.Font.FredokaOne, 14)
-	-- awning: striped, sloping out over the pavement
+	-- awning, sloping out over the pavement: a striped one over the door's end of a wide front
+	-- (stripes ~0.8 m), or a plain one the whole width
 	local depth = 6
-	local stripes = math.max(3, math.floor(w / 3))
+	local striped = rng:NextNumber() < 0.6
+	local aw = if striped then math.min(w, rng:NextNumber(24, 34)) else w
+	local ax = if striped then math.clamp(dx, -w / 2 + aw / 2, w / 2 - aw / 2) else 0
+	local stripes = if striped then math.max(3, math.floor(aw / 3)) else 1
 	for i = 0, stripes - 1 do
-		local x = -w / 2 + (i + 0.5) * w / stripes
+		local x = ax - aw / 2 + (i + 0.5) * aw / stripes
 		local c = if i % 2 == 0 then color else Color3.fromRGB(245, 242, 235)
-		PartKit.Box(parent, "Awning", Vector3.new(w / stripes + 0.02, 0.3, depth), face * CFrame.new(x, height - 0.6, -depth / 2 - 0.2) * CFrame.Angles(math.rad(-18), 0, 0), c, Enum.Material.Fabric, DECOR)
+		PartKit.Box(parent, "Awning", Vector3.new(aw / stripes + 0.02, 0.3, depth), face * CFrame.new(x, height - 0.6, -depth / 2 - 0.2) * CFrame.Angles(math.rad(-18), 0, 0), c, Enum.Material.Fabric, DECOR)
 	end
-	PartKit.Box(parent, "AwningValance", Vector3.new(w, 1.0, 0.2), face * CFrame.new(0, height - 1.9 - 0.4, -depth - 0.05), color, Enum.Material.Fabric, DECOR)
+	PartKit.Box(parent, "AwningValance", Vector3.new(aw, 1.0, 0.2), face * CFrame.new(ax, height - 1.9 - 0.4, -depth - 0.05), color, Enum.Material.Fabric, DECOR)
 	-- blade sign
 	if rng:NextNumber() < 0.5 then
 		local side = -dx / math.max(math.abs(dx), 1e-3)

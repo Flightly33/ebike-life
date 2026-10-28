@@ -47,7 +47,8 @@ local BIRCH_BARK = Color3.fromRGB(226, 222, 212)
 local CONIFER = { Color3.fromRGB(46, 92, 58), Color3.fromRGB(58, 104, 62), Color3.fromRGB(40, 80, 60) }
 
 function Props.Tree(parent: Instance, base: Vector3, rng: Random, size: number?)
-	local s = size or rng:NextNumber(0.85, 1.3)
+	-- (sizes are drawn at 2/3 of a real street tree's: 1.5 makes a ~9 m oak)
+	local s = (size or rng:NextNumber(0.85, 1.3)) * 1.5
 	local model = PartKit.Model(parent, "Tree")
 	local kind = rng:NextNumber()
 	local spin = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
@@ -114,7 +115,7 @@ function Props.Palm(parent: Instance, base: Vector3, rng: Random, size: number?)
 	local model = PartKit.Model(parent, "Palm")
 	local royal = rng:NextNumber() < 0.35
 	model:SetAttribute("Species", if royal then "Royal" else "Coconut")
-	local height = (if royal then 40 else 32) * s
+	local height = (if royal then 52 else 44) * s -- ~15 m and ~12 m
 	local lean = if royal then 0 else rng:NextNumber(1.5, 5) * s
 	local yaw = rng:NextNumber(0, math.pi * 2)
 	local leanDir = Vector3.new(math.cos(yaw), 0, math.sin(yaw))
@@ -124,30 +125,28 @@ function Props.Palm(parent: Instance, base: Vector3, rng: Random, size: number?)
 	local top = base + Vector3.new(0, height, 0) + leanDir * lean
 	PartKit.Tube(model, "Trunk", base, mid, (if royal then 2.2 else 1.6) * s, bark, Enum.Material.Wood)
 	PartKit.Tube(model, "Trunk", mid, top, (if royal then 1.8 else 1.25) * s, bark, Enum.Material.Wood)
-	PartKit.Post(model, "Roots", (if royal then 3.2 else 2.4) * s, 0.8 * s, base, bark, Enum.Material.Wood, NO_COLLIDE)
 	if royal then
 		PartKit.Tube(model, "Crownshaft", top, top + Vector3.new(0, 6 * s, 0), 1.9 * s, Color3.fromRGB(96, 140, 70), Enum.Material.SmoothPlastic, NO_COLLIDE)
 		top += Vector3.new(0, 6 * s, 0)
 	end
 	local color = PALM_FRONDS[rng:NextInteger(1, #PALM_FRONDS)]
-	local fronds = if royal then 9 else 8
+	local fronds = if royal then 8 else 7
 	for i = 1, fronds do
 		local a = yaw + (i / fronds) * math.pi * 2 + rng:NextNumber(-0.2, 0.2)
 		local out = Vector3.new(math.cos(a), 0, math.sin(a))
 		local droop = rng:NextNumber(-0.55, -0.15)
-		local length = rng:NextNumber(13, 17) * s
+		local length = rng:NextNumber(16, 20) * s
 		local dir = (out + Vector3.new(0, droop, 0)).Unit
 		local center = top + dir * (length / 2)
 		local cf = CFrame.lookAt(center, center + dir) * CFrame.Angles(0, 0, rng:NextNumber(-0.25, 0.25))
 		local tone = color:Lerp(Color3.fromRGB(170, 160, 90), rng:NextNumber(0, 0.18))
 		PartKit.Ellipsoid(model, "Frond", Vector3.new(4.2 * s, 0.35, length), cf, tone, Enum.Material.Grass, DECOR)
 	end
-	-- a couple of young fronds standing up in the middle
-	for i = 1, 2 do
-		local a = yaw + i * math.pi
-		local dir = (Vector3.new(math.cos(a) * 0.35, 1, math.sin(a) * 0.35)).Unit
-		local center = top + dir * 4 * s
-		PartKit.Ellipsoid(model, "Frond", Vector3.new(2.4 * s, 0.3, 9 * s), CFrame.lookAt(center, center + dir), color:Lerp(Color3.fromRGB(150, 190, 90), 0.3), Enum.Material.Grass, DECOR)
+	-- a young frond standing up in the middle
+	do
+		local dir = (Vector3.new(math.cos(yaw) * 0.35, 1, math.sin(yaw) * 0.35)).Unit
+		local center = top + dir * 4.5 * s
+		PartKit.Ellipsoid(model, "Frond", Vector3.new(2.6 * s, 0.3, 10 * s), CFrame.lookAt(center, center + dir), color:Lerp(Color3.fromRGB(150, 190, 90), 0.3), Enum.Material.Grass, DECOR)
 	end
 	if not royal and rng:NextNumber() < 0.7 then
 		PartKit.Ball(model, "Coconuts", 2.6 * s, top - Vector3.new(0, 1.2 * s, 0), Color3.fromRGB(120, 96, 50), Enum.Material.SmoothPlastic, DECOR)
@@ -266,7 +265,7 @@ function Props.Streetscape(parent: Instance, a: Vector3, b: Vector3, rng: Random
 		return
 	end
 	local dir = (b - a).Unit
-	local lampEvery = 80
+	local lampEvery = 125 -- ~35 m, as Miami spaces its street lights
 	local count = math.max(1, math.floor(length / lampEvery))
 	for i = 0, count do
 		local t = (i + 0.5) / (count + 1)

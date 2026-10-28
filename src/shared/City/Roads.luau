@@ -22,6 +22,8 @@ local THICK = 0.6 -- asphalt slab thickness
 local MARK_Y = Layout.ROAD_Y + 0.025
 local PATCH = Color3.fromRGB(72, 74, 78) -- repaired asphalt, darker than the road
 local SIGN_GREEN = Color3.fromRGB(28, 104, 62)
+-- broken lines as painted in the US: 10 ft dashes, 30 ft gaps
+local DASH, GAP = 10.9, 32.7
 
 -- Street names at a grid crossing: the road along Z, then the road along X (Layout's names)
 local function crossingNames(node: LayoutModule.Node): (string, string)
@@ -72,27 +74,22 @@ end
 -- Markings for one road piece from a to b
 local function markings(parent: Instance, a: Vector3, b: Vector3, kind: string, width: number, lanes: number)
 	if kind == "Street" then
-		dashes(parent, a, b, 0, 9, 9, 0.55, C.Yellow)
+		dashes(parent, a, b, 0, DASH, GAP, 0.55, C.Yellow)
 	elseif kind == "Avenue" or kind == "Highway" then
 		line(parent, a, b, -0.45, 0.4, C.Yellow)
 		line(parent, a, b, 0.45, 0.4, C.Yellow)
 		local laneWidth = width / (lanes * 2)
 		for lane = 1, lanes - 1 do
 			local o = laneWidth * lane
-			if kind == "Highway" then
-				dashes(parent, a, b, o, 12, 26, 0.45, C.White)
-				dashes(parent, a, b, -o, 12, 26, 0.45, C.White)
-			else
-				dashes(parent, a, b, o, 9, 11, 0.45, C.White)
-				dashes(parent, a, b, -o, 9, 11, 0.45, C.White)
-			end
+			dashes(parent, a, b, o, DASH, GAP, 0.45, C.White)
+			dashes(parent, a, b, -o, DASH, GAP, 0.45, C.White)
 		end
 		if kind == "Highway" then
 			line(parent, a, b, width / 2 - 1.2, 0.45, C.White)
 			line(parent, a, b, -(width / 2 - 1.2), 0.45, C.White)
 		end
 	elseif kind == "Rural" then
-		dashes(parent, a, b, 0, 10, 14, 0.5, C.Yellow)
+		dashes(parent, a, b, 0, DASH, GAP, 0.5, C.Yellow)
 		line(parent, a, b, width / 2 - 1, 0.45, C.White)
 		line(parent, a, b, -(width / 2 - 1), 0.45, C.White)
 	end
@@ -156,7 +153,7 @@ function Roads.Build(city: Instance)
 			Detail.Manhole(marks, Vector3.new(center.X, MARK_Y, center.Z) + side * laneW * 0.5 + dir * (length * 0.18))
 			Detail.Manhole(marks, Vector3.new(center.X, MARK_Y, center.Z) - side * laneW * 0.5 - dir * (length * 0.3))
 		end
-		local drains = math.floor(length / 70)
+		local drains = math.floor(length / 180) -- every ~50 m
 		for k = 1, drains do
 			for _, sgn in { -1, 1 } do
 				local p = Vector3.new(p0.X, MARK_Y, p0.Z) + dir * (k * length / (drains + 1)) + side * sgn * (edge.Width / 2 - 1)

@@ -27,6 +27,7 @@ local Sound = require(script.Parent.Sound)
 local Ambient = {}
 
 local K = Config.WORLD_SCALE
+local KS = K * Config.CITY_SPREAD -- plan positions (City/Layout spreads them)
 local LOCAL = { Collide = false, Query = false, Touch = false }
 local DECOR = { Collide = false, Query = false, Touch = false, Shadow = false }
 
@@ -162,7 +163,7 @@ end
 -- Boats
 --------------------------------------------------------------------------------
 
--- Loops (ellipses, design units) in open water: the north bay, the bay by the port, the ocean
+-- Loops (ellipses, on the plan: spread like its positions) in open water: the north bay, the bay by the port, the ocean
 -- off the beach, the south bay
 local BOAT_LOOPS = {
 	{ Center = Vector3.new(2110, 0, -1800), Rx = 450, Rz = 700, Speed = 34 },
@@ -196,8 +197,8 @@ end
 local function updateBoats(now: number)
 	for _, boat in boats do
 		local loop = boat.Loop
-		local rx, rz = loop.Rx * K, loop.Rz * K
-		local center = loop.Center * K
+		local rx, rz = loop.Rx * KS, loop.Rz * KS
+		local center = loop.Center * KS
 		-- angular speed from the loop's mean radius, so the boat holds roughly `Speed` studs/s
 		local omega = loop.Speed * K / ((rx + rz) / 2)
 		local a = boat.Phase + now * omega

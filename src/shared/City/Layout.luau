@@ -20,9 +20,13 @@
 	    Biscayne off the south-east. Causeways, I-395 and the Rickenbacker Causeway cross the bay.
 
 	Everything is authored in Roblox's standard units (1 stud = 0.28 m, real-world sizes) and built at
-	`K` times that size: the game uses K = Config.WORLD_SCALE (1.25), a little over life size next to
-	the avatars and the bikes; the builders use Layout.Design (K = 1) and the Builder scales the
-	finished city by WORLD_SCALE. Workspace streaming keeps only what's near each player loaded.
+	`K` times that size: the game uses K = Config.WORLD_SCALE (0.8), true size next to the avatars
+	and the bikes; the builders use Layout.Design (K = 1) and the Builder scales the finished city by
+	WORLD_SCALE. Positions on the plan (the lines below, the rects, the places) are spread by
+	Config.CITY_SPREAD (`KS`), sizes (carriageways, pavements, heights, setbacks) aren't (`K`): the map
+	keeps the size it had at 1.25 times life size, and every block, park and island has more room.
+	Builders spread their own plan positions with Layout.SPREAD. Workspace streaming keeps only what's
+	near each player loaded.
 ]]
 
 local Config = require(script.Parent.Parent.Config)
@@ -163,11 +167,14 @@ end
 
 local function make(K: number)
 	local Layout = {}
+	-- plan positions are spread, sizes aren't (see the header)
+	local KS = K * Config.CITY_SPREAD
+	Layout.SPREAD = Config.CITY_SPREAD
 
 	Layout.ROAD_Y = 0.2 * K
 	Layout.CURB_Y = 0.7 * K
-	Layout.GRID_MIN = -1440 * K
-	Layout.GRID_STEP = 360 * K
+	Layout.GRID_MIN = -1440 * KS
+	Layout.GRID_STEP = 360 * KS
 	Layout.GRID_COUNT = 9 -- lines per axis (downtown)
 	Layout.AVENUE_INDEX = 4 -- x = 0 and z = 0
 	Layout.BAY_INDEX = 8 -- Biscayne Blvd, x = 1440
@@ -175,51 +182,51 @@ local function make(K: number)
 	Layout.STREET_WIDTH = 26 * K -- 2 lanes of 13
 	Layout.AVENUE_SIDEWALK = 14 * K
 	Layout.STREET_SIDEWALK = 12 * K
-	Layout.RING_HALF = 1920 * K
-	Layout.RING_RADIUS = 360 * K
+	Layout.RING_HALF = 1920 * KS
+	Layout.RING_RADIUS = 360 * KS
 	Layout.RING_WIDTH = 50 * K
 	Layout.RURAL_WIDTH = 26 * K
-	Layout.WORLD_HALF = 4250 * K
+	Layout.WORLD_HALF = 4250 * KS
 
 	-- Freeways: the deck's riding surface height, its width (3 lanes each way, shoulders, barriers)
 	Layout.FREEWAY_Y = 32 * K
 	Layout.FREEWAY_WIDTH = 84 * K
 	Layout.RAMP_WIDTH = 28 * K
-	Layout.I95_X = 186 * K -- the middle of block column 4
-	Layout.I395_Z = -180 * K -- through block row 3, then across the bay
+	Layout.I95_X = (Layout.GRID_STEP + Layout.AVENUE_WIDTH / 2 - Layout.STREET_WIDTH / 2) / 2 -- the middle of block column 4
+	Layout.I395_Z = -180 * KS -- through block row 3, then across the bay
 	Layout.RAMP_OFFSET = Layout.FREEWAY_WIDTH / 2 + Layout.RAMP_WIDTH / 2 + 10 * K -- ramp centre lines off I-95's
 
 	-- Water: the bay from the seawall east, the islands in it, the ocean beyond the beaches
 	Layout.WATER_Y = -2.5 * K
 	Layout.SEABED_Y = -26 * K
 	Layout.LAKE_BED_Y = -9 * K
-	Layout.SHORE_X = 1500 * K -- the mainland's seawall
+	Layout.SHORE_X = 1500 * KS -- the mainland's seawall
 	-- the barrier island (South Beach, North Beach), its beach from BEACH_X to the surf at SURF_X
-	Layout.ISLAND = rect(2720 * K, 3360 * K, -3900 * K, 1500 * K)
-	Layout.BEACH_X = 3200 * K
-	Layout.SURF_X = 3360 * K
+	Layout.ISLAND = rect(2720 * KS, 3360 * KS, -3900 * KS, 1500 * KS)
+	Layout.BEACH_X = 3200 * KS
+	Layout.SURF_X = 3360 * KS
 	-- the port island (container yard, cruise terminal) and Key Biscayne
-	Layout.PORT = rect(1760 * K, 2400 * K, 200 * K, 700 * K)
-	Layout.PORT_ROAD_Z = 450 * K
-	Layout.KEY = rect(2300 * K, 3500 * K, 2400 * K, 3700 * K)
-	Layout.KEY_BEACH_X = 3320 * K
-	Layout.KEY_SURF_X = 3500 * K
+	Layout.PORT = rect(1760 * KS, 2400 * KS, 200 * KS, 700 * KS)
+	Layout.PORT_ROAD_Z = 450 * KS
+	Layout.KEY = rect(2300 * KS, 3500 * KS, 2400 * KS, 3700 * KS)
+	Layout.KEY_BEACH_X = 3320 * KS
+	Layout.KEY_SURF_X = 3500 * KS
 	Layout.Islands = { Layout.ISLAND, Layout.PORT, Layout.KEY } :: { Rect }
 
 	local W = Layout.WORLD_HALF
 
 	-- Lakes and canals inland: golf ponds, the Everglades' canal and sloughs
-	Layout.TAMIAMI_Z = 360 * K -- Calle Ocho, out through the Everglades as the Tamiami Trail
+	Layout.TAMIAMI_Z = 360 * KS -- Calle Ocho, out through the Everglades as the Tamiami Trail
 	Layout.Lakes = {
-		rect(-4250 * K, -3280 * K, 296 * K, 322 * K), -- the Tamiami canal, along the trail's north side
-		rect(-4080 * K, -3700 * K, -1560 * K, -1300 * K),
-		rect(-4020 * K, -3620 * K, 1840 * K, 2100 * K),
-		rect(-4120 * K, -3860 * K, -3000 * K, -2760 * K),
-		rect(-3900 * K, -3600 * K, 3200 * K, 3500 * K),
-		rect(-640 * K, -360 * K, -3260 * K, -3020 * K), -- north golf course
-		rect(420 * K, 760 * K, -3780 * K, -3560 * K),
-		rect(-2760 * K, -2520 * K, 1420 * K, 1600 * K), -- the Gables golf course
-		rect(-1240 * K, -1060 * K, -1840 * K, -1680 * K), -- inside the turnpike
+		rect(-4250 * KS, -3280 * KS, 296 * KS, 322 * KS), -- the Tamiami canal, along the trail's north side
+		rect(-4080 * KS, -3700 * KS, -1560 * KS, -1300 * KS),
+		rect(-4020 * KS, -3620 * KS, 1840 * KS, 2100 * KS),
+		rect(-4120 * KS, -3860 * KS, -3000 * KS, -2760 * KS),
+		rect(-3900 * KS, -3600 * KS, 3200 * KS, 3500 * KS),
+		rect(-640 * KS, -360 * KS, -3260 * KS, -3020 * KS), -- north golf course
+		rect(420 * KS, 760 * KS, -3780 * KS, -3560 * KS),
+		rect(-2760 * KS, -2520 * KS, 1420 * KS, 1600 * KS), -- the Gables golf course
+		rect(-1240 * KS, -1060 * KS, -1840 * KS, -1680 * KS), -- inside the turnpike
 	} :: { Rect }
 
 	-- The water: every part of the bay and the ocean that isn't an island, as rects (stripes down
@@ -325,7 +332,7 @@ local function make(K: number)
 	local function lines(from: number, step: number, n: number): { number }
 		local out = {}
 		for k = 0, n - 1 do
-			table.insert(out, (from + k * step) * K)
+			table.insert(out, (from + k * step) * KS)
 		end
 		return out
 	end
@@ -340,7 +347,7 @@ local function make(K: number)
 	-- Miami Beach: West Ave, Collins Ave and Ocean Dr from North Beach down to South Pointe; 5th St,
 	-- where I-395 comes down, is a boulevard
 	local islandZS = lines(-3780, 360, 15)
-	Layout.ISLAND_XS = { 2800 * K, 2980 * K, 3140 * K }
+	Layout.ISLAND_XS = { 2800 * KS, 2980 * KS, 3140 * KS }
 	Layout.ISLAND_X_WIDTHS = { 26 * K, 40 * K, 26 * K }
 	Layout.ISLAND_X_NAMES = { "West Ave", "Collins Ave", "Ocean Dr" }
 	Layout.ISLAND_ZS = islandZS
@@ -355,9 +362,9 @@ local function make(K: number)
 	-- (Biscayne Blvd's south end) along the bay
 	Layout.SOUTH_XS = lines(-2880, 360, 13)
 	Layout.SOUTH_ZS = lines(2160, 360, 5)
-	Layout.GROVE_X = -720 * K -- the Grove starts east of this line
+	Layout.GROVE_X = -720 * KS -- the Grove starts east of this line
 	-- Key Biscayne: Crandon Blvd down the middle
-	Layout.KEY_XS = { 2500 * K, 2900 * K, 3220 * K }
+	Layout.KEY_XS = { 2500 * KS, 2900 * KS, 3220 * KS }
 	Layout.KEY_ZS = lines(2520, 360, 4)
 
 	local GRIDS: { GridSpec } = {
@@ -612,7 +619,7 @@ local function make(K: number)
 	end
 	-- causeway landings and the port bridge on Biscayne Blvd
 	local causewayFeet: { number } = {}
-	for _, z in { -900 * K, 900 * K } do
+	for _, z in { -900 * KS, 900 * KS } do
 		table.insert(causewayFeet, splitXLine(Layout.BAY_INDEX, z))
 	end
 	local portFoot = splitXLine(Layout.BAY_INDEX, Layout.PORT_ROAD_Z)
@@ -731,7 +738,7 @@ local function make(K: number)
 		add(Vector3.new(bayX, ROAD, -h), "NE")
 		i95North = add(Vector3.new(Layout.I95_X, ROAD, -h))
 		add(Vector3.new(0, ROAD, -h), "N")
-		add(Vector3.new(-1200 * K, ROAD, -h), "Airport")
+		add(Vector3.new(-1200 * KS, ROAD, -h), "Airport")
 		-- north-west corner: from the north side round to the west side
 		for k = 0, RING_SEGMENTS_PER_CORNER do
 			local angle = -math.pi / 2 - (math.pi / 2) * k / RING_SEGMENTS_PER_CORNER
@@ -744,11 +751,11 @@ local function make(K: number)
 			local angle = math.pi - (math.pi / 2) * k / RING_SEGMENTS_PER_CORNER
 			add(Vector3.new(-inner + math.cos(angle) * r, ROAD, inner + math.sin(angle) * r))
 		end
-		add(Vector3.new(-1440 * K, ROAD, h), "S1")
-		add(Vector3.new(-720 * K, ROAD, h), "S2")
+		add(Vector3.new(-1440 * KS, ROAD, h), "S1")
+		add(Vector3.new(-720 * KS, ROAD, h), "S2")
 		add(Vector3.new(0, ROAD, h), "S")
 		i95South = add(Vector3.new(Layout.I95_X, ROAD, h))
-		add(Vector3.new(720 * K, ROAD, h), "S3")
+		add(Vector3.new(720 * KS, ROAD, h), "S3")
 		add(Vector3.new(bayX, ROAD, h), "SE")
 		for k = 1, #ringNodes - 1 do
 			addEdge(ringNodes[k], ringNodes[k + 1], "Highway", Layout.RING_WIDTH, 2)
@@ -775,7 +782,7 @@ local function make(K: number)
 	Layout.TamiamiTrail = {} :: { number }
 	do
 		local previous = gridAt(havana, hx, hz, hx[1], Layout.TAMIAMI_Z)
-		for _, x in { -3700 * K, -4160 * K } do
+		for _, x in { -3700 * KS, -4160 * KS } do
 			local id = addNode(Vector3.new(x, ROAD, Layout.TAMIAMI_Z), false)
 			addEdge(previous, id, "Rural", Layout.RURAL_WIDTH, 1)
 			table.insert(Layout.TamiamiTrail, id)
@@ -798,21 +805,22 @@ local function make(K: number)
 	road(ringAt.S, gridAt(south, sx, sz, 0, sz[1]), 40 * K)
 	addEdge(ringAt.SE, gridAt(south, sx, sz, sx[#sx], sz[1]), "Avenue", Layout.AVENUE_WIDTH, 2)
 	-- north: Biscayne Blvd on along the bay; the 79th St causeway to North Beach; the airport road
-	Layout.CAUSEWAY_ZS = { -2700 * K, -900 * K, 900 * K }
-	local north79 = addNode(Vector3.new(Layout.Line(Layout.BAY_INDEX), ROAD, -2700 * K), false)
-	local northEnd = addNode(Vector3.new(Layout.Line(Layout.BAY_INDEX), ROAD, -3780 * K), false)
+	Layout.CAUSEWAY_ZS = { -2700 * KS, -900 * KS, 900 * KS }
+	local north79 = addNode(Vector3.new(Layout.Line(Layout.BAY_INDEX), ROAD, -2700 * KS), false)
+	Layout.BAY_NORTH_Z = -3780 * KS -- where Biscayne Blvd ends, north of the turnpike
+	local northEnd = addNode(Vector3.new(Layout.Line(Layout.BAY_INDEX), ROAD, Layout.BAY_NORTH_Z), false)
 	addEdge(ringAt.NE, north79, "Avenue", Layout.AVENUE_WIDTH, 2)
 	addEdge(north79, northEnd, "Avenue", Layout.AVENUE_WIDTH, 2)
 	table.insert(causewayFeet, 1, north79)
-	Layout.AIRPORT_ROAD_Z = -2400 * K
+	Layout.AIRPORT_ROAD_Z = -2400 * KS
 	Layout.AirportRoad = {} :: { number }
 	do
 		local previous = ringAt.Airport
-		local turn = addNode(Vector3.new(-1200 * K, ROAD, Layout.AIRPORT_ROAD_Z), false)
+		local turn = addNode(Vector3.new(-1200 * KS, ROAD, Layout.AIRPORT_ROAD_Z), false)
 		addEdge(previous, turn, "Avenue", 40 * K, 2)
 		previous = turn
 		table.insert(Layout.AirportRoad, turn)
-		for _, x in { -1800 * K, -2400 * K, -3100 * K } do
+		for _, x in { -1800 * KS, -2400 * KS, -3100 * KS } do
 			local id = addNode(Vector3.new(x, ROAD, Layout.AIRPORT_ROAD_Z), false)
 			addEdge(previous, id, "Avenue", 40 * K, 2)
 			table.insert(Layout.AirportRoad, id)
@@ -828,7 +836,7 @@ local function make(K: number)
 	local junction: number
 	do
 		local x = Layout.I95_X
-		local descent = 400 * K -- 8% grade from the deck to the turnpike
+		local descent = 400 * KS -- a 5% grade from the deck to the turnpike
 		table.insert(Layout.I95, i95North)
 		table.insert(Layout.I95, addNode(Vector3.new(x, ROAD, Layout.Line(0) - descent), false))
 		for j = 0, count - 1 do
@@ -856,7 +864,7 @@ local function make(K: number)
 		for i = Layout.AVENUE_INDEX + 1, Layout.BAY_INDEX do
 			table.insert(Layout.I395, addNode(Vector3.new(Layout.Line(i), H, z), false))
 		end
-		table.insert(Layout.I395, addNode(Vector3.new(2400 * K, H, z), false))
+		table.insert(Layout.I395, addNode(Vector3.new(2400 * KS, H, z), false))
 		table.insert(Layout.I395, addNode(Vector3.new(Layout.ISLAND.MinX + 40 * K, ROAD, z), false))
 	end
 	table.insert(Layout.I395, islandNodeAtZ(Layout.I395_Z))
@@ -880,7 +888,7 @@ local function make(K: number)
 		addEdge(quay, far, "Street", Layout.STREET_WIDTH, 1)
 		table.insert(Layout.Causeways, { A = portFoot, B = quay, Z = Layout.PORT_ROAD_Z })
 		Layout.PortRoad = { quay, far }
-		Layout.RICKENBACKER_Z = 2880 * K
+		Layout.RICKENBACKER_Z = 2880 * KS
 		local from = gridAt(south, sx, sz, sx[#sx], Layout.RICKENBACKER_Z)
 		local to = gridAt(key, Layout.KEY_XS, Layout.KEY_ZS, Layout.KEY_XS[1], Layout.RICKENBACKER_Z)
 		addEdge(from, to, "Causeway", Layout.STREET_WIDTH + 14 * K, 1)
@@ -1059,16 +1067,16 @@ local function make(K: number)
 	-- terminal side) and the open land between (Terrain grass at runtime, marsh in the Everglades)
 	--------------------------------------------------------------------------------
 	Layout.Airport = {
-		Rect = rect(-3800 * K, -1300 * K, -4000 * K, -2470 * K),
-		RunwayX0 = -3650 * K,
-		RunwayX1 = -1450 * K,
-		RunwayZ = -3560 * K,
-		RunwayWidth = 70 * K,
-		TaxiwayZ = -3400 * K,
-		Apron = rect(-3300 * K, -1700 * K, -3300 * K, -2840 * K),
-		Terminal = rect(-3200 * K, -2000 * K, -2840 * K, -2600 * K),
+		Rect = rect(-3800 * KS, -1300 * KS, -4000 * KS, -2470 * KS),
+		RunwayX0 = -3650 * KS,
+		RunwayX1 = -1450 * KS,
+		RunwayZ = -3560 * KS,
+		RunwayWidth = 160 * K, -- 45 m, an airliner runway
+		TaxiwayZ = -3400 * KS,
+		Apron = rect(-3300 * KS, -1700 * KS, -3300 * KS, -2840 * KS),
+		Terminal = rect(-3200 * KS, -2000 * KS, -2840 * KS, -2600 * KS),
 	}
-	Layout.EVERGLADES_X = -3330 * K -- the marsh starts west of here
+	Layout.EVERGLADES_X = -3330 * KS -- the marsh starts west of here
 	local sideW = Layout.STREET_SIDEWALK + 13 * K
 	local function gridRect(xs: { number }, zs: { number }, pad: number): Rect
 		return rect(xs[1] - pad, xs[#xs] + pad, zs[1] - pad, zs[#zs] + pad)
@@ -1080,14 +1088,14 @@ local function make(K: number)
 		Layout.KEY,
 		gridRect(Layout.HAVANA_XS, Layout.HAVANA_ZS, 40 * K),
 		gridRect(Layout.SOUTH_XS, Layout.SOUTH_ZS, 40 * K),
-		rect(-3300 * K, -1300 * K, -2840 * K, -2300 * K), -- the terminal, its car park and road
+		rect(-3300 * KS, -1300 * KS, -2840 * KS, -2300 * KS), -- the terminal, its car park and road
 	} :: { Rect }
 	do
 		local mainland = { rect(-W, Layout.SHORE_X, -W, W) }
 		local open = subtractAll(mainland, Layout.Lakes)
 		open = subtractAll(open, Layout.BuiltUp)
 		-- (the Everglades run south of the airport; its fields are grass)
-		local marsh = rect(-W, Layout.EVERGLADES_X, -2300 * K, W)
+		local marsh = rect(-W, Layout.EVERGLADES_X, -2300 * KS, W)
 		Layout.Marsh = marsh
 		local ground: { Ground } = {}
 		for _, r in open do
@@ -1145,29 +1153,34 @@ local function make(K: number)
 	local function lotCenter(block: Block): Vector3
 		return Vector3.new((block.LotMinX + block.LotMaxX) / 2, Layout.CURB_Y, (block.LotMinZ + block.LotMaxZ) / 2)
 	end
+	-- Flighty Mechanics takes the south middle of its block, this deep and at most this wide (its
+	-- grounds and car park the rest)
+	Layout.DEALERSHIP_DEPTH = 330 * K
+	Layout.DEALERSHIP_WIDTH = 380 * K
+	local dealershipEast = (dealership.LotMinX + dealership.LotMaxX) / 2 + math.min(dealership.LotMaxX - dealership.LotMinX, Layout.DEALERSHIP_WIDTH) / 2
 
-	local beachZ = 180 * K
+	local beachZ = 180 * KS
 	Layout.Places = {
 		-- Spawn: the forecourt in front of the dealership, facing it (north)
 		Spawn = Vector3.new((dealership.LotMinX + dealership.LotMaxX) / 2, Layout.CURB_Y, dealership.LotMaxZ - 50 * K),
-		Dealership = lotCenter(dealership),
+		Dealership = Vector3.new((dealership.LotMinX + dealership.LotMaxX) / 2, Layout.CURB_Y, dealership.LotMaxZ - Layout.DEALERSHIP_DEPTH / 2),
 		Police = lotCenter(police),
 		JumpPark = lotCenter(jump),
 		-- (south of the fountains)
 		Plaza = lotCenter(plaza) + Vector3.new(0, 0, 45 * K),
 		Park = lotCenter(bayPark) + Vector3.new(0, 0, 60 * K),
 		-- on the streets through them (their blocks are built up)
-		Downtown = Vector3.new(Layout.Line(5) + 180 * K, Layout.ROAD_Y, Layout.Line(Layout.AVENUE_INDEX) + 12 * K),
-		Wynwood = Vector3.new(Layout.Line(6), Layout.ROAD_Y, Layout.Line(0) + 180 * K),
+		Downtown = Vector3.new(Layout.Line(5) + 180 * KS, Layout.ROAD_Y, Layout.Line(Layout.AVENUE_INDEX) + 12 * K),
+		Wynwood = Vector3.new(Layout.Line(6), Layout.ROAD_Y, Layout.Line(0) + 180 * KS),
 		Beach = Vector3.new(Layout.BEACH_X - 4 * K, Layout.CURB_Y, beachZ), -- the beach walk
-		NorthBeach = Vector3.new(Layout.BEACH_X - 4 * K, Layout.CURB_Y, -2520 * K),
+		NorthBeach = Vector3.new(Layout.BEACH_X - 4 * K, Layout.CURB_Y, -2520 * KS),
 		LittleHavana = Vector3.new((hx[2] + hx[3]) / 2, Layout.ROAD_Y, Layout.TAMIAMI_Z + 8 * K),
-		CoralGables = Vector3.new(-1980 * K, Layout.ROAD_Y, sz[2] + 6 * K),
-		CoconutGrove = Vector3.new(540 * K, Layout.ROAD_Y, Layout.RICKENBACKER_Z + 8 * K),
-		KeyBiscayne = Vector3.new(Layout.KEY_BEACH_X - 4 * K, Layout.CURB_Y, 3060 * K),
-		Port = Vector3.new(2000 * K, Layout.ROAD_Y, Layout.PORT_ROAD_Z + 6 * K),
+		CoralGables = Vector3.new(-1980 * KS, Layout.ROAD_Y, sz[2]), -- (mid-road: Bird Rd is narrow)
+		CoconutGrove = Vector3.new(540 * KS, Layout.ROAD_Y, Layout.RICKENBACKER_Z + 8 * K),
+		KeyBiscayne = Vector3.new(Layout.KEY_BEACH_X - 4 * K, Layout.CURB_Y, 3060 * KS),
+		Port = Vector3.new(2000 * KS, Layout.ROAD_Y, Layout.PORT_ROAD_Z + 6 * K),
 		Airport = Vector3.new(Layout.Airport.RunwayX0 + 60 * K, Layout.ROAD_Y, Layout.Airport.RunwayZ),
-		Everglades = Vector3.new(-3900 * K, Layout.ROAD_Y, Layout.TAMIAMI_Z + 6 * K),
+		Everglades = Vector3.new(-3900 * KS, Layout.ROAD_Y, Layout.TAMIAMI_Z + 6 * K),
 		Countryside = Vector3.new(-Layout.RING_HALF + 40 * K, Layout.ROAD_Y, 0),
 	}
 
@@ -1200,7 +1213,7 @@ local function make(K: number)
 	local groveBlock = Layout.GridBlock("South", 9, 1) :: Block
 	local northBeach = Layout.GridBlock("Island", 1, 4) :: Block
 	Layout.Chargers = {
-		Vector3.new(dealership.LotMaxX - 20 * K, Layout.CURB_Y, dealership.LotMaxZ - 20 * K),
+		Vector3.new(dealershipEast - 20 * K, Layout.CURB_Y, dealership.LotMaxZ - 20 * K),
 		Vector3.new(plaza.LotMinX + 20 * K, Layout.CURB_Y, plaza.LotMaxZ - 20 * K),
 		Vector3.new(jump.LotMaxX - 15 * K, Layout.CURB_Y, jump.LotMaxZ - 15 * K),
 		Vector3.new(fastFood.LotMinX + 20 * K, Layout.CURB_Y, fastFood.LotMaxZ - 15 * K),
@@ -1215,9 +1228,9 @@ local function make(K: number)
 		Vector3.new((gablesBlock.MinX + gablesBlock.MaxX) / 2, Layout.CURB_Y, gablesBlock.MinZ + 9 * K),
 		Vector3.new((groveBlock.MinX + groveBlock.MaxX) / 2, Layout.CURB_Y, groveBlock.MinZ + 9 * K),
 		Vector3.new(Layout.BEACH_X - 30 * K, Layout.CURB_Y, (northBeach.MinZ + northBeach.MaxZ) / 2),
-		Vector3.new(Layout.KEY_BEACH_X - 30 * K, Layout.CURB_Y, 3000 * K),
-		Vector3.new(-1500 * K, Layout.ROAD_Y, Layout.AIRPORT_ROAD_Z - 40 * K), -- airport car park
-		Vector3.new(-3900 * K, Layout.ROAD_Y, Layout.TAMIAMI_Z + 40 * K), -- Everglades airboat dock
+		Vector3.new(Layout.KEY_BEACH_X - 30 * K, Layout.CURB_Y, 3000 * KS),
+		Vector3.new(-1500 * KS, Layout.ROAD_Y, Layout.AIRPORT_ROAD_Z - 40 * K), -- airport car park
+		Vector3.new(-3900 * KS, Layout.ROAD_Y, Layout.TAMIAMI_Z + 40 * K), -- Everglades airboat dock
 	}
 	Layout.ChargerFacing = {
 		Vector3.new(0, 0, 1),
