@@ -633,7 +633,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 			if humanoid and root then
 				if gone then
 					humanoid:MoveTo(driver.Position)
-					if (root.Position - driver.Position).Magnitude < 9 then
+					if (root.Position - driver.Position).Magnitude < driver.HalfLength + 3 then
 						back += 1
 					end
 				else
@@ -673,7 +673,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 		local nodeId = unit.InterceptNode
 		if nodeId then
 			local spot = Layout.Nodes[nodeId].Position
-			if (spot - driver.Position).Magnitude < 22 then
+			if (spot - driver.Position).Magnitude < 22 * Config.CAR_SCALE then
 				CarDriver.Hold(driver)
 			else
 				CarDriver.Chase(driver, spot, Vector3.zero, false)
@@ -696,7 +696,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 			local right = Vector3.new(-dir.Z, 0, dir.X)
 			local side = if (driver.Position - position):Dot(right) >= 0 then 1 else -1
 			-- pacing a lane over and a little behind, never alongside close enough to touch
-			aim = position + right * (side * C.FlankOffset) - dir * 6
+			aim = position + right * (side * C.FlankOffset) - dir * (6 * Config.CAR_SCALE)
 		end
 	end
 	-- straight at them only when they're on the same level (not up on a deck overhead): otherwise

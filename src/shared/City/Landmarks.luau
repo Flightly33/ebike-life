@@ -7,7 +7,7 @@
 ]]
 
 local LayoutModule = require(script.Parent.Layout)
--- Built in design units (1 stud = 0.28 m); the Builder shrinks the finished city to WORLD_SCALE
+-- Built in design units (1 stud = 0.28 m); the Builder scales the finished city by WORLD_SCALE
 local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local PartKit = require(script.Parent.Parent.PartKit)
@@ -29,6 +29,9 @@ local NO_COLLIDE = { Collide = false, Query = false, Touch = false }
 
 local FLIGHTY_ORANGE = Color3.fromRGB(255, 122, 24)
 local FLIGHTY_DARK = Color3.fromRGB(26, 28, 34)
+-- bikes are drawn at their riders' scale, this times the city's: what holds a bike on show
+-- (turntables, stages, the show ramp) is sized by it
+local BIKE = Config.STUDS_PER_METER / Config.CITY_STUDS_PER_METER
 
 local function prompt(parent: BasePart, name: string, action: string, object: string): ProximityPrompt
 	local p = Instance.new("ProximityPrompt")
@@ -119,10 +122,10 @@ function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: 
 	-- Hero stage at the back: the top bike on a two-tier lit plinth under spotlights
 	local hero = Bikes.List[#Bikes.List]
 	local stage = Vector3.new(scx, floorY + 0.4, sz - sd / 2 + 24)
-	PartKit.Post(model, "StageBase", 26, 1.4, stage, Color3.fromRGB(20, 20, 24), SMOOTH)
-	PartKit.Post(model, "StageRing", 26.6, 0.4, stage + Vector3.new(0, 1.2, 0), Bikes.RarityColors[hero.Rarity], NEON, DECOR)
-	PartKit.Post(model, "StageTop", 18, 1.2, stage + Vector3.new(0, 1.4, 0), Color3.fromRGB(30, 30, 34), Enum.Material.Marble)
-	PartKit.Post(model, "StageRing2", 18.6, 0.3, stage + Vector3.new(0, 2.5, 0), Bikes.RarityColors[hero.Rarity], NEON, DECOR)
+	PartKit.Post(model, "StageBase", 26 * BIKE, 1.4, stage, Color3.fromRGB(20, 20, 24), SMOOTH)
+	PartKit.Post(model, "StageRing", 26 * BIKE + 0.6, 0.4, stage + Vector3.new(0, 1.2, 0), Bikes.RarityColors[hero.Rarity], NEON, DECOR)
+	PartKit.Post(model, "StageTop", 18 * BIKE, 1.2, stage + Vector3.new(0, 1.4, 0), Color3.fromRGB(30, 30, 34), Enum.Material.Marble)
+	PartKit.Post(model, "StageRing2", 18 * BIKE + 0.6, 0.3, stage + Vector3.new(0, 2.5, 0), Bikes.RarityColors[hero.Rarity], NEON, DECOR)
 	local heroModel = BikeModel.Build(hero, nil, { Static = true })
 	PartKit.Scale(heroModel, 1 / Config.WORLD_SCALE)
 	PartKit.PlaceStatic(heroModel, CFrame.new(stage + Vector3.new(0, 2.6, 0)) * CFrame.Angles(0, math.rad(60), 0))
@@ -138,7 +141,7 @@ function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: 
 		beam.Color = Color3.fromRGB(255, 200, 150)
 		beam.Parent = lamp
 	end
-	local heroSign = PartKit.Box(model, "HeroPlaque", Vector3.new(16, 3, 0.4), CFrame.new(stage + Vector3.new(0, 2.2, 13.4)) * CFrame.Angles(math.rad(-15), 0, 0), Color3.fromRGB(14, 14, 16), SMOOTH, DECOR)
+	local heroSign = PartKit.Box(model, "HeroPlaque", Vector3.new(16, 3, 0.4), CFrame.new(stage + Vector3.new(0, 2.2, 13 * BIKE + 0.4)) * CFrame.Angles(math.rad(-15), 0, 0), Color3.fromRGB(14, 14, 16), SMOOTH, DECOR)
 	PartKit.Sign(heroSign, Enum.NormalId.Back, string.upper(hero.Name) .. "  $" .. tostring(hero.Price), Bikes.RarityColors[hero.Rarity], nil, Enum.Font.FredokaOne, 20)
 
 	-- The rest of the line-up on turntables, two rows either side of the stage
@@ -155,14 +158,14 @@ function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: 
 		local x = scx - sw / 2 + 18 + col * ((sw - 36) / math.max(perRow - 1, 1))
 		local z = sz + 4 + row * 30
 		local deckY = floorY + 0.4
-		PartKit.Post(model, "Turntable", 13, 1.0, Vector3.new(x, deckY, z), Color3.fromRGB(30, 32, 36), SMOOTH)
-		PartKit.Post(model, "TurntableRing", 13.4, 0.3, Vector3.new(x, deckY + 0.85, z), Bikes.RarityColors[bike.Rarity], NEON, DECOR)
+		PartKit.Post(model, "Turntable", 13 * BIKE, 1.0, Vector3.new(x, deckY, z), Color3.fromRGB(30, 32, 36), SMOOTH)
+		PartKit.Post(model, "TurntableRing", 13 * BIKE + 0.4, 0.3, Vector3.new(x, deckY + 0.85, z), Bikes.RarityColors[bike.Rarity], NEON, DECOR)
 		local display = BikeModel.Build(bike, nil, { Static = true })
-		PartKit.Scale(display, 1 / Config.WORLD_SCALE) -- vehicles are true size; the city shrinks later
+		PartKit.Scale(display, 1 / Config.WORLD_SCALE) -- bikes are at their riders' scale; the city is scaled later
 		PartKit.PlaceStatic(display, CFrame.new(x, deckY + 1.0, z) * CFrame.Angles(0, math.rad(if row == 0 then 35 else -35), 0))
 		display.Name = "Display_" .. bike.Id
 		display.Parent = model
-		local plaque = PartKit.Box(model, "Plaque", Vector3.new(9, 2.4, 0.3), CFrame.new(x, deckY + 1.6, z + 7) * CFrame.Angles(math.rad(-20), 0, 0), Color3.fromRGB(20, 20, 24), SMOOTH, DECOR)
+		local plaque = PartKit.Box(model, "Plaque", Vector3.new(9, 2.4, 0.3), CFrame.new(x, deckY + 1.6, z + 6.5 * BIKE + 0.5) * CFrame.Angles(math.rad(-20), 0, 0), Color3.fromRGB(20, 20, 24), SMOOTH, DECOR)
 		local price = if bike.Price == 0 then "FREE" else "$" .. tostring(bike.Price)
 		PartKit.Sign(plaque, Enum.NormalId.Back, bike.Name .. "  " .. price, WHITE, nil, Enum.Font.FredokaOne, 20)
 	end
@@ -245,12 +248,12 @@ function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: 
 	PartKit.Sign(pylonSign, Enum.NormalId.Front, "FLIGHTY\nMECHANICS", FLIGHTY_ORANGE, nil, Enum.Font.FredokaOne, 8)
 	PartKit.Sign(pylonSign, Enum.NormalId.Back, "FLIGHTY\nMECHANICS", FLIGHTY_ORANGE, nil, Enum.Font.FredokaOne, 8)
 	local rampBase = Vector3.new(scx + entrance / 2 + 24, floorY, front + 26)
-	PartKit.Ramp(model, "ShowRamp", rampBase + Vector3.new(0, 0, 10), rampBase + Vector3.new(0, 4, -4), 10, FLIGHTY_DARK, SMOOTH)
+	PartKit.Ramp(model, "ShowRamp", rampBase + Vector3.new(0, 0, 10) * BIKE, rampBase + Vector3.new(0, 4, -4) * BIKE, 10 * BIKE, FLIGHTY_DARK, SMOOTH)
 	local poser = Bikes.Get("hornet_6")
 	if poser then
 		local wheelie = BikeModel.Build(poser, nil, { Static = true })
 		PartKit.Scale(wheelie, 1 / Config.WORLD_SCALE)
-		PartKit.PlaceStatic(wheelie, CFrame.new(rampBase + Vector3.new(0, 4.2, -6)) * CFrame.Angles(math.rad(28), 0, 0))
+		PartKit.PlaceStatic(wheelie, CFrame.new(rampBase + Vector3.new(0, 4.2, -6) * BIKE) * CFrame.Angles(math.rad(28), 0, 0))
 		wheelie.Name = "Display_hornet_6"
 		wheelie.Parent = model
 	end
@@ -559,7 +562,7 @@ function Landmarks.Police(parent: Instance, block: LayoutModule.Block, rng: Rand
 	-- Car park: marked bays, cruisers, a barrier at the gate, the gatehouse, a flag
 	for i = 0, 4 do
 		local car = CarModel.Build("Police", { Static = true })
-		PartKit.Scale(car, 1 / Config.WORLD_SCALE) -- vehicles are true size; the city shrinks later
+		PartKit.Scale(car, 1 / Config.WORLD_SCALE) -- cars are built at the city's scale; the city is scaled later
 		PartKit.PlaceStatic(car, CFrame.new(x0 + 30 + i * 26, floorY, z1 - 40) * CFrame.Angles(0, math.pi, 0))
 		car.Parent = model
 		PartKit.Box(model, "Bay", Vector3.new(0.4, 0.05, 24), CFrame.new(x0 + 17 + i * 26, floorY + 0.03, z1 - 40), WHITE, SMOOTH, DECOR)
@@ -605,7 +608,7 @@ function Landmarks.Plaza(parent: Instance, block: LayoutModule.Block, rng: Rando
 	local sx, sz = cx + 80, cz - 70
 	PartKit.Box(model, "Plinth", Vector3.new(16, 8, 10), CFrame.new(sx, fy + 4, sz), Color3.fromRGB(80, 82, 88), Enum.Material.Granite)
 	local statue = BikeModel.Build(Bikes.List[#Bikes.List], { Frame = "gold", Accent = "gold", Rims = "gold" }, { Static = true })
-	PartKit.Scale(statue, 1 / Config.WORLD_SCALE) -- vehicles are true size; the city shrinks later
+	PartKit.Scale(statue, 1 / (Config.WORLD_SCALE * BIKE)) -- a life-size bike next to the city (scaled later)
 	PartKit.PlaceStatic(statue, CFrame.new(sx, fy + 8.9, sz) * CFrame.Angles(0, math.rad(60), 0) * CFrame.Angles(math.rad(25), 0, 0))
 	statue.Name = "Statue"
 	statue:SetAttribute("Gold", true)

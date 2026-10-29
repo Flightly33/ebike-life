@@ -148,7 +148,13 @@ for _, target in targets do
 				local r = world.Down(s.Position - dir * half + Vector3.new(0, 8, 0), 20)
 				print(string.format("   %.3f %s pos (%.1f %.2f %.1f) pitch %.1f  frontY %s (%s) rearY %s (%s) kmh %.0f", t, if s.Grounded then "G" else "A", s.Position.X, s.Position.Y, s.Position.Z, math.deg(s.Pitch), if f then string.format("%.2f", f.Position.Y) else "-", if f then f.Part.Name else "", if r then string.format("%.2f", r.Position.Y) else "-", if r then r.Part.Name else "", BikePhysics.Kmh(s)))
 			end
-			if s.Grounded and math.abs(s.Pitch - lastPitch) > maxPitchJump then
+			-- (a Fakie turns the bike round at a quarter pipe's top: the pitch flips by design, and the
+			-- landing can come in the same frame)
+			local turned = false
+			for _, e in events do
+				turned = turned or e.Kind == "Fakie"
+			end
+			if s.Grounded and not turned and math.abs(s.Pitch - lastPitch) > maxPitchJump then
 				maxPitchJump = math.abs(s.Pitch - lastPitch)
 				local kinds = {}
 				for _, e in events do

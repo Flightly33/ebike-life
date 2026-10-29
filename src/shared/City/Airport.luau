@@ -7,7 +7,7 @@
 ]]
 
 local LayoutModule = require(script.Parent.Layout)
--- Built in design units (1 stud = 0.28 m); the Builder shrinks the finished city to WORLD_SCALE
+-- Built in design units (1 stud = 0.28 m); the Builder scales the finished city by WORLD_SCALE
 local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local Detail = require(script.Parent.Detail)

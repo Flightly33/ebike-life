@@ -4,7 +4,7 @@
 ]]
 
 local LayoutModule = require(script.Parent.Layout)
--- Built in design units (1 stud = 0.28 m); the Builder shrinks the finished city to WORLD_SCALE
+-- Built in design units (1 stud = 0.28 m); the Builder scales the finished city by WORLD_SCALE
 local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local Roads = require(script.Parent.Roads)
@@ -518,7 +518,7 @@ function Builder.Build(): Model
 	spawnPoint(city)
 	-- real-world materials by role (roofs, tyres, glass...)
 	Realism.Apply(city)
-	-- Built at Roblox's standard scale; shrink to the avatar scale the game runs at
+	-- Built at Roblox's standard scale; scaled to the one the game runs at
 	PartKit.Scale(city, Config.WORLD_SCALE)
 	return city
 end

@@ -4,7 +4,7 @@
 	bike racks, benches, bins, bollards, street-name signs, tree grates, manholes, drains, parking
 	meters, news boxes), garden bits for houses, and a few vehicle-sized props (box trucks, pallets).
 
-	Design units like the other builders (1 stud = 0.28 m); the Builder shrinks the finished city.
+	Design units like the other builders (1 stud = 0.28 m); the Builder scales the finished city.
 	A "face" is a CFrame on a building wall at ground level whose LookVector points out to the street.
 	Almost everything here is decoration: no collisions, no queries, and small parts cast no shadow.
 ]]

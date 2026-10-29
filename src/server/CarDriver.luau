@@ -22,6 +22,9 @@ local CarDriver = {}
 CarDriver.__index = CarDriver
 
 local STUDS = Config.STUDS_PER_METER
+-- cars are drawn this much bigger than the bikes (Config.CAR_SCALE): their gaps and margins grow
+-- with them, their speeds don't
+local CAR = Config.CAR_SCALE
 local TAU = math.pi * 2
 
 export type Mode = "Cruise" | "Chase" | "Idle"
@@ -166,9 +169,9 @@ local STREET_SPEED = 11 -- m/s, Layout's street speed: the speed TopSpeed is set
 local function clearance(nodeId: number, edge: Layout.Edge): number
 	local node = Layout.Nodes[nodeId]
 	if node.Grid then
-		return Layout.NodeClearance(nodeId, edge.Axis) + 6
+		return Layout.NodeClearance(nodeId, edge.Axis) + 6 * CAR
 	end
-	return 4
+	return 4 * CAR
 end
 
 -- Lane points along an edge travelled from `from`
@@ -342,12 +345,12 @@ local function lightAhead(self: Driver): (boolean, number)
 	local ahead = flat:Dot(dir)
 	local axis = if math.abs(dir.X) > math.abs(dir.Z) then "X" else "Z"
 	local half = if axis == "X" then (fromNode.WX or 26) / 2 else (fromNode.WZ or 26) / 2
-	local stopDistance = ahead - half - 6 - self.HalfLength
-	if stopDistance < -2 or stopDistance > 60 then
+	local stopDistance = ahead - half - 6 * CAR - self.HalfLength
+	if stopDistance < -2 or stopDistance > 60 * CAR then
 		return false, math.huge
 	end
 	local state = Layout.LightState(fromNode.Id, axis, Workspace:GetServerTimeNow(), Config.Lights.Cycle, Config.Lights.Yellow, Config.Lights.AllRed)
-	if state == "Red" or (state == "Yellow" and stopDistance > 8) then
+	if state == "Red" or (state == "Yellow" and stopDistance > 8 * CAR) then
 		return true, stopDistance
 	end
 	return false, math.huge
@@ -362,7 +365,7 @@ local function trafficAhead(self: Driver, others: { Vector3 }): number
 		if other ~= self and other.Alive then
 			local offset = other.Position - self.Position
 			local ahead = offset:Dot(dir)
-			if ahead > 0 and ahead < 60 and math.abs(offset:Dot(right)) < self.HalfWidth + other.HalfWidth + 1 then
+			if ahead > 0 and ahead < 60 * CAR and math.abs(offset:Dot(right)) < self.HalfWidth + other.HalfWidth + CAR then
 				nearest = math.min(nearest, ahead - self.HalfLength - other.HalfLength)
 			end
 		end
@@ -370,7 +373,7 @@ local function trafficAhead(self: Driver, others: { Vector3 }): number
 	for _, p in others do
 		local offset = p - self.Position
 		local ahead = offset:Dot(dir)
-		if ahead > 0 and ahead < 50 and math.abs(offset:Dot(right)) < self.HalfWidth + 2 then
+		if ahead > 0 and ahead < 50 * CAR and math.abs(offset:Dot(right)) < self.HalfWidth + 2 then
 			nearest = math.min(nearest, ahead - self.HalfLength - 2)
 		end
 	end
@@ -435,7 +438,7 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 		end
 		if self.Mode == "Chase" and self.Direct and self.Target then
 			local distance = (self.Target - self.Position).Magnitude
-			if distance < 30 then
+			if distance < 30 * CAR then
 				-- hold station on the target point: speed up a little while behind it, ease off past it
 				-- (the police aim it a safe gap behind a rider, so this never closes into the bike)
 				local theirs = self.TargetVelocity.Magnitude / STUDS
@@ -448,13 +451,13 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 		local red, stopIn = lightAhead(self)
 		if red then
 			targetSpeed = math.min(targetSpeed, math.max(0, stopIn / STUDS * 1.2))
-			if stopIn < 1.5 then
+			if stopIn < 1.5 * CAR then
 				targetSpeed = 0
 			end
 		end
 		local gap = trafficAhead(self, people)
-		if gap < 40 then
-			targetSpeed = math.min(targetSpeed, math.max(0, (gap - 6) / STUDS * 1.0))
+		if gap < 40 * CAR then
+			targetSpeed = math.min(targetSpeed, math.max(0, (gap - 6 * CAR) / STUDS * 1.0))
 		end
 	end
 
@@ -473,8 +476,8 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 		self.Speed = math.max(targetSpeed, self.Speed - accel * dt)
 	end
 
-	-- Steering: turning circle of ~6 m, quicker at walking pace
-	local maxRate = math.max(0.8, math.abs(self.Speed) / 6)
+	-- Steering: a turning circle of ~6 m (the car's own metres), quicker at walking pace
+	local maxRate = math.max(0.8, math.abs(self.Speed) / (6 * CAR))
 	local yawRate = math.clamp(yawError * 3, -maxRate, maxRate)
 	if self.Speed < 0 then
 		yawRate = -yawRate * 0.6
@@ -485,9 +488,9 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 	-- Move, stopping at walls
 	local delta = dir * (self.Speed * STUDS * dt)
 	if delta.Magnitude > 1e-4 then
-		local center = self.Position + Vector3.new(0, 3.5, 0)
-		local cast = Workspace:Blockcast(CFrame.lookAt(center, center + dir), Vector3.new(self.HalfWidth * 1.6, 3, self.HalfLength * 1.8), delta, queryParams)
-		if cast and not (cast.Instance.Size.X < 4 and cast.Instance.Size.Z < 4) then
+		local center = self.Position + Vector3.new(0, 3.5 * CAR, 0)
+		local cast = Workspace:Blockcast(CFrame.lookAt(center, center + dir), Vector3.new(self.HalfWidth * 1.6, 3 * CAR, self.HalfLength * 1.8), delta, queryParams)
+		if cast and not (cast.Instance.Size.X < 4 * CAR and cast.Instance.Size.Z < 4 * CAR) then
 			delta = delta.Unit * math.max(0, cast.Distance - 0.2)
 			self.Speed *= 0.3
 		end

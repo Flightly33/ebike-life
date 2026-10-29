@@ -9,7 +9,7 @@
 ]]
 
 local LayoutModule = require(script.Parent.Layout)
--- Built in design units (1 stud = 0.28 m); the Builder shrinks the finished city to WORLD_SCALE
+-- Built in design units (1 stud = 0.28 m); the Builder scales the finished city by WORLD_SCALE
 local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local Detail = require(script.Parent.Detail)
@@ -453,7 +453,7 @@ local function skyline(model: Model)
 	end)
 end
 
-local CAR_S = Config.STUDS_PER_METER / Config.WORLD_SCALE -- true-size cars in the design-unit city
+local CAR_S = Config.CAR_STUDS_PER_METER / Config.WORLD_SCALE -- cars in the design-unit city
 
 -- A light parked car (a dozen parts: the part-built CarModel is ~150). CityService swaps it for
 -- the Blender car of its CarKind when those are imported. `cf` is on the ground; the car's front

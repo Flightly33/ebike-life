@@ -1,30 +1,38 @@
 --[[
 	Config: every tuning number in one place.
 
-	Units: physics runs in SI (metres, m/s, kg, W, N); the world is in studs. Riders, bikes and cars
-	share one scale, 1 m ≈ 2.86 studs (1 stud = 0.35 m), which matches a Roblox avatar.
+	Units: physics runs in SI (metres, m/s, kg, W, N); the world is in studs. Riders and their bikes
+	share one scale, 1 m ≈ 2.86 studs (1 stud = 0.35 m), which matches a Roblox avatar's height.
 
-	The city is authored in Roblox's standard units (1 stud = 0.28 m) and built at WORLD_SCALE times
-	that: 0.8 (0.28 / 0.35) is true size next to the riders, the bikes and the cars (the owner asked
-	for real-world scale): a lane is 10 studs, a storey ~9, a door ~6. Where things are on the plan
-	(the streets, blocks, islands and places) is spread by CITY_SPREAD, so the map stays the size it
-	was when the city was drawn 1.25 times life size, with more room in every block.
+	The city is authored in Roblox's standard units (1 stud = 0.28 m, real sizes) and built at
+	WORLD_SCALE times that. A Roblox avatar is stocky (a big head, arms and shoulders 4 studs
+	across), so a city built to its height (0.8) made it look like a giant next to bus shelters,
+	doors and cars (the owner's screenshots). At 1.2 the world is 1.5 times that and the avatar's
+	build reads as a real person's next to it: a lane is 15 studs, a storey ~13, a door ~9. Cars
+	(traffic, police, parked) are part of the world and built at its scale; bikes stay fitted to
+	their riders. Where things are on the plan (the streets, blocks, islands and places) is spread
+	by CITY_SPREAD, so the map stays the size it was when the city was drawn 1.25 times life size.
 ]]
 
 local Config = {}
 
-Config.WORLD_SCALE = 0.8
+Config.WORLD_SCALE = 1.2
 -- the plan's distances are authored at 1/CITY_SPREAD of real (the first city's layout, drawn at
 -- WORLD_SCALE 1.25): City/Layout spreads every position by it and keeps every size real, so in game
--- studs the map, the road graph and the places are where they were
+-- studs the map, the road graph and the places stay where they were at any WORLD_SCALE
 Config.CITY_SPREAD = 1.25 / Config.WORLD_SCALE
 Config.METERS_PER_STUD = 0.35
 Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
 -- the city's own studs per real metre (it's authored at 1 stud = 0.28 m, built at WORLD_SCALE):
 -- what the PBR materials' tiles are sized by
 Config.CITY_STUDS_PER_METER = Config.WORLD_SCALE / 0.28
+-- cars belong to the city: traffic, police and parked cars are built at its scale. Their speeds
+-- stay in STUDS_PER_METER (the bikes' metres), so a chase plays the same at any WORLD_SCALE
+Config.CAR_STUDS_PER_METER = Config.CITY_STUDS_PER_METER
+-- how much bigger a car is drawn than the bikes' scale: the cars' AI spacing grows with it
+Config.CAR_SCALE = Config.CAR_STUDS_PER_METER / Config.STUDS_PER_METER
 Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
--- Bike and car models are built from real dimensions in metres at this scale (the same one)
+-- Bike models are built from real dimensions in metres at this scale
 -- Bikes are drawn at this times life size. 1.0 is where a default avatar fits the whole line-up:
 -- seated, knees bent on the footpegs and hands on the bars (tools/lune/reach.luau prints each bike's
 -- fitting size, 0.87 for the biggest enduro to 1.17 for the youth pit bike). The owner tried 1.2,
@@ -59,7 +67,7 @@ Config.Crash = {
 Config.Physics = {
 	Gravity = 9.81, -- m/s², real
 	AirDensity = 1.2, -- kg/m³
-	StepHeight = 0.75, -- studs a wheel rolls up without stopping (kerbs are 0.4; a bench seat isn't)
+	StepHeight = 1.0, -- studs a wheel rolls up without stopping (kerbs are 0.6; a bench seat isn't)
 	SnapDistance = 1.0, -- studs the ground may drop away before the bike counts as airborne (a kerb
 	-- drop isn't a jump: the wheels follow it down on the suspension)
 	MaxSteer = 0.55, -- rad of handlebar at walking pace
@@ -232,7 +240,7 @@ Config.DayNight = {
 	DaySeconds = 1200, -- one game day in real seconds
 	DayShare = 0.7, -- of it in daylight (06:00-20:00); the night goes quicker
 	StartFraction = 0.12, -- where the clock starts at server time 0 (mid-morning)
-	LampRange = 170, -- studs: street lamps this close cast real light (the rest just glow; how
+	LampRange = 250, -- studs: street lamps this close cast real light (the rest just glow; how
 	-- many, and how many cars' headlights, is the graphics mode's LampLights / HeadlightCars)
 	WindowLitShare = 0.45, -- of windows lit at night
 }
@@ -315,8 +323,8 @@ Config.Police = {
 	Units = { 1, 2, 3, 4, 5 }, -- cars chasing per star
 	-- Tactics
 	-- no PIT or ramming: police don't use contact on motorcycles (it's deadly force)
-	FollowGap = 24, -- studs the chasing car keeps behind a moving rider
-	FlankOffset = 11, -- studs to the side a pacing car rides (a lane over: lanes are 10 studs)
+	FollowGap = 36, -- studs the chasing car keeps behind a moving rider (to its centre: a cruiser is ~22 long)
+	FlankOffset = 16, -- studs to the side a pacing car rides (a lane over: lanes are 15 studs)
 	BoxInKmh = 12, -- below this the cars close in and block the rider in
 	InterceptAhead = 6, -- seconds ahead an interceptor aims for
 	RoadblockStars = 3,
@@ -325,10 +333,10 @@ Config.Police = {
 	FlatTime = 18, -- seconds a spiked tyre stays flat
 	FlatKmh = 14,
 	-- Officers on foot
-	DeployRange = 45, -- studs: a car this close to a stopped (or knocked-off) rider sends officers out
+	DeployRange = 60, -- studs: a car this close to a stopped (or knocked-off) rider sends officers out
 	DeployKmh = 10,
 	ArrestRange = 6,
-	OfficerGiveUp = 75, -- studs: further than this and they walk back to the car
+	OfficerGiveUp = 90, -- studs: further than this and they walk back to the car
 }
 
 Config.Traffic = {

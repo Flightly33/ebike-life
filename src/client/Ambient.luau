@@ -217,25 +217,26 @@ end
 
 type Gull = { Body: BasePart, WingL: BasePart, WingR: BasePart, Phase: number, Radius: number, Height: number, Center: Vector3 }
 local gulls: { Gull } = {}
+local GM = Config.CITY_STUDS_PER_METER -- gulls are life-size next to the city (sizes below in metres)
 
 local function buildGull(center: Vector3, rng: Random): Gull
 	local white = Color3.fromRGB(244, 244, 240)
-	local body = PartKit.Box(folder, "Gull", Vector3.new(0.5, 0.5, 1.8), CFrame.identity, white, Enum.Material.SmoothPlastic, DECOR)
-	local wingL = PartKit.Box(folder, "GullWing", Vector3.new(2.2, 0.08, 0.8), CFrame.identity, Color3.fromRGB(200, 204, 208), Enum.Material.SmoothPlastic, DECOR)
-	local wingR = PartKit.Box(folder, "GullWing", Vector3.new(2.2, 0.08, 0.8), CFrame.identity, Color3.fromRGB(200, 204, 208), Enum.Material.SmoothPlastic, DECOR)
-	return { Body = body, WingL = wingL, WingR = wingR, Phase = rng:NextNumber(0, math.pi * 2), Radius = rng:NextNumber(30, 90), Height = rng:NextNumber(30, 60), Center = center }
+	local body = PartKit.Box(folder, "Gull", Vector3.new(0.18, 0.18, 0.63) * GM, CFrame.identity, white, Enum.Material.SmoothPlastic, DECOR)
+	local wingL = PartKit.Box(folder, "GullWing", Vector3.new(0.77, 0.03, 0.28) * GM, CFrame.identity, Color3.fromRGB(200, 204, 208), Enum.Material.SmoothPlastic, DECOR)
+	local wingR = PartKit.Box(folder, "GullWing", Vector3.new(0.77, 0.03, 0.28) * GM, CFrame.identity, Color3.fromRGB(200, 204, 208), Enum.Material.SmoothPlastic, DECOR)
+	return { Body = body, WingL = wingL, WingR = wingR, Phase = rng:NextNumber(0, math.pi * 2), Radius = rng:NextNumber(10, 32) * GM, Height = rng:NextNumber(10, 21) * GM, Center = center }
 end
 
 local function updateGulls(now: number)
 	for _, gull in gulls do
-		local a = gull.Phase + now * 18 / gull.Radius
-		local p = gull.Center + Vector3.new(math.cos(a) * gull.Radius, gull.Height + math.sin(now * 0.7 + gull.Phase) * 4, math.sin(a) * gull.Radius)
+		local a = gull.Phase + now * 6.3 * GM / gull.Radius
+		local p = gull.Center + Vector3.new(math.cos(a) * gull.Radius, gull.Height + math.sin(now * 0.7 + gull.Phase) * 1.4 * GM, math.sin(a) * gull.Radius)
 		local dir = Vector3.new(-math.sin(a), 0, math.cos(a))
 		local cf = CFrame.lookAt(p, p + dir) * CFrame.Angles(0, 0, math.rad(-18))
 		local flap = math.sin(now * 7 + gull.Phase) * math.rad(28)
 		gull.Body.CFrame = cf
-		gull.WingL.CFrame = cf * CFrame.Angles(0, 0, flap) * CFrame.new(-1.2, 0, 0)
-		gull.WingR.CFrame = cf * CFrame.Angles(0, 0, -flap) * CFrame.new(1.2, 0, 0)
+		gull.WingL.CFrame = cf * CFrame.Angles(0, 0, flap) * CFrame.new(-0.42 * GM, 0, 0)
+		gull.WingR.CFrame = cf * CFrame.Angles(0, 0, -flap) * CFrame.new(0.42 * GM, 0, 0)
 	end
 end
 

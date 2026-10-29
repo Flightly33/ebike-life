@@ -22,7 +22,7 @@ local MeshKit = require(script.Parent.MeshKit)
 
 local CarModel = {}
 
-CarModel.SCALE = Config.STUDS_PER_METER -- studs per metre, the scale of everything else
+CarModel.SCALE = Config.CAR_STUDS_PER_METER -- studs per metre: the city's scale
 local S = CarModel.SCALE
 local SMOOTH = Enum.Material.SmoothPlastic
 local GLASS = Enum.Material.Glass
@@ -250,7 +250,7 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 		beam.Name = "NightLight"
 		beam.Face = Enum.NormalId.Front
 		beam.Angle = 55
-		beam.Range = 45
+		beam.Range = math.min(60, 16 * S) -- a 16 m throw (60 is Roblox's most)
 		beam.Brightness = 0
 		beam.Shadows = false
 		beam.Color = Color3.fromRGB(255, 244, 220)
@@ -279,7 +279,7 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 		local glow = Instance.new("PointLight")
 		glow.Name = "NightLight"
 		glow.Color = TAIL
-		glow.Range = 8
+		glow.Range = 2.8 * S
 		glow.Brightness = 0
 		glow.Shadows = false
 		glow.Enabled = false
@@ -392,7 +392,7 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 					local light = Instance.new("PointLight")
 					light.Name = "Glow"
 					light.Color = p.Color
-					light.Range = 26
+					light.Range = 9 * S
 					light.Brightness = 0
 					light.Shadows = false
 					light.Parent = p

@@ -216,7 +216,7 @@ local function updateLampLights(focus: Vector3)
 			local light = Instance.new("PointLight")
 			light.Name = "NightLight"
 			light.Color = LAMP_COLOR
-			light.Range = 26
+			light.Range = 9 * Config.CITY_STUDS_PER_METER -- 9 m: the street lights' lenses are ~7 m up
 			light.Brightness = 1.6
 			light.Shadows = false
 			light.Parent = part
@@ -280,7 +280,7 @@ local function updateBeams(focus: Vector3)
 			for i = 1, math.min(#cars, Graphics.Current().HeadlightCars) do
 				for _, d in cars[i].Model:GetDescendants() do
 					if d:IsA("BasePart") and d.Name == "Headlight" then
-						want(d, 40)
+						want(d, math.min(60, 40 * Config.CAR_SCALE))
 					end
 				end
 			end

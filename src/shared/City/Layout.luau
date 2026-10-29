@@ -20,11 +20,11 @@
 	    Biscayne off the south-east. Causeways, I-395 and the Rickenbacker Causeway cross the bay.
 
 	Everything is authored in Roblox's standard units (1 stud = 0.28 m, real-world sizes) and built at
-	`K` times that size: the game uses K = Config.WORLD_SCALE (0.8), true size next to the avatars
-	and the bikes; the builders use Layout.Design (K = 1) and the Builder scales the finished city by
-	WORLD_SCALE. Positions on the plan (the lines below, the rects, the places) are spread by
-	Config.CITY_SPREAD (`KS`), sizes (carriageways, pavements, heights, setbacks) aren't (`K`): the map
-	keeps the size it had at 1.25 times life size, and every block, park and island has more room.
+	`K` times that size: the game uses K = Config.WORLD_SCALE (1.2, a world big enough for the
+	stocky avatars; see Config); the builders use Layout.Design (K = 1) and the Builder scales the
+	finished city by WORLD_SCALE. Positions on the plan (the lines below, the rects, the places) are
+	spread by Config.CITY_SPREAD (`KS`), sizes (carriageways, pavements, heights, setbacks) aren't
+	(`K`): the map keeps the size it had at 1.25 times life size whatever K is.
 	Builders spread their own plan positions with Layout.SPREAD. Workspace streaming keeps only what's
 	near each player loaded.
 ]]
