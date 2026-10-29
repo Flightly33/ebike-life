@@ -228,6 +228,41 @@ function PartKit.ScaleAbout(root: Instance, pivot: Vector3, k: number)
 	end
 end
 
+-- Cuts every plain block part longer than `limit` studs along a flat-lying axis into equal pieces
+-- (an upright axis only past Roblox's 2048-stud cap), each covering its share of the original.
+-- Roblox caps a part at 2048 studs a side, and streams a part in by where it is, so the far end
+-- of a long slab can be missing under a player riding on it. Returns how many pieces it added.
+function PartKit.SplitLarge(root: Instance, limit: number): number
+	local added = 0
+	for _, d in root:GetDescendants() do
+		if d.ClassName ~= "Part" or (d :: Part).Shape ~= Enum.PartType.Block or #d:GetChildren() > 0 then
+			continue
+		end
+		local part = d :: Part
+		local cf, size = part.CFrame, part.Size
+		local function count(length: number, axis: Vector3): number
+			return math.max(1, math.ceil(length / (if math.abs(axis.Y) > 0.7 then 2048 else limit) - 1e-6))
+		end
+		local nx, ny, nz = count(size.X, cf.RightVector), count(size.Y, cf.UpVector), count(size.Z, cf.LookVector)
+		if nx * ny * nz == 1 then
+			continue
+		end
+		local piece = Vector3.new(size.X / nx, size.Y / ny, size.Z / nz)
+		for i = 0, nx - 1 do
+			for j = 0, ny - 1 do
+				for k = 0, nz - 1 do
+					local p = if i + j + k == 0 then part else part:Clone()
+					p.Size = piece
+					p.CFrame = cf * CFrame.new((i + 0.5) * piece.X - size.X / 2, (j + 0.5) * piece.Y - size.Y / 2, (k + 0.5) * piece.Z - size.Z / 2)
+					p.Parent = part.Parent
+				end
+			end
+		end
+		added += nx * ny * nz - 1
+	end
+	return added
+end
+
 function PartKit.Model(parent: Instance?, name: string): Model
 	local m = Instance.new("Model")
 	m.Name = name

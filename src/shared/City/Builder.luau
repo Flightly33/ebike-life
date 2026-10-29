@@ -520,6 +520,8 @@ function Builder.Build(): Model
 	Realism.Apply(city)
 	-- Built at Roblox's standard scale; scaled to the one the game runs at
 	PartKit.Scale(city, Config.WORLD_SCALE)
+	-- long slabs (runways, decks, the ground, kerbs) in pieces Roblox will stream and won't cap
+	PartKit.SplitLarge(city, 512)
 	return city
 end
 
