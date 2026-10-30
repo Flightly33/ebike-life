@@ -42,8 +42,29 @@ function Panel.new(gui: Instance, name: string, title: string, size: Vector2, fo
 		ZIndex = 20,
 		Parent = gui,
 	})
-	Theme.Corner(frame, 6)
+	Theme.Corner(frame, 10)
 	Theme.Stroke(frame, Color3.fromRGB(12, 12, 14), 3)
+	New("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 205, 212)), Parent = frame })
+	-- a drop shadow behind the panel, shown with it
+	local shadow = New("Frame", {
+		Name = name .. "Shadow",
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.55,
+		Size = UDim2.fromOffset(size.X + 16, size.Y + 16),
+		Position = UDim2.new(0.5, 6, 0.5, 10),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Visible = false,
+		ZIndex = 19,
+		Parent = gui,
+	})
+	Theme.Corner(shadow, 16)
+	frame:GetPropertyChangedSignal("Visible"):Connect(function()
+		shadow.Visible = frame.Visible
+	end)
+	-- an accent bar under the title
+	local accent = New("Frame", { BackgroundColor3 = C.Orange, Size = UDim2.fromOffset(120, 4), Position = UDim2.new(0.5, 0, 0, 50), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 21, Parent = frame })
+	Theme.Corner(accent, 2)
+	New("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 200, 60)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 90, 40)) }), Parent = accent })
 	local titleLabel = Theme.Label({ Text = title, Size = UDim2.new(1, -120, 0, 44), Position = UDim2.new(0.5, 0, 0, 6), AnchorPoint = Vector2.new(0.5, 0), TextSize = 38, Stroke = 3, Parent = frame })
 	local self: Panel
 	Theme.Button({

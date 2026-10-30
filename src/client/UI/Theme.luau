@@ -193,6 +193,12 @@ function Theme.Button(props: ButtonProps): TextButton
 	})
 	Theme.Corner(button, props.Corner or 6)
 	Theme.TextStroke(button, 2)
+	-- gloss: lighter on top, a soft shine, a dark edge
+	New("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(196, 196, 200)), Parent = button })
+	local shine = New("Frame", { Name = "Shine", BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 0.84, Size = UDim2.new(1, -6, 0.42, 0), Position = UDim2.fromOffset(3, 2), ZIndex = (props.ZIndex or 1), Parent = button })
+	Theme.Corner(shine, math.max(2, (props.Corner or 6) - 2))
+	local edge = New("UIStroke", { Color = Color3.fromRGB(0, 0, 0), Transparency = 0.55, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = button })
+	local _ = edge
 	local scale = New("UIScale", { Parent = button })
 	button.MouseEnter:Connect(function()
 		TweenService:Create(scale, TweenInfo.new(0.08), { Scale = 1.04 }):Play()

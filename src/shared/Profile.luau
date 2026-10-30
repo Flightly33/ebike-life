@@ -51,6 +51,7 @@ export type Data = {
 	Stats: Stats,
 	Settings: Settings,
 	BoostUntil: number, -- os.time() a 2x cash boost runs until
+	Achievements: { [string]: boolean }, -- claimed achievement rewards (Shared/Achievements)
 }
 
 function Profile.Default(): Data
@@ -69,6 +70,7 @@ function Profile.Default(): Data
 		Stats = { BestWheelie = 0, LongestAir = 0, Distance = 0, Escapes = 0, Busts = 0, Flips = 0, MaxStars = 0, Earned = 0 },
 		Settings = { Units = "kmh", Music = 0.5, Sounds = 0.8, Hints = true, Fov = 90, Graphics = "" },
 		BoostUntil = 0,
+		Achievements = {},
 	}
 end
 
@@ -151,6 +153,13 @@ function Profile.Sanitize(saved: any): Data
 		data.Settings.Graphics = if s.Graphics == "Ultra" or s.Graphics == "Performance" then s.Graphics else ""
 	end
 	data.BoostUntil = num(saved.BoostUntil, 0, 0)
+	if type(saved.Achievements) == "table" then
+		for id, claimed in saved.Achievements do
+			if type(id) == "string" and claimed == true then
+				data.Achievements[id] = true
+			end
+		end
+	end
 	return data
 end
 

@@ -19,6 +19,7 @@ local Paints = require(Shared.Paints)
 local Profile = require(Shared.Profile)
 local Remotes = require(Shared.Remotes)
 local Shop = require(Shared.Shop)
+local Achievements = require(Shared.Achievements)
 local Upgrades = require(Shared.Upgrades)
 
 local DataService = require(script.Parent.DataService)
@@ -195,6 +196,26 @@ local function buyBoost(player: Player, boostId: any): (boolean, string)
 	return true, string.format("%s active for %d minutes", boost.Name, math.floor((data.BoostUntil - now) / 60 + 0.5))
 end
 
+local function claimAchievement(player: Player, id: any): (boolean, string)
+	local a = if type(id) == "string" then Achievements.Get(id) else nil
+	local data = DataService.Get(player)
+	if not a or not data then
+		return false, "Unknown achievement"
+	end
+	if data.Achievements[a.Id] then
+		return false, "Already claimed"
+	end
+	local _, done = Achievements.Progress(a, data)
+	if not done then
+		return false, "Not there yet"
+	end
+	data.Achievements[a.Id] = true
+	DataService.AddCash(player, a.Reward)
+	data.Stats.Earned -= a.Reward -- (a reward isn't earned riding)
+	DataService.Changed(player)
+	return true, string.format("%s %s: +%s", a.Icon, a.Name, Economy.FormatCash(a.Reward))
+end
+
 local function teleport(player: Player, destination: any)
 	if type(destination) ~= "string" then
 		return
@@ -230,6 +251,7 @@ function ShopService.Init()
 	Remotes.Function("SetPaint").OnServerInvoke = setPaint
 	Remotes.Function("OpenCrate").OnServerInvoke = openCrate
 	Remotes.Function("BuyBoost").OnServerInvoke = buyBoost
+	Remotes.Function("ClaimAchievement").OnServerInvoke = claimAchievement
 	Remotes.Event("Teleport").OnServerEvent:Connect(teleport)
 	Remotes.Event("SetMode").OnServerEvent:Connect(function(player: Player, mode: any)
 		local data = DataService.Get(player)

@@ -177,8 +177,13 @@ function Hud.Init(gui: ScreenGui, open: (string) -> ())
 	New("UIPadding", { PaddingRight = UDim.new(0, 8), Parent = cashLabel })
 
 	-- Menu stack
-	local stack = New("Frame", { Name = "Menu", BackgroundTransparency = 1, Size = UDim2.fromOffset(76, 330), Position = UDim2.new(0, 10, 1, -54), AnchorPoint = Vector2.new(0, 1), Parent = gui })
+	local stack = New("Frame", { Name = "Menu", BackgroundTransparency = 1, Size = UDim2.fromOffset(76, 394), Position = UDim2.new(0, 10, 1, -54), AnchorPoint = Vector2.new(0, 1), Parent = gui })
 	Theme.List(stack, Enum.FillDirection.Vertical, 5, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Bottom)
+	-- the phone (` backquote): every menu, the map and the stats as apps
+	local phone = tile(stack, "Phone", 0, Vector2.new(60, 58), Color3.fromRGB(80, 160, 255), function()
+		open("Phone")
+	end)
+	Theme.Label({ Text = "📱", Size = UDim2.new(1, 0, 1, -16), TextSize = 30, Stroke = 0, Parent = phone })
 	local menus = tile(stack, "Menus", 1, Vector2.new(60, 58), nil, function()
 		open("Menus")
 	end)
@@ -203,6 +208,11 @@ function Hud.Init(gui: ScreenGui, open: (string) -> ())
 	-- Minimap beside the stack
 	minimap = Minimap.new(gui, UDim2.new(0, 94, 1, -58))
 	Hud.Minimap = minimap.Frame
+	-- click the minimap for the full map
+	local mapButton = New("TextButton", { Name = "OpenMap", Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 20, Parent = minimap.Frame })
+	mapButton.Activated:Connect(function()
+		open("Map")
+	end)
 
 	-- Speedometer (riding only)
 	speedo = Speedometer.new(gui)

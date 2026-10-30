@@ -25,6 +25,31 @@ local RS = world.Services.ReplicatedStorage
 local SSS = world.Services.ServerScriptService
 local WS = world.Services.Workspace
 
+-- SIM_GUI=<file.json>: snapshots of the player's screen for tools/preview/gui.mjs
+local GuiExport = require("../tools/lune/gui_export")
+local guiShots: { any } = {}
+local guiPlayer: any = nil
+local function shot(name: string)
+	if not process.env.SIM_GUI or not guiPlayer then
+		return
+	end
+	local screens = {}
+	for _, sg in guiPlayer:FindFirstChild("PlayerGui"):GetChildren() do
+		if sg.ClassName == "ScreenGui" then
+			table.insert(screens, sg)
+		end
+	end
+	table.sort(screens, function(a, b)
+		return (a.DisplayOrder or 0) < (b.DisplayOrder or 0)
+	end)
+	local ok, tree = pcall(GuiExport.Screens, screens)
+	if ok then
+		table.insert(guiShots, { name = name, w = 1280, h = 720, bg = "#6b8fb0", tree = tree })
+	else
+		print("[gui] " .. tostring(tree))
+	end
+end
+
 local function check(ok: boolean, message: string)
 	if ok then
 		print("[test] ok   " .. message)
@@ -67,6 +92,7 @@ rig:PivotTo(CFrame.new(Layout.Places.Spawn + Vector3.new(0, 3, 0)))
 rig.Parent = WS
 player.Character = rig
 local client = world:Context("client", false, player)
+guiPlayer = player
 print("== booting client")
 client.Run(world.Services.StarterPlayer.StarterPlayerScripts:WaitForChild("Client"))
 world:Run(4)
@@ -78,6 +104,15 @@ local ClientRemotes = client.Require(Shared:WaitForChild("Remotes"))
 local Client = world.Services.StarterPlayer.StarterPlayerScripts.Client
 local BikeController = client.Require(Client:WaitForChild("BikeController"))
 local UI = client.Require(Client:WaitForChild("UI"))
+-- answer the graphics prompt like a player would
+client.Require(Client:WaitForChild("UI"):WaitForChild("GraphicsPrompt")).Choose("Ultra")
+do
+	local menusGui = player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeMenus")
+	local prompt = menusGui and menusGui:FindFirstChild("GraphicsPrompt")
+	if prompt then
+		prompt:Destroy()
+	end
+end
 
 check(player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeHUD") ~= nil, "HUD built")
 check(player:GetAttribute("Cash") == Config.Economy.StartCash, "profile loaded with the starting cash (" .. tostring(player:GetAttribute("Cash")) .. ")")
@@ -129,6 +164,7 @@ check(moved > 34 * Config.STUDS_PER_METER, string.format("the bike moved (%.0f m
 check(ride ~= nil and ride.State.Kmh > 20, "the server gets the rider's state")
 check((player:GetAttribute("Cash") :: number) > cashBefore, string.format("riding pays (%s -> %s)", tostring(cashBefore), tostring(player:GetAttribute("Cash"))))
 check(payouts > 0, "+$ pops reach the client")
+shot("hud_riding")
 
 --------------------------------------------------------------------------------
 print("== wheelie in front of a cop")
@@ -317,9 +353,18 @@ print("== every menu opens")
 for _, name in { "MyRides", "Dealership", "Tuning", "Crates", "Shop", "Menus" } do
 	UI.Open(name)
 	world:Run(0.3)
+	shot("menu_" .. name)
 end
 UI.Open("Menus")
 world:Run(0.2)
+for _, name in { "Map", "Stats", "Phone" } do
+	UI.Open(name)
+	world:Run(0.6)
+	shot("menu_" .. name)
+end
+UI.Open("Phone")
+world:Run(0.2)
+check(player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeMenus"):FindFirstChild("Map") ~= nil, "the full map screen is built")
 
 --------------------------------------------------------------------------------
 print("== busted")
@@ -462,6 +507,7 @@ do
 		end
 		UI.Open("Order")
 		world:Run(0.3)
+		shot("menu_Order")
 		UI.Open("Order")
 	end
 end
@@ -485,6 +531,22 @@ do
 		world:Run(9)
 		check(gui ~= nil and #gui:GetChildren() >= 2, "the screen has its ticker and its ad")
 	end
+end
+
+--------------------------------------------------------------------------------
+print("== achievements")
+do
+	local Claim = ClientRemotes.Function("ClaimAchievement")
+	data.Stats.Distance = math.max(data.Stats.Distance, 1200)
+	local before = data.Cash
+	ok, message = invoke(Claim, "km1")
+	check(ok == true and data.Cash == before + 250 and data.Achievements.km1 == true, "claimed First Kilometre (" .. tostring(message) .. ")")
+	ok, message = invoke(Claim, "km1")
+	check(ok ~= true, "an achievement pays once (" .. tostring(message) .. ")")
+	ok, message = invoke(Claim, "km100")
+	check(ok ~= true, "an unfinished one can't be claimed (" .. tostring(message) .. ")")
+	ok, message = invoke(Claim, "nonsense")
+	check(ok ~= true, "unknown achievements are refused")
 end
 
 --------------------------------------------------------------------------------
@@ -552,6 +614,13 @@ ok, message = invoke(AdminRemote, "nonsense")
 check(ok ~= true, "unknown admin commands are refused")
 
 world:Run(2)
+
+if process.env.SIM_GUI then
+	local fs = require("@lune/fs")
+	local serde = require("@lune/serde")
+	fs.writeFile(process.env.SIM_GUI, serde.encode("json", guiShots))
+	print("[gui] wrote " .. #guiShots .. " screens to " .. process.env.SIM_GUI)
+end
 
 print("")
 print(string.format("== %d warning(s), %d error(s)", #world.Warnings, #world.Errors))

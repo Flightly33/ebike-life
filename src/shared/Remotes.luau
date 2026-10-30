@@ -20,6 +20,7 @@
 		SetPaint(bikeId, slot, paintId)
 		OpenCrate(crateId)                also returns the paint won
 		BuyBoost(boostId)
+		ClaimAchievement(id)              pays an achievement's reward once its goal is met
 		Order(counter, itemId)            buy off a shop counter's menu (OrderService checks you're at it)
 		GetProfile()                      the player's whole save
 		Admin(command, value)             admin commands (AdminService checks who may)
@@ -56,7 +57,7 @@ local EVENTS = {
 	"GotUp",
 }
 local UNRELIABLE = { "BikeState" }
-local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "OpenCrate", "BuyBoost", "Order", "GetProfile", "Admin" }
+local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "OpenCrate", "BuyBoost", "Order", "ClaimAchievement", "GetProfile", "Admin" }
 
 local Remotes = {}
 

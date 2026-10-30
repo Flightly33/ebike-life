@@ -68,6 +68,11 @@ local CONTROLS: { { Section: string?, Name: string?, Keys: string?, Pad: string?
 	{ Name = "Body cam", Keys = "F", Pad = "R3", Note = "field of view in Settings" },
 	{ Name = "Video camera", Keys = "P", Pad = "", Note = "[ ] shots, , . zoom, ; letterbox" },
 	{ Name = "Look around", Keys = "Right mouse drag", Pad = "Right stick" },
+	{ Section = "Menus" },
+	{ Name = "Phone (every menu, map, stats)", Keys = "` (backquote)", Pad = "", Note = "or the 📱 button" },
+	{ Name = "Full map", Keys = "J", Pad = "", Note = "or click the minimap" },
+	{ Name = "My Rides", Keys = "B", Pad = "" },
+	{ Name = "Order at a counter", Keys = "E", Pad = "X", Note = "walk into any shop" },
 }
 
 function MainMenu.new(gui: Instance, close: () -> ()): Panel.Panel
