@@ -52,7 +52,7 @@ Config.VISUAL_STUDS_PER_METER = Config.STUDS_PER_METER * Config.BIKE_SIZE
 -- size of a standard avatar the city and the bikes are sized for. Avatars run from ~4.5 to ~7.5
 -- studs; a tall one looked bigger than the shelters and cars. 0 leaves avatars as they are.
 Config.Avatar = {
-	Height = 5.2,
+	Height = 6.5, -- 1.25x the standard 5.2 (the owner found 5.2 a little small next to the 1.5 city)
 }
 
 Config.BRAND = "Flightly"
