@@ -48,6 +48,8 @@ local Officer = require(script.Parent.Officer)
 local PoliceService = {}
 
 local C = Config.Police
+-- the map grows with the world (Config.MAP_SCALE): distances across it were tuned at 1.25
+local MAP = Config.MAP_SCALE / 1.25
 
 type Unit = {
 	Driver: CarDriver.Driver,
@@ -210,13 +212,13 @@ local function assign(unit: Unit, player: Player, stars: number)
 	driver.ObeyLights = false
 end
 
--- A node out of the player's sight, 350-700 studs away, to bring a new car in from
+-- A node out of the player's sight, 350-700 studs away (at MAP 1), to bring a new car in from
 local function entryNode(position: Vector3): number
 	local best: number? = nil
 	for _ = 1, 30 do
 		local node = Layout.Nodes[rng:NextInteger(1, #Layout.Nodes)]
 		local distance = (node.Position - position).Magnitude
-		if distance > 350 and distance < 700 then
+		if distance > 350 * MAP and distance < 700 * MAP then
 			if distance > C.LoseRange then
 				best = node.Id
 			end
@@ -243,7 +245,7 @@ local function dispatch(player: Player, stars: number)
 	while chasersOf(player) < wanted and totalChasers() < 12 do
 		-- nearest free patrol first
 		local nearest: Unit? = nil
-		local nearestDistance = 1000
+		local nearestDistance = 1000 * MAP
 		for _, unit in units do
 			if not unit.Target and not unit.Extra then
 				local d = (unit.Driver.Position - position).Magnitude
@@ -339,7 +341,7 @@ local function placeRoadblock(player: Player, position: Vector3, velocity: Vecto
 	end
 	local node = Layout.Nodes[nodeId]
 	local toNode = Vector3.new(node.Position.X - position.X, 0, node.Position.Z - position.Z)
-	if toNode.Magnitude < 160 then
+	if toNode.Magnitude < 160 * MAP then
 		return -- too close to set up
 	end
 	if lineOfSight(node.Position + Vector3.new(0, 6, 0), position + Vector3.new(0, 3, 0)) then
@@ -620,7 +622,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 	local driver = unit.Driver
 	local w = watch(player)
 	local distance = (position - driver.Position).Magnitude
-	local visible = distance < 260 and (distance < 40 or lineOfSight(driver.Position + Vector3.new(0, 5, 0), position + Vector3.new(0, 3, 0)))
+	local visible = distance < 260 * MAP and (distance < 40 * MAP or lineOfSight(driver.Position + Vector3.new(0, 5, 0), position + Vector3.new(0, 3, 0)))
 	local role = unit.Role
 
 	if role == "Deployed" then
@@ -654,7 +656,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 	elseif role == "Roadblock" then
 		-- hold the crossing until the rider is past it or it times out
 		local node = unit.InterceptNode
-		if now - unit.RoadblockAt > C.RoadblockTime or (distance > 320 and not visible) then
+		if now - unit.RoadblockAt > C.RoadblockTime or (distance > 320 * MAP and not visible) then
 			local spikes = unit.Spikes
 			if spikes then
 				spikes:Destroy()
@@ -664,7 +666,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 		end
 		local _ = node
 		return
-	elseif role == "Intercept" and not (visible and distance < 70) then
+	elseif role == "Intercept" and not (visible and distance < 70 * MAP) then
 		-- get to the crossing they'll reach next, and block it
 		if not unit.InterceptNode or now - unit.InterceptAt > 3 then
 			unit.InterceptNode = predictNode(position, velocity, C.InterceptAhead)
@@ -689,7 +691,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 		-- tail at a safe gap, never into the bike
 		aim = position - flat.Unit * C.FollowGap
 	end
-	if role == "Flank" and visible and distance < 140 then
+	if role == "Flank" and visible and distance < 140 * MAP then
 		-- ride alongside, on the side the car is already on
 		if flat.Magnitude > 4 then
 			local dir = flat.Unit
@@ -704,7 +706,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 	CarDriver.Chase(driver, aim, velocity, visible and math.abs(position.Y - driver.Position.Y) < 10)
 
 	-- hopelessly stuck or left far behind: bring it back in closer
-	if driver.StuckCount >= 3 or distance > 1400 then
+	if driver.StuckCount >= 3 or distance > 1400 * MAP then
 		local nodeId = entryNode(position)
 		CarDriver.Teleport(driver, nodeId, position - Layout.Nodes[nodeId].Position)
 		CarDriver.Chase(driver, position, velocity, false)
@@ -737,7 +739,7 @@ local function driveUnits(dt: number)
 			-- reinforcements head home once nobody is around to see them vanish
 			local visible = false
 			for _, p in people do
-				if (p - driver.Position).Magnitude < 350 then
+				if (p - driver.Position).Magnitude < 350 * MAP then
 					visible = true
 					break
 				end

@@ -5,7 +5,8 @@
 	    time so every player sees the same plane at the same moment, engines roaring as they pass;
 	  - boats cruise the bay and the ocean on long loops, bobbing, a wake behind them;
 	  - gulls wheel over South Beach;
-	  - people walk the pavements of the busy districts near the camera (more in Ultra);
+	  - people (the standard avatar's size) walk the pavements of every block near the camera (more
+	    in Ultra);
 	  - ambience: city hum in the built-up areas, waves by the beaches and the bay, birds over the
 	    open land by day and crickets at night, blended by where the camera is.
 ]]
@@ -244,27 +245,13 @@ end
 -- People on the pavements
 --------------------------------------------------------------------------------
 
-local WALKABLE: { [string]: boolean } = {
-	Downtown = true,
-	Brickell = true,
-	Edgewater = true,
-	Midtown = true,
-	Wynwood = true,
-	ArtDeco = true,
-	Condo = true,
-	Havana = true,
-	HavanaPark = true,
-	Plaza = true,
-	Dealership = true,
-	FastFood = true,
-	Grove = true,
-	BayPark = true,
-}
 local SHIRTS = { Color3.fromRGB(240, 240, 236), Color3.fromRGB(40, 110, 200), Color3.fromRGB(220, 70, 60), Color3.fromRGB(250, 200, 60), Color3.fromRGB(60, 160, 120), Color3.fromRGB(240, 140, 180), Color3.fromRGB(30, 30, 34), Color3.fromRGB(120, 200, 230) }
 local PANTS = { Color3.fromRGB(40, 44, 60), Color3.fromRGB(70, 90, 140), Color3.fromRGB(200, 190, 170), Color3.fromRGB(30, 30, 32), Color3.fromRGB(110, 80, 60) }
 local SKIN = { Color3.fromRGB(234, 184, 146), Color3.fromRGB(198, 140, 100), Color3.fromRGB(150, 100, 70), Color3.fromRGB(96, 64, 46), Color3.fromRGB(246, 210, 180) }
-local WALK_SPEED = 5.5
-local RESPAWN_RANGE = 520
+-- people are the standard avatar's size (Config.Avatar.Height; built at 5.15 studs)
+local P = Config.Avatar.Height / 5.15
+local WALK_SPEED = 5.5 * P
+local RESPAWN_RANGE = 520 * Config.MAP_SCALE / 1.25 -- the map grows with the world
 
 type Walker = {
 	Parts: { BasePart }, -- torso, head, left leg, right leg, left arm, right arm
@@ -284,12 +271,12 @@ local function buildWalker(): Walker
 	local shadow = Graphics.Current().Shadows
 	local opts = { Collide = false, Query = false, Touch = false, Shadow = shadow }
 	local parts: { BasePart } = {
-		PartKit.Box(folder, "Torso", Vector3.new(2, 1.9, 1), CFrame.identity, shirt, Enum.Material.Fabric, opts),
-		PartKit.Box(folder, "Head", Vector3.new(1.15, 1.15, 1.15), CFrame.identity, skin, Enum.Material.SmoothPlastic, opts),
-		PartKit.Box(folder, "LeftLeg", Vector3.new(0.9, 2.1, 0.9), CFrame.identity, pants, Enum.Material.Fabric, opts),
-		PartKit.Box(folder, "RightLeg", Vector3.new(0.9, 2.1, 0.9), CFrame.identity, pants, Enum.Material.Fabric, opts),
-		PartKit.Box(folder, "LeftArm", Vector3.new(0.85, 1.9, 0.85), CFrame.identity, skin, Enum.Material.SmoothPlastic, opts),
-		PartKit.Box(folder, "RightArm", Vector3.new(0.85, 1.9, 0.85), CFrame.identity, skin, Enum.Material.SmoothPlastic, opts),
+		PartKit.Box(folder, "Torso", Vector3.new(2, 1.9, 1) * P, CFrame.identity, shirt, Enum.Material.Fabric, opts),
+		PartKit.Box(folder, "Head", Vector3.new(1.15, 1.15, 1.15) * P, CFrame.identity, skin, Enum.Material.SmoothPlastic, opts),
+		PartKit.Box(folder, "LeftLeg", Vector3.new(0.9, 2.1, 0.9) * P, CFrame.identity, pants, Enum.Material.Fabric, opts),
+		PartKit.Box(folder, "RightLeg", Vector3.new(0.9, 2.1, 0.9) * P, CFrame.identity, pants, Enum.Material.Fabric, opts),
+		PartKit.Box(folder, "LeftArm", Vector3.new(0.85, 1.9, 0.85) * P, CFrame.identity, skin, Enum.Material.SmoothPlastic, opts),
+		PartKit.Box(folder, "RightArm", Vector3.new(0.85, 1.9, 0.85) * P, CFrame.identity, skin, Enum.Material.SmoothPlastic, opts),
 	}
 	return { Parts = parts, From = Vector3.zero, To = Vector3.zero, T = 0, Length = 0, Phase = walkRng:NextNumber(0, math.pi * 2) }
 end
@@ -353,14 +340,14 @@ local function poseWalker(walker: Walker, now: number)
 	local p = walker.From + dir * walker.T
 	local root = CFrame.lookAt(p, p + dir)
 	local swing = math.sin(now * 7 + walker.Phase) * math.rad(26)
-	local hip = root * CFrame.new(0, 2.1, 0)
-	parts[1].CFrame = root * CFrame.new(0, 3.05, 0)
-	parts[2].CFrame = root * CFrame.new(0, 4.6, 0)
-	parts[3].CFrame = hip * CFrame.new(-0.5, 0, 0) * CFrame.Angles(swing, 0, 0) * CFrame.new(0, -1.05, 0)
-	parts[4].CFrame = hip * CFrame.new(0.5, 0, 0) * CFrame.Angles(-swing, 0, 0) * CFrame.new(0, -1.05, 0)
-	local shoulder = root * CFrame.new(0, 3.9, 0)
-	parts[5].CFrame = shoulder * CFrame.new(-1.43, 0, 0) * CFrame.Angles(-swing * 0.8, 0, 0) * CFrame.new(0, -0.9, 0)
-	parts[6].CFrame = shoulder * CFrame.new(1.43, 0, 0) * CFrame.Angles(swing * 0.8, 0, 0) * CFrame.new(0, -0.9, 0)
+	local hip = root * CFrame.new(0, 2.1 * P, 0)
+	parts[1].CFrame = root * CFrame.new(0, 3.05 * P, 0)
+	parts[2].CFrame = root * CFrame.new(0, 4.6 * P, 0)
+	parts[3].CFrame = hip * CFrame.new(-0.5 * P, 0, 0) * CFrame.Angles(swing, 0, 0) * CFrame.new(0, -1.05 * P, 0)
+	parts[4].CFrame = hip * CFrame.new(0.5 * P, 0, 0) * CFrame.Angles(-swing, 0, 0) * CFrame.new(0, -1.05 * P, 0)
+	local shoulder = root * CFrame.new(0, 3.9 * P, 0)
+	parts[5].CFrame = shoulder * CFrame.new(-1.43 * P, 0, 0) * CFrame.Angles(-swing * 0.8, 0, 0) * CFrame.new(0, -0.9 * P, 0)
+	parts[6].CFrame = shoulder * CFrame.new(1.43 * P, 0, 0) * CFrame.Angles(swing * 0.8, 0, 0) * CFrame.new(0, -0.9 * P, 0)
 end
 
 local function updateWalkers(dt: number, now: number)
@@ -444,10 +431,9 @@ function Ambient.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "Ambient"
 	folder.Parent = Workspace
+	-- every block's pavements (homes and parks too, not just the busy districts)
 	for _, block in Layout.Blocks do
-		if WALKABLE[block.District] then
-			table.insert(walkBlocks, block)
-		end
+		table.insert(walkBlocks, block)
 	end
 	for i, loop in BOAT_LOOPS do
 		local model = buildBoat(HULLS[(i - 1) % #HULLS + 1])

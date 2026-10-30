@@ -428,11 +428,11 @@ local function islandEnds(city: Instance, rng: Random)
 	end
 end
 
--- The stunt parks keep the size they were tuned to be ridden at (the first city's, 1.25 times life
--- size): each is built in its lot shrunk back by Layout.SPREAD, then grown by it about the lot's
--- middle (the loops' radius and shift with it)
+-- The stunt parks keep the size they were tuned to be ridden at (Config.RIDE_SCALE times their
+-- design, whatever the city's scale): each is built in its lot shrunk back by that over
+-- WORLD_SCALE, then grown by it about the lot's middle (the loops' radius and shift with it)
 local function stuntPark(build: (Instance, LayoutModule.Block, Random) -> Model, blocks: Instance, block: LayoutModule.Block, rng: Random)
-	local S = Layout.SPREAD
+	local S = Config.RIDE_SCALE / Config.WORLD_SCALE
 	local cx, cz = (block.LotMinX + block.LotMaxX) / 2, (block.LotMinZ + block.LotMaxZ) / 2
 	local small = table.clone(block)
 	small.MinX, small.MaxX = cx + (block.MinX - cx) / S, cx + (block.MaxX - cx) / S

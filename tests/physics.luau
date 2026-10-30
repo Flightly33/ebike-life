@@ -16,6 +16,9 @@ local BikePhysics = Loader.Require("ReplicatedStorage.Shared.BikePhysics")
 local Suspension = Loader.Require("ReplicatedStorage.Shared.Suspension")
 local Modes = Loader.Require("ReplicatedStorage.Shared.Modes")
 local Config = Loader.Require("ReplicatedStorage.Shared.Config")
+local Layout = Loader.Require("ReplicatedStorage.Shared.City.Layout")
+-- the city's kerb (the road to the pavement), in studs at the world's scale
+local KERB = Layout.CURB_Y - Layout.ROAD_Y
 
 local verbose = process.args[1] == "verbose"
 local failures = 0
@@ -754,7 +757,7 @@ do
 
 	-- 2. a kerb UP at 20 km/h: the front fork takes the hit first, then the rear, the chassis pitches
 	-- up then down, no takeoff or landing, and it ends up on top
-	local kerb = makeWorld({ StepZ = -120, StepHeight = 0.625 })
+	local kerb = makeWorld({ StepZ = -120, StepHeight = KERB })
 	spec, state = spawn("hornet_6")
 	local peakF, peakR, peakFAt, peakRAt, maxTilt, minTilt = 0, 0, 0, 0, 0, 0
 	local airEvents = 0
@@ -786,10 +789,22 @@ do
 	check(peakFAt < peakRAt, "the front takes the kerb before the rear")
 	check(maxTilt > math.rad(1.5) and minTilt < -math.rad(1), "the chassis pitches up over the kerb, then down")
 	check(airEvents == 0, "riding up a kerb is no jump")
-	check(math.abs(state.Position.Y - 0.625) < 0.05, "and it ends up on top")
+	check(math.abs(state.Position.Y - KERB) < 0.05, "and it ends up on top")
+	-- 2b. the smallest wheels (the youth pit bike, drawn up to fit a standard rider) take it too
+	do
+		local sp, st = spawn("flit_mini")
+		sp = BikeStats.Scaled(sp, 1.17)
+		local inp = input({ Throttle = 1 })
+		local crashed = false
+		for _, e in ride(sp, st, Modes.Defaults.TURBO, kerb, 14, inp, atMost(15)) do
+			crashed = crashed or e.Kind == "Crash"
+		end
+		print(string.format("  youth pit bike up the kerb: z %.0f, y %.2f", st.Position.Z, st.Position.Y))
+		check(not crashed and st.Position.Z < -125 and math.abs(st.Position.Y - KERB) < 0.05, "the youth pit bike rolls up the kerb too")
+	end
 
 	-- 3. a kerb DOWN: the wheels drop and the chassis falls onto its springs; no jump, no landing
-	local drop = makeWorld({ StepZ = -120, StepHeight = -0.625 })
+	local drop = makeWorld({ StepZ = -120, StepHeight = -KERB })
 	spec, state = spawn("hornet_6")
 	local lowF, highF = 1, 0
 	airEvents = 0
@@ -921,7 +936,7 @@ do
 
 	-- 9. frame hitches (0.1 s steps) over grass and kerbs never blow it up
 	do
-		local rough = makeWorld({ Grass = true, StepZ = -60, StepHeight = 0.625 })
+		local rough = makeWorld({ Grass = true, StepZ = -60, StepHeight = KERB })
 		local sp, st = spawn("deathrider")
 		local ok = true
 		for _ = 1, 60 do
@@ -991,7 +1006,7 @@ do
 		return false
 	end
 	-- rolling off a kerb mid-wheelie
-	local kerb = makeWorld({ DropZ = -120, DropHeight = 0.6 })
+	local kerb = makeWorld({ DropZ = -120, DropHeight = KERB })
 	local spec, state = spawn("hornet_6")
 	-- (balanced like a rider would: throttle when low, off and a dab of brake when high)
 	local kinp = input({ Throttle = 1, Wheelie = true })
@@ -1002,7 +1017,7 @@ do
 	check(not crashes(events), "a wheelie off a kerb carries on")
 	-- off a kerb mid-drift
 	spec, state = spawn("hornet_6")
-	local driftKerb = makeWorld({ DropZ = -60, DropHeight = 0.6 })
+	local driftKerb = makeWorld({ DropZ = -60, DropHeight = KERB })
 	ride(spec, state, Modes.Defaults.TURBO, driftKerb, 4, input({ Throttle = 1 }))
 	events = ride(spec, state, Modes.Defaults.TURBO, driftKerb, 1.5, input({ Drift = true, Steer = 0.6 }))
 	check(not crashes(events), "drifting off a kerb doesn't bail")

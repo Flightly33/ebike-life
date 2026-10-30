@@ -2,25 +2,32 @@
 	Config: every tuning number in one place.
 
 	Units: physics runs in SI (metres, m/s, kg, W, N); the world is in studs. Riders and their bikes
-	share one scale, 1 m ≈ 2.86 studs (1 stud = 0.35 m), which matches a Roblox avatar's height.
+	share one scale, 1 m ≈ 2.86 studs (1 stud = 0.35 m), which matches a standard avatar's height
+	(5.2 studs; every character is scaled to it, Avatar.Height).
 
 	The city is authored in Roblox's standard units (1 stud = 0.28 m, real sizes) and built at
 	WORLD_SCALE times that. A Roblox avatar is stocky (a big head, arms and shoulders 4 studs
-	across), so a city built to its height (0.8) made it look like a giant next to bus shelters,
-	doors and cars (the owner's screenshots). At 1.2 the world is 1.5 times that and the avatar's
-	build reads as a real person's next to it: a lane is 15 studs, a storey ~13, a door ~9. Cars
-	(traffic, police, parked) are part of the world and built at its scale; bikes stay fitted to
+	across): a city built to its height (0.8) made it look like a giant next to bus shelters,
+	doors and cars, and 1.2 still did (the owner's avatar measured ~6.5 studs in a screenshot, before characters were
+	scaled to one height). At 1.5 a lane is 19 studs, a storey ~16, a door ~11, a sedan ~7.8 tall.
+	Cars (traffic, police, parked) are part of the world and built at its scale; bikes stay fitted to
 	their riders. Where things are on the plan (the streets, blocks, islands and places) is spread
-	by CITY_SPREAD, so the map stays the size it was when the city was drawn 1.25 times life size.
+	by CITY_SPREAD: the map grows with the world (MAP_SCALE).
 ]]
 
 local Config = {}
 
-Config.WORLD_SCALE = 1.2
--- the plan's distances are authored at 1/CITY_SPREAD of real (the first city's layout, drawn at
--- WORLD_SCALE 1.25): City/Layout spreads every position by it and keeps every size real, so in game
--- studs the map, the road graph and the places stay where they were at any WORLD_SCALE
-Config.CITY_SPREAD = 1.25 / Config.WORLD_SCALE
+Config.WORLD_SCALE = 1.5
+-- How far apart things are: game studs per unit of the city plan (City/Layout's grid lines, rects
+-- and places; the plan was first drawn for a city at 1.25). From 1.2 on the map grows with the
+-- world (the owner asked for everything bigger, distances too), so every block, island and park
+-- keeps the room it had at 1.2 and the landmarks still fit their lots
+Config.MAP_SCALE = 1.25 * Config.WORLD_SCALE / 1.2
+-- City/Layout spreads every position on the plan by this and keeps every size real
+Config.CITY_SPREAD = Config.MAP_SCALE / Config.WORLD_SCALE
+-- the stunt parks and the hills are built this many times their design size whatever the world's
+-- scale: the size they're ridden at (the bikes don't grow with the city)
+Config.RIDE_SCALE = 1.25
 Config.METERS_PER_STUD = 0.35
 Config.STUDS_PER_METER = 1 / Config.METERS_PER_STUD
 -- the city's own studs per real metre (it's authored at 1 stud = 0.28 m, built at WORLD_SCALE):
@@ -39,6 +46,13 @@ Config.KMH_PER_STUD_PER_SECOND = Config.METERS_PER_STUD * 3.6
 -- 2.4 and 1.8 when the rider pose was broken; bigger than ~1.0 and the feet can't reach the pegs.
 Config.BIKE_SIZE = 1.0
 Config.VISUAL_STUDS_PER_METER = Config.STUDS_PER_METER * Config.BIKE_SIZE
+
+-- Every player's character is scaled to this height (studs, head to feet; CharacterService), the
+-- size of a standard avatar the city and the bikes are sized for. Avatars run from ~4.5 to ~7.5
+-- studs; a tall one looked bigger than the shelters and cars. 0 leaves avatars as they are.
+Config.Avatar = {
+	Height = 5.2,
+}
 
 Config.BRAND = "Flightly"
 Config.DEALERSHIP = "Flighty Mechanics"
@@ -67,7 +81,7 @@ Config.Crash = {
 Config.Physics = {
 	Gravity = 9.81, -- m/s², real
 	AirDensity = 1.2, -- kg/m³
-	StepHeight = 1.0, -- studs a wheel rolls up without stopping (kerbs are 0.6; a bench seat isn't)
+	StepHeight = 1.2, -- studs a wheel rolls up without stopping (kerbs are 0.75; a bench seat isn't)
 	SnapDistance = 1.0, -- studs the ground may drop away before the bike counts as airborne (a kerb
 	-- drop isn't a jump: the wheels follow it down on the suspension)
 	MaxSteer = 0.55, -- rad of handlebar at walking pace
@@ -240,7 +254,7 @@ Config.DayNight = {
 	DaySeconds = 1200, -- one game day in real seconds
 	DayShare = 0.7, -- of it in daylight (06:00-20:00); the night goes quicker
 	StartFraction = 0.12, -- where the clock starts at server time 0 (mid-morning)
-	LampRange = 250, -- studs: street lamps this close cast real light (the rest just glow; how
+	LampRange = 300, -- studs: street lamps this close cast real light (the rest just glow; how
 	-- many, and how many cars' headlights, is the graphics mode's LampLights / HeadlightCars)
 	WindowLitShare = 0.45, -- of windows lit at night
 }
@@ -270,7 +284,7 @@ Config.Graphics = {
 		LampLights = 28,
 		HeadlightCars = 8,
 		Specular = 1,
-		Pedestrians = 24, -- people walking the pavements near the camera (Client/Ambient)
+		Pedestrians = 36, -- people walking the pavements near the camera, on every block (Client/Ambient)
 	},
 	Performance = {
 		Shadows = false,
@@ -280,12 +294,12 @@ Config.Graphics = {
 		LampLights = 6,
 		HeadlightCars = 2,
 		Specular = 0.4,
-		Pedestrians = 8,
+		Pedestrians = 14,
 	},
 }
 
 Config.Police = {
-	SightRange = 290, -- studs a cop notices you from
+	SightRange = 360, -- studs a cop notices you from
 	PatrolCount = 6,
 	MaxPursuers = 5,
 	PatrolSpeed = 13, -- m/s (~47 km/h)
@@ -308,7 +322,7 @@ Config.Police = {
 	StarEvery = 50, -- seconds of being seen in a chase that add a star
 	EvadeBase = 7, -- seconds out of sight to escape at one star...
 	EvadePerStar = 2.5, -- ...plus this per extra star
-	LoseRange = 525, -- studs: further than this always counts as out of sight
+	LoseRange = 655, -- studs: further than this always counts as out of sight
 	BustRange = 14, -- studs
 	BustKmh = 12, -- slower than this near a cop and the cuffs come out
 	BustTime = 2.6,
@@ -323,8 +337,8 @@ Config.Police = {
 	Units = { 1, 2, 3, 4, 5 }, -- cars chasing per star
 	-- Tactics
 	-- no PIT or ramming: police don't use contact on motorcycles (it's deadly force)
-	FollowGap = 36, -- studs the chasing car keeps behind a moving rider (to its centre: a cruiser is ~22 long)
-	FlankOffset = 16, -- studs to the side a pacing car rides (a lane over: lanes are 15 studs)
+	FollowGap = 45, -- studs the chasing car keeps behind a moving rider (to its centre: a cruiser is ~27 long)
+	FlankOffset = 20, -- studs to the side a pacing car rides (a lane over: lanes are 19 studs)
 	BoxInKmh = 12, -- below this the cars close in and block the rider in
 	InterceptAhead = 6, -- seconds ahead an interceptor aims for
 	RoadblockStars = 3,
@@ -333,14 +347,14 @@ Config.Police = {
 	FlatTime = 18, -- seconds a spiked tyre stays flat
 	FlatKmh = 14,
 	-- Officers on foot
-	DeployRange = 60, -- studs: a car this close to a stopped (or knocked-off) rider sends officers out
+	DeployRange = 75, -- studs: a car this close to a stopped (or knocked-off) rider sends officers out
 	DeployKmh = 10,
 	ArrestRange = 6,
-	OfficerGiveUp = 90, -- studs: further than this and they walk back to the car
+	OfficerGiveUp = 110, -- studs: further than this and they walk back to the car
 }
 
 Config.Traffic = {
-	CarCount = 14,
+	CarCount = 28, -- spread over every road, and kept near the players (TrafficService)
 	Speed = 11, -- m/s (~40 km/h)
 	SpeedVariance = 2.5,
 	HitKmh = 26, -- hitting a car faster than this bails you

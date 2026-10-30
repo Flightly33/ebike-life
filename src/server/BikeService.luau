@@ -287,6 +287,19 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 	lastSpawn[player] = now
 	BikeService.Despawn(player)
 
+	-- fitted once CharacterService has scaled the character to the standard height (BodyHeight)
+	if Config.Avatar.Height > 0 and character:GetAttribute("BodyHeight") == nil then
+		local ok, loaded = pcall(function()
+			return player:HasAppearanceLoaded()
+		end)
+		if ok then
+			local since = os.clock()
+			while character.Parent and character:GetAttribute("BodyHeight") == nil and os.clock() - since < (if loaded then 1.5 else 4) do
+				task.wait(0.1)
+			end
+		end
+	end
+
 	-- drawn to fit this rider: their legs, hip joint to ankle joint, as they stand
 	local size = BikeModel.FitScale(bike, legLength(character))
 	local levels = Profile.Levels(data, bikeId)

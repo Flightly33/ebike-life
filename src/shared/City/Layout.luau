@@ -1165,7 +1165,9 @@ local function make(K: number)
 		Spawn = Vector3.new((dealership.LotMinX + dealership.LotMaxX) / 2, Layout.CURB_Y, dealership.LotMaxZ - 50 * K),
 		Dealership = Vector3.new((dealership.LotMinX + dealership.LotMaxX) / 2, Layout.CURB_Y, dealership.LotMaxZ - Layout.DEALERSHIP_DEPTH / 2),
 		Police = lotCenter(police),
-		JumpPark = lotCenter(jump),
+		-- (inside its south edge: the park keeps its ridden size, so what's in its middle depends on
+		-- how big the city's lots are)
+		JumpPark = Vector3.new((jump.LotMinX + jump.LotMaxX) / 2, Layout.CURB_Y, jump.LotMaxZ - 10 * K),
 		-- (south of the fountains)
 		Plaza = lotCenter(plaza) + Vector3.new(0, 0, 45 * K),
 		Park = lotCenter(bayPark) + Vector3.new(0, 0, 60 * K),

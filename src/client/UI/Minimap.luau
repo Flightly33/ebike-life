@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Layout = require(Shared.City.Layout)
 
 local Theme = require(script.Parent.Theme)
@@ -19,7 +20,7 @@ local Theme = require(script.Parent.Theme)
 local Minimap = {}
 
 local New = Theme.New
-local SCALE = 0.21 -- pixels per stud
+local SCALE = 0.21 * 1.25 / Config.MAP_SCALE -- pixels per stud: the same stretch of map at any MAP_SCALE
 local SIZE = 150
 
 export type Minimap = {

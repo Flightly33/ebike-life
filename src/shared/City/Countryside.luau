@@ -13,12 +13,13 @@ local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local Neighborhoods = require(script.Parent.Neighborhoods)
 local PartKit = require(script.Parent.Parent.PartKit)
+local Config = require(script.Parent.Parent.Config)
 
 type Rect = LayoutModule.Rect
 
 local Countryside = {}
 
-local S = Layout.SPREAD -- plan positions are spread (City/Layout); the hills keep their ridden size
+local S = Layout.SPREAD -- plan positions are spread (City/Layout)
 
 local SMOOTH = Enum.Material.SmoothPlastic
 local GRASS = Enum.Material.Grass
@@ -388,7 +389,7 @@ end
 
 -- A rideable grass hill: a flat top and four slopes (sized for riding, not to the city's scale:
 -- `HILL` times the size they were drawn at)
-local HILL = S
+local HILL = Config.RIDE_SCALE / Config.WORLD_SCALE
 local function hill(parent: Instance, spot: Vector3, h: number)
 	local half = 35 * HILL
 	local top = PartKit.Box(parent, "HillTop", Vector3.new(half * 2, h, half * 2), CFrame.new(spot + Vector3.new(0, h / 2, 0)), Props.Palette.Grass, GRASS)

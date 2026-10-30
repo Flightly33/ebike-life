@@ -136,7 +136,7 @@ function Landmarks.Dealership(parent: Instance, block: LayoutModule.Block, rng: 
 		local beam = Instance.new("SpotLight")
 		beam.Face = Enum.NormalId.Front
 		beam.Angle = 35
-		beam.Range = 50
+		beam.Range = 40 -- (the city's scale grows it: Roblox's most is 60)
 		beam.Brightness = 4
 		beam.Color = Color3.fromRGB(255, 200, 150)
 		beam.Parent = lamp

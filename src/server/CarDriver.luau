@@ -540,18 +540,27 @@ function CarDriver.Hold(self: Driver)
 end
 
 -- Put the car on a road edge (start of a cruise)
-function CarDriver.PlaceOnEdge(self: Driver, from: number, to: number)
+-- (`along`: how far down its lane, 0 to 1; the start of it if not given)
+function CarDriver.PlaceOnEdge(self: Driver, from: number, to: number, along: number?)
 	local edge = Layout.EdgeBetween(from, to)
 	if not edge then
 		return
 	end
-	local entry = edgePoints(edge, from, 1)
+	local entry, exit = edgePoints(edge, from, math.min(self.Lane, edge.Lanes))
+	local at = entry:Lerp(exit, along or 0)
 	local dir = (Layout.Nodes[to].Position - Layout.Nodes[from].Position).Unit
-	self.Position = entry
+	self.Position = at
 	self.Yaw = yawOf(dir)
 	self.Speed = 0
-	self.Model:PivotTo(CFrame.lookAt(entry, entry + dir))
+	self.Reverse = 0
+	self.StuckTime = 0
+	self.Model:PivotTo(CFrame.lookAt(at, at + dir))
 	CarDriver.Cruise(self, from, to)
+	-- set down partway: the waypoints behind it are passed
+	local ahead = forward(self.Yaw)
+	while self.WaypointIndex < #self.Waypoints and (self.Waypoints[self.WaypointIndex] - at):Dot(ahead) < 0 do
+		self.WaypointIndex += 1
+	end
 end
 
 -- Jump to a road node (used when a chasing car is hopelessly stuck or far away)
