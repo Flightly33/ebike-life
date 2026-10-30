@@ -98,6 +98,7 @@ function UI.Init()
 	Toasts.Init(gui, Hud.Minimap :: Frame)
 	TrickHud.Init(gui)
 	WantedHud.Init(gui)
+	OrderMenu.InitHud(gui)
 	TouchControls.Init(gui)
 
 	-- Menus (a second ScreenGui above the HUD)

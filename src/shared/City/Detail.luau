@@ -79,7 +79,8 @@ end
 
 -- A shopfront across a face: bulkhead, glass bays with mullions, a glass door, a fascia sign and an
 -- awning; sometimes a blade sign and café tables out front
-function Detail.Storefront(parent: Instance, face: CFrame, width: number, height: number, name: string, color: Color3, rng: Random)
+-- Returns the door's x along the face (the shop behind keeps its doorway clear)
+function Detail.Storefront(parent: Instance, face: CFrame, width: number, height: number, name: string, color: Color3, rng: Random): number
 	local w = width - 2
 	local frame = Color3.fromRGB(40, 42, 46)
 	local bays = math.max(2, math.floor(w / 9))
@@ -143,6 +144,7 @@ function Detail.Storefront(parent: Instance, face: CFrame, width: number, height
 			end
 		end
 	end
+	return dx
 end
 
 -- A black steel fire escape down a face at offset x: a landing and stair per floor above the first

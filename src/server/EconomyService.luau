@@ -52,6 +52,10 @@ end
 EconomyService.BoostOf = function(_player: Player): number
 	return 1
 end
+-- XP multiplier from shop orders (set by OrderService)
+EconomyService.XpBoostOf = function(_player: Player): number
+	return 1
+end
 
 local function tracker(player: Player): Tracker
 	local t = trackers[player]
@@ -91,7 +95,7 @@ local function addXp(player: Player, amount: number)
 	if not data or amount <= 0 then
 		return
 	end
-	local level, xp, reached = Economy.AddXp(data.Level, data.Xp, amount)
+	local level, xp, reached = Economy.AddXp(data.Level, data.Xp, amount * EconomyService.XpBoostOf(player))
 	data.Level = level
 	data.Xp = xp
 	for _, newLevel in reached do

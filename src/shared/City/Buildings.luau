@@ -219,13 +219,14 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 	local faceDepth = if math.abs(front.X) > 0.5 then w else d
 	local face = Detail.Face(cx, cz, front, faceDepth / 2, Y)
 	local shopName = pick(rng, shopNames or SHOPS)
-	Detail.Storefront(model, face, faceWidth, 9.5, shopName, pick(rng, AWNINGS), rng)
+	local doorX = Detail.Storefront(model, face, faceWidth, 9.5, shopName, pick(rng, AWNINGS), rng)
 	Interior.Build(model, face * CFrame.new(0, 0, faceDepth / 2) * CFrame.Angles(0, 0, 0), faceWidth, faceDepth, floorH, {
 		Kind = "Shop",
 		Name = shopName,
 		Accent = pick(rng, AWNINGS),
 		Wall = brick:Lerp(Color3.new(1, 1, 1), 0.6),
 		Front = false,
+		DoorX = doorX,
 		Sides = true,
 		Rng = rng,
 	})
@@ -1058,13 +1059,14 @@ function Buildings.StripMall(parent: Instance, x0: number, x1: number, z0: numbe
 		local x = -(W - 12) / 2 + (i + 0.5) * unitW
 		local shopName = pick(rng, SHOPS)
 		local awning = pick(rng, AWNINGS)
-		Detail.Storefront(model, face * CFrame.new(x, 0, 0), unitW - 1, 9.5, shopName, awning, rng)
+		local doorX = Detail.Storefront(model, face * CFrame.new(x, 0, 0), unitW - 1, 9.5, shopName, awning, rng)
 		Interior.Build(model, face * CFrame.new(x, 0, bd / 2), unitW, bd, shopH, {
-			Kind = if i == 0 and rng:NextNumber() < 0.5 then "Food" else "Shop",
+			Kind = "Shop",
 			Name = shopName,
 			Accent = awning,
 			Wall = wall:Lerp(Color3.new(1, 1, 1), 0.6),
 			Front = false,
+			DoorX = doorX,
 			Sides = true,
 			Rng = rng,
 		})

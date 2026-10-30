@@ -396,6 +396,77 @@ if bike then
 end
 
 --------------------------------------------------------------------------------
+print("== ordering at a shop counter")
+do
+	local EconomyService = server.Require(SSS.Server:WaitForChild("EconomyService"))
+	local counters: { any } = {}
+	for _, d in WS:WaitForChild("City"):GetDescendants() do
+		if d.Name == "OrderCounter" then
+			table.insert(counters, d)
+		end
+	end
+	check(#counters > 50, "the city has walk-in shop counters (" .. #counters .. ")")
+	local food
+	for _, c in counters do
+		if c:GetAttribute("Menu") == "Food" then
+			food = c
+			break
+		end
+	end
+	check(food ~= nil and food:FindFirstChild("OrderPrompt") ~= nil, "a fast food counter has its Order prompt")
+	if food then
+		ok, message = invoke(ClientRemotes.Function("Order"), food, "burger")
+		check(ok ~= true, "can't order from across the map (" .. tostring(message) .. ")")
+		rig:PivotTo(food.CFrame * CFrame.new(0, 3, -7))
+		world:Run(1.5)
+		local fits = WS:FindFirstChild("ShopFit")
+		local fitted = fits and fits:FindFirstChildOfClass("Model")
+		local count = 0
+		if fitted then
+			for _, d in fitted:GetDescendants() do
+				if d:IsA("BasePart") then
+					count += 1
+				end
+			end
+		end
+		check(count > 150, "walking up fits the shop out in detail (" .. count .. " parts)")
+		check(fitted ~= nil and fitted:FindFirstChild("Staff") ~= nil, "someone is serving")
+		local boostBefore = EconomyService.BoostOf(player)
+		ok, message = invoke(ClientRemotes.Function("Order"), food, "burger")
+		check(ok == true, "ordered a burger (" .. tostring(message) .. ")")
+		check(player:GetAttribute("BuffCash") == 1.2, "the burger's cash boost is on the HUD attributes")
+		check(math.abs(EconomyService.BoostOf(player) - boostBefore * 1.2) < 1e-6, "and it multiplies the pay boost")
+		check(rig:FindFirstChild("Item_burger") ~= nil, "the burger is in the player's hand")
+		check(type(food:GetAttribute("LastOrder")) == "string", "the counter tells its staff to hand it over")
+		ok, message = invoke(ClientRemotes.Function("Order"), food, "cap")
+		check(ok ~= true, "items from another menu are refused (" .. tostring(message) .. ")")
+		world:Run(8)
+		check(rig:FindFirstChild("Item_burger") == nil, "the burger gets eaten")
+		local gas
+		for _, c in counters do
+			if c:GetAttribute("Menu") == "Gas" then
+				gas = c
+				break
+			end
+		end
+		if gas then
+			rig:PivotTo(gas.CFrame * CFrame.new(0, 3, -7))
+			world:Run(1)
+			ok, message = invoke(ClientRemotes.Function("Order"), gas, "cap")
+			check(ok ~= true, "a disguise needs someone looking for you (" .. tostring(message) .. ")")
+			PoliceService.SetWanted(player, 2)
+			world:Run(0.5)
+			ok, message = invoke(ClientRemotes.Function("Order"), gas, "cap")
+			check(ok == true and PoliceService.Stars(player) == 1, "a trucker cap drops a wanted star (" .. tostring(message) .. ")")
+			PoliceService.SetWanted(player, 0)
+		end
+		UI.Open("Order")
+		world:Run(0.3)
+		UI.Open("Order")
+	end
+end
+
+--------------------------------------------------------------------------------
 print("== admin")
 check(player:GetAttribute("Admin") == true, "play-testing in Studio makes you an admin")
 local AdminRemote = ClientRemotes.Function("Admin")

@@ -286,6 +286,8 @@ Config.Graphics = {
 		HeadlightCars = 8,
 		Specular = 1,
 		Pedestrians = 36, -- people walking the pavements near the camera, on every block (Client/Ambient)
+		ShopRooms = 3, -- walk-in shops fitted out in full detail at once, the nearest first (Client/ShopFit)
+		ShopRange = 170, -- studs from the camera a shop is fitted out
 	},
 	Performance = {
 		Shadows = false,
@@ -296,6 +298,8 @@ Config.Graphics = {
 		HeadlightCars = 2,
 		Specular = 0.4,
 		Pedestrians = 14,
+		ShopRooms = 1,
+		ShopRange = 110,
 	},
 }
 

@@ -159,6 +159,15 @@ function Loader.RequirePath(path: { string }): any
 	return load(file, path)
 end
 
+-- Stands a table in for a module, so modules that require it get the mock
+function Loader.Mock(dotted: string, value: any)
+	local file = toFile(string.split(dotted, "."))
+	if not file then
+		error("Loader: no file for " .. dotted)
+	end
+	cache[file] = value
+end
+
 -- Loader.Require("ReplicatedStorage.Shared.Anim.Pose")
 function Loader.Require(dotted: string): any
 	return Loader.RequirePath(string.split(dotted, "."))
