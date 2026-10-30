@@ -25,6 +25,7 @@ local Hud = require(script.Hud)
 local MainMenu = require(script.MainMenu)
 local AdminPanel = require(script.AdminPanel)
 local GraphicsPrompt = require(script.GraphicsPrompt)
+local OrderMenu = require(script.OrderMenu)
 local Panel = require(script.Panel)
 local Rides = require(script.Rides)
 local Store = require(script.Store)
@@ -110,6 +111,7 @@ function UI.Init()
 	panels.Tuning = Tuning.new(menus)
 	panels.Crates = Store.Crates(menus)
 	panels.Shop = Store.Shop(menus)
+	panels.Order = OrderMenu.new(menus)
 	panels.Menus = MainMenu.new(menus, close)
 	panels.Admin = AdminPanel.new(menus, function()
 		UI.Open("Admin")
@@ -139,6 +141,15 @@ function UI.Init()
 			UI.Open("Dealership")
 		elseif prompt.Name == "TuningPrompt" then
 			UI.Open("Tuning")
+		elseif prompt.Name == "OrderPrompt" then
+			local counter = prompt.Parent
+			if counter and counter:IsA("BasePart") then
+				OrderMenu.SetCounter(counter)
+				if openName == "Order" then
+					close()
+				end
+				UI.Open("Order")
+			end
 		end
 	end)
 
@@ -196,7 +207,7 @@ function UI.Init()
 		if event.Kind == "Spiked" then
 			Toasts.Message("Police", "Spike strip! Your tyre's flat for a while.")
 		elseif event.Kind == "Splash" then
-			Toasts.Message("Error", "Splash! Back to the shore...")
+			Toasts.Message("Error", "Splash! Wade back to the shore")
 		elseif event.Kind == "BatteryEmpty" then
 			Toasts.Message("Error", "Battery empty! Push it to a ⚡ charging station")
 		elseif event.Kind == "Flip" then

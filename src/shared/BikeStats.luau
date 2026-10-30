@@ -9,7 +9,7 @@ local Config = require(script.Parent.Config)
 
 local BikeStats = {}
 
-BikeStats.RIDER_KG = 75
+BikeStats.RIDER_KG = 82 -- rider plus helmet, boots and armour
 BikeStats.RIDER_W = 210 -- a fit commuter's sustained pedalling
 BikeStats.RIDER_FORCE_N = 130 -- what the legs manage at the pedals from a standstill, at the tyre
 

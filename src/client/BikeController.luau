@@ -26,7 +26,6 @@ local Modes = require(Shared.Modes)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 local Upgrades = require(Shared.Upgrades)
-local Layout = require(Shared.City.Layout)
 
 local BikeCamera = require(script.Parent.BikeCamera)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -60,12 +59,6 @@ local bailing = false
 local chargeLeft = 0
 local warnedEmpty = false
 local restoreCollide: { [BasePart]: boolean } = {}
--- where to put the bike back if it ends up in the water: spots it rode over on dry ground, half a
--- second apart, the newest last
-local trail: { CFrame } = {}
-local trailClock = 0
-local TRAIL_LENGTH = 8
-local splashedAt: number? = nil
 local connections: { RBXScriptConnection } = {}
 -- the bike's frame, velocity and spin before this frame's physics step (what a crash starts from:
 -- the step itself has already settled the crashed bike flat on the ground)
@@ -236,10 +229,9 @@ local function onEvent(event: BikePhysics.Event)
 	elseif kind == "AirTrick" then
 		sendTrick("AirTrick", event.Value, event.Extra, event.Text)
 	elseif kind == "Splash" then
-		-- into the bay: a splash, and in a moment the bike is back on the shore it came from
+		-- into the bay: a splash, then the bike wades at walking pace (no putting it back: you ride out)
 		Sound.Play("Splash", position)
 		BikeCamera.Shake(0.8)
-		splashedAt = os.clock()
 	elseif kind == "Spiked" then
 		Sound.Play("Crash", position, 1.6, 0.6)
 		BikeCamera.Shake(0.6)
@@ -359,23 +351,6 @@ local function step(dt: number)
 	end
 	-- (after the events: a crash this frame tumbles on with last frame's spin, not the step's snap)
 	before.Spin = spinNow
-	-- remember dry ground; after a splash, go back to the oldest spot remembered
-	trailClock += dt
-	if trailClock >= 0.5 and s.Grounded and not s.Wet and s.Crash <= 0 then
-		trailClock = 0
-		table.insert(trail, CFrame.lookAt(s.Position, s.Position + BikePhysics.Heading(s.Yaw)))
-		if #trail > TRAIL_LENGTH then
-			table.remove(trail, 1)
-		end
-	end
-	if splashedAt and os.clock() - splashedAt > 0.9 then
-		splashedAt = nil
-		local back = trail[1] or CFrame.new(Layout.Places.Spawn)
-		BikeController.Physics = BikePhysics.new(spec, back + Vector3.new(0, 0.5, 0), s.Battery, player.UserId % 97)
-		table.clear(trail)
-		BikeController.Event:Fire({ Kind = "Rescued" })
-		return
-	end
 	if s.Battery <= 0 and not warnedEmpty then
 		warnedEmpty = true
 		BikeController.Event:Fire({ Kind = "BatteryEmpty" })

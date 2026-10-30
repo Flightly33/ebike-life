@@ -101,6 +101,30 @@ function Officer.new(position: Vector3, facing: Vector3, seed: number): Model
 	weld(brim, head, CFrame.new(0, 0.5, -0.75))
 	weld(badge, torso, CFrame.new(-0.5, 0.4, -0.52))
 	weld(belt, torso, CFrame.new(0, -0.85, 0))
+	-- duty kit: radio, holster, cuffs, shoulder patches, name tag, cap badge, boots, gloves
+	local BLACK = Color3.fromRGB(15, 15, 18)
+	local function bit(name: string, size: Vector3, color: Color3, to: BasePart, offset: CFrame, material: Enum.Material?)
+		local piece = part(model, name, size, color, material)
+		piece.CanCollide = false
+		piece.Massless = true
+		weld(piece, to, offset)
+	end
+	bit("CapBadge", Vector3.new(0.3, 0.25, 0.05), Color3.fromRGB(230, 190, 60), head, CFrame.new(0, 0.68, -0.66), Enum.Material.Metal)
+	bit("NameTag", Vector3.new(0.5, 0.14, 0.06), Color3.fromRGB(200, 200, 205), torso, CFrame.new(0.5, 0.45, -0.52), Enum.Material.Metal)
+	bit("Radio", Vector3.new(0.3, 0.45, 0.2), BLACK, torso, CFrame.new(0.55, 0.75, -0.58))
+	bit("Antenna", Vector3.new(0.06, 0.35, 0.06), BLACK, torso, CFrame.new(0.65, 1.12, -0.58))
+	bit("Holster", Vector3.new(0.3, 0.7, 0.45), BLACK, torso, CFrame.new(1.12, -0.95, 0), Enum.Material.Leather)
+	bit("Cuffs", Vector3.new(0.4, 0.25, 0.2), Color3.fromRGB(160, 160, 166), torso, CFrame.new(-0.6, -0.85, 0.56), Enum.Material.Metal)
+	bit("Buckle", Vector3.new(0.3, 0.22, 0.06), Color3.fromRGB(200, 200, 205), torso, CFrame.new(0, -0.85, -0.54), Enum.Material.Metal)
+	bit("Tie", Vector3.new(0.22, 0.9, 0.05), BLACK, torso, CFrame.new(0, 0.35, -0.52))
+	for _, arm in { larm, rarm } do
+		bit("Patch", Vector3.new(0.05, 0.4, 0.35), Color3.fromRGB(230, 190, 60), arm, CFrame.new(if arm == larm then -0.52 else 0.52, 0.55, 0))
+		bit("Glove", Vector3.new(1.02, 0.45, 1.02), BLACK, arm, CFrame.new(0, -0.8, 0), Enum.Material.Leather)
+	end
+	for _, leg in { lleg, rleg } do
+		bit("Boot", Vector3.new(1.04, 0.5, 1.2), BLACK, leg, CFrame.new(0, -0.78, -0.08), Enum.Material.Leather)
+		bit("Stripe", Vector3.new(0.05, 1.4, 0.15), Color3.fromRGB(230, 190, 60), leg, CFrame.new(if leg == lleg then -0.51 else 0.51, 0.2, 0))
+	end
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6

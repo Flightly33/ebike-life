@@ -111,6 +111,8 @@ export type State = {
 	AirHands: boolean, -- let go in the air
 	VertLaunch: number?, -- pitch of the quarter pipe face we left (turned round at the top)
 	FakieHold: boolean?, -- coming back down the face: hold the pitch
+	FakieTilt: number?,
+	FakieTurn: number?, -- yaw still to turn round at the top of a quarter pipe (turned smoothly, not snapped)
 	Crash: number, -- seconds of bail left
 	CrashReason: string,
 	CrashSide: number,
@@ -161,6 +163,8 @@ export type State = {
 
 local OFFROAD = { Grass = true, Dirt = true, Sand = true, Mud = true, Foam = true }
 BikePhysics.Offroad = OFFROAD
+
+local WADE = 2.5 -- m/s through water
 
 local function approach(current: number, target: number, step: number): number
 	if current < target then
@@ -991,12 +995,14 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 		s.Surface = kind
 		s.Offroad = OFFROAD[kind] == true
 		if kind == "Water" then
-			-- rolled off into the bay: it sinks (the controller puts it back on the shore)
+			-- rolled off into the bay: it wades at walking pace, so you ride back out yourself
 			if not s.Wet then
 				s.Wet = true
 				push(events, "Splash")
 			end
-			v *= math.max(0, 1 - 6 * dt)
+			v = math.clamp(v, -WADE, WADE)
+		else
+			s.Wet = false
 		end
 		if kind == "Spikes" and s.Flat <= 0 then
 			s.Flat = Config.Police.FlatTime
@@ -1037,6 +1043,11 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 	local fakie = s.FakieHold == true
 	s.VertLaunch = nil
 	s.FakieHold = nil
+	if s.FakieTurn then
+		s.Yaw = wrap(s.Yaw + s.FakieTurn)
+		s.FakieTurn = nil
+	end
+	s.FakieTilt = nil
 	s.Grounded = true
 	s.Position = Vector3.new(s.Position.X, groundY, s.Position.Z)
 	s.RearY = groundY - spec.Wheelbase / 2 * math.sin(groundPitch)
@@ -1048,7 +1059,7 @@ local function land(s: State, spec: Spec, input: Input, world: World, groundY: n
 	if kind == "Water" then
 		-- a jump into the bay
 		s.Pitch = groundPitch
-		s.Speed = 0
+		s.Speed = math.min(horizontal.Magnitude / STUDS, WADE)
 		s.TrickExt = 0
 		s.TrickName = ""
 		s.BarSpin = 0
@@ -1165,12 +1176,11 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 	local vert = s.VertLaunch
 	if vert and s.VerticalSpeed <= 0 then
 		s.VertLaunch = nil
-		s.Yaw = wrap(s.Yaw + math.pi)
-		s.TravelYaw = s.Yaw
-		s.Pitch = -vert * 0.85
+		s.FakieTurn = math.pi
+		s.FakieTilt = -vert * 0.85
 		s.AirPitchRate = 0
 		s.AirYawRate = 0
-		s.AirVelocity = heading(s.Yaw) * 5 -- drift back over the face, so both tyres come down on it
+		s.AirVelocity = heading(s.Yaw + math.pi) * 5 -- drift back over the face, so both tyres come down on it
 		s.FakieHold = true
 		push(events, "Fakie")
 	end
@@ -1215,6 +1225,19 @@ local function airStep(s: State, spec: Spec, input: Input, world: World, dt: num
 				yawRateTarget = err * 3 -- ease toward the travel direction
 			end
 		end
+	end
+	if s.FakieTurn then
+		-- turning round at the top of a quarter pipe: swing round over ~0.35 s (a snap read as a
+		-- teleport) and tip the nose down onto the face as it goes
+		local step = math.min(s.FakieTurn, 9 * dt)
+		s.FakieTurn -= step
+		s.Yaw = wrap(s.Yaw + step)
+		s.TravelYaw = s.Yaw
+		s.Pitch = approach(s.Pitch, s.FakieTilt or s.Pitch, 6 * dt)
+		if s.FakieTurn <= 1e-4 then
+			s.FakieTurn = nil
+		end
+		yawRateTarget = 0
 	end
 	s.AirYawRate = approach(s.AirYawRate, yawRateTarget, 18 * dt)
 	s.Yaw += s.AirYawRate * dt

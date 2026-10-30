@@ -1037,7 +1037,10 @@ def car(kind, d, paint_slot="Paint"):
     for zs in (-1, 1):
         for xs in (-1, 1):
             c = P3(xs * (W / 2 - 0.12), D / 2, zs * wb / 2)
-            body("Black", K.lathe(c, X, [(-0.13, D * 0.565), (-0.13, D * 0.6), (0.13, D * 0.6), (0.13, D * 0.565), (-0.13, D * 0.565)], 40))
+            # only the arc above the sill: a full ring drew loops under the body and through the road
+            lo = math.asin(max(-1.0, min(1.0, (clear + 0.04 - D / 2) / (D * 0.58))))
+            arc = [P3(c.x, D / 2 + D * 0.58 * math.sin(a), c.z + D * 0.58 * math.cos(a)) for a in (lo + (math.pi - 2 * lo) * k / 24 for k in range(25))]
+            body("Black", K.sweep(arc, 0.035, 8))
     # greenhouse: glass loft and roof
     gsecs = []
     m = 12
@@ -1054,12 +1057,12 @@ def car(kind, d, paint_slot="Paint"):
         hw = W * 0.445 - 0.06 * h
         gsecs.append((P3(0, top + CH * h / 2, zb), hw, CH * h / 2 + 0.002, 3.5))
     body("Glass", K.loft(gsecs, 28, True, axis="Y"))
-    body(paint_slot if not police else "White", K.loft([(P3(0, roof + 0.02, roof_front + 0.02), W * 0.385, 0.025, 4), (P3(0, roof + 0.03, (roof_front + roof_back) / 2), W * 0.39, 0.03, 4), (P3(0, roof + 0.02, roof_back - 0.02), W * 0.385, 0.025, 4)], 28, True, axis="Y"))
+    # roof skin flush on the glass (same width as its top, no gap): separate pillar tubes and a
+    # floating slab read as a wire cage
+    # (the glass's superellipse top is narrower than its half-width: the skin stays inside it)
+    rw = (W * 0.445 - 0.06) * 0.8
+    body(paint_slot if not police else "White", K.loft([(P3(0, roof - 0.004, roof_front + 0.06), rw * 0.9, 0.008, 4), (P3(0, roof + 0.008, (roof_front + roof_back) / 2), rw, 0.014, 4), (P3(0, roof - 0.004, roof_back - 0.06), rw * 0.9, 0.008, 4)], 28, True, axis="Y"))
     for xs in (-1, 1):
-        for a, b in ((P3(xs * (W * 0.44), top, cowl), P3(xs * (W * 0.385), roof + 0.01, roof_front + 0.02)), (P3(xs * (W * 0.385), roof + 0.01, roof_back - 0.02), P3(xs * (W * 0.44), top, cabin_end))):
-            body(paint_slot if not police else "Black", K.sweep([a, b], 0.03, 10))
-        bz = roof_front + (roof_back - roof_front) * (0.18 if kind == "Van" else 0.48)
-        body("Black", K.bar(P3(xs * W * 0.43, top, bz), P3(xs * W * 0.39, roof, bz), 0.05, 0.03, 0.005))
         body("Chrome" if kind != "Van" else "Black", K.sweep([P3(xs * W * 0.448, top + 0.005, cowl + 0.02), P3(xs * W * 0.448, top + 0.005, cabin_end - 0.02)], 0.008, 8))
     # interior
     for row in (0, 1):
@@ -1104,7 +1107,8 @@ def car(kind, d, paint_slot="Paint"):
         body("Glass", K.rbox(P3(xs * (W / 2 + 0.15), top + 0.1, mz + 0.081), (0.14, 0.004, 0.075), 0.02))
         doors = [cowl + 0.05, roof_front + (roof_back - roof_front) * (0.18 if kind == "Van" else 0.48), cabin_end - 0.12]
         for zz in doors:
-            body("Black", K.rbox(P3(xs * (W / 2 + 0.001), clear + 0.1 + (BH - 0.18) / 2, zz), (0.006, 0.008, BH - 0.2), 0.002))
+            # shut lines only on the flat of the side (the rounded sill and shoulder curve away from them)
+            body("Black", K.rbox(P3(xs * (W / 2 - 0.004), (top + clear + 0.04) / 2, zz), (0.006, 0.008, (top - clear) * 0.62), 0.002))
         for zz in doors[1:]:
             body("Chrome" if not police else "Black", K.rbox(P3(xs * (W / 2 + 0.006), top - 0.1, zz - 0.2), (0.015, 0.13, 0.025), 0.008))
     # kind extras

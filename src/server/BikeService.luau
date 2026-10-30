@@ -422,12 +422,12 @@ function BikeService.Teleport(player: Player, target: CFrame)
 end
 
 -- A charging station was used: top the battery up if the player's bike is close
-function BikeService.Charge(player: Player, position: Vector3): boolean
+function BikeService.Charge(player: Player, position: Vector3, range: number?): boolean
 	local ride = rides[player]
 	if not ride then
 		return false
 	end
-	if (ride.Root.Position - position).Magnitude > 45 then
+	if (ride.Root.Position - position).Magnitude > (range or 45) then
 		return false
 	end
 	ride.State.Battery = 1

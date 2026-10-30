@@ -247,6 +247,8 @@ end
 
 local SHIRTS = { Color3.fromRGB(240, 240, 236), Color3.fromRGB(40, 110, 200), Color3.fromRGB(220, 70, 60), Color3.fromRGB(250, 200, 60), Color3.fromRGB(60, 160, 120), Color3.fromRGB(240, 140, 180), Color3.fromRGB(30, 30, 34), Color3.fromRGB(120, 200, 230) }
 local PANTS = { Color3.fromRGB(40, 44, 60), Color3.fromRGB(70, 90, 140), Color3.fromRGB(200, 190, 170), Color3.fromRGB(30, 30, 32), Color3.fromRGB(110, 80, 60) }
+local HAIR = { Color3.fromRGB(30, 22, 18), Color3.fromRGB(70, 46, 28), Color3.fromRGB(150, 110, 60), Color3.fromRGB(210, 180, 120), Color3.fromRGB(120, 120, 124), Color3.fromRGB(140, 50, 30) }
+local SHOES = { Color3.fromRGB(245, 245, 245), Color3.fromRGB(26, 26, 28), Color3.fromRGB(90, 60, 40), Color3.fromRGB(200, 60, 60) }
 local SKIN = { Color3.fromRGB(234, 184, 146), Color3.fromRGB(198, 140, 100), Color3.fromRGB(150, 100, 70), Color3.fromRGB(96, 64, 46), Color3.fromRGB(246, 210, 180) }
 -- people are the standard avatar's size (Config.Avatar.Height; built at 5.15 studs)
 local P = Config.Avatar.Height / 5.15
@@ -255,6 +257,7 @@ local RESPAWN_RANGE = 520 * Config.MAP_SCALE / 1.25 -- the map grows with the wo
 
 type Walker = {
 	Parts: { BasePart }, -- torso, head, left leg, right leg, left arm, right arm
+	Details: { { Part: BasePart, On: number, Offset: CFrame } }, -- hair, face, shoes, sleeves... riding on a part
 	From: Vector3,
 	To: Vector3,
 	T: number,
@@ -278,7 +281,46 @@ local function buildWalker(): Walker
 		PartKit.Box(folder, "LeftArm", Vector3.new(0.85, 1.9, 0.85) * P, CFrame.identity, skin, Enum.Material.SmoothPlastic, opts),
 		PartKit.Box(folder, "RightArm", Vector3.new(0.85, 1.9, 0.85) * P, CFrame.identity, skin, Enum.Material.SmoothPlastic, opts),
 	}
-	return { Parts = parts, From = Vector3.zero, To = Vector3.zero, T = 0, Length = 0, Phase = walkRng:NextNumber(0, math.pi * 2) }
+	-- details, each riding on one of the parts above (offsets in its frame; -Z is the face)
+	local details: { { Part: BasePart, On: number, Offset: CFrame } } = {}
+	local function add(on: number, name: string, size: Vector3, offset: Vector3, color: Color3, material: Enum.Material?)
+		local part = PartKit.Box(folder, name, size * P, CFrame.identity, color, material or Enum.Material.SmoothPlastic, opts)
+		table.insert(details, { Part = part :: BasePart, On = on, Offset = CFrame.new(offset * P) })
+	end
+	local hair = HAIR[walkRng:NextInteger(1, #HAIR)]
+	local long = walkRng:NextNumber() < 0.4
+	add(2, "Hair", Vector3.new(1.22, 0.32, 1.22), Vector3.new(0, 0.48, 0.03), hair, Enum.Material.Fabric)
+	add(2, "HairBack", Vector3.new(1.22, if long then 1.5 else 0.75, 0.25), Vector3.new(0, if long then -0.15 else 0.2, 0.52), hair, Enum.Material.Fabric)
+	add(2, "EyeL", Vector3.new(0.14, 0.16, 0.04), Vector3.new(-0.24, 0.08, -0.58), Color3.fromRGB(20, 20, 24))
+	add(2, "EyeR", Vector3.new(0.14, 0.16, 0.04), Vector3.new(0.24, 0.08, -0.58), Color3.fromRGB(20, 20, 24))
+	add(2, "Brows", Vector3.new(0.7, 0.07, 0.04), Vector3.new(0, 0.3, -0.585), hair)
+	add(2, "Nose", Vector3.new(0.14, 0.24, 0.1), Vector3.new(0, -0.08, -0.6), skin:Lerp(Color3.new(0, 0, 0), 0.08))
+	add(2, "Mouth", Vector3.new(0.34, 0.05, 0.04), Vector3.new(0, -0.3, -0.58), skin:Lerp(Color3.fromRGB(120, 40, 40), 0.5))
+	add(1, "Neck", Vector3.new(0.5, 0.35, 0.5), Vector3.new(0, 1.05, 0), skin)
+	add(1, "Belt", Vector3.new(2.04, 0.18, 1.04), Vector3.new(0, -0.86, 0), Color3.fromRGB(40, 32, 26), Enum.Material.Leather)
+	add(1, "Collar", Vector3.new(0.9, 0.14, 1.04), Vector3.new(0, 0.9, 0), shirt:Lerp(Color3.new(0, 0, 0), 0.25), Enum.Material.Fabric)
+	local shoes = SHOES[walkRng:NextInteger(1, #SHOES)]
+	for _, leg in { 3, 4 } do
+		add(leg, "Shoe", Vector3.new(0.96, 0.32, 1.25), Vector3.new(0, -0.95, -0.15), shoes)
+		add(leg, "Sole", Vector3.new(0.98, 0.08, 1.27), Vector3.new(0, -1.1, -0.15), Color3.fromRGB(235, 232, 225))
+	end
+	for _, arm in { 5, 6 } do
+		add(arm, "Sleeve", Vector3.new(0.92, 0.75, 0.92), Vector3.new(0, 0.6, 0), shirt, Enum.Material.Fabric)
+		add(arm, "Hand", Vector3.new(0.7, 0.4, 0.75), Vector3.new(0, -1.1, 0), skin)
+	end
+	local extra = walkRng:NextInteger(1, 5)
+	if extra == 1 then -- cap
+		local cap = SHIRTS[walkRng:NextInteger(1, #SHIRTS)]
+		add(2, "Cap", Vector3.new(1.24, 0.3, 1.24), Vector3.new(0, 0.62, 0), cap, Enum.Material.Fabric)
+		add(2, "Brim", Vector3.new(1.0, 0.07, 0.6), Vector3.new(0, 0.5, -0.85), cap, Enum.Material.Fabric)
+	elseif extra == 2 then -- backpack
+		add(1, "Backpack", Vector3.new(1.5, 1.5, 0.6), Vector3.new(0, 0.05, 0.78), PANTS[walkRng:NextInteger(1, #PANTS)], Enum.Material.Fabric)
+	elseif extra == 3 then -- sunglasses
+		add(2, "Shades", Vector3.new(0.95, 0.2, 0.06), Vector3.new(0, 0.08, -0.6), Color3.fromRGB(16, 16, 18), Enum.Material.Glass)
+	elseif extra == 4 then -- shopping bag in the right hand
+		add(6, "Bag", Vector3.new(0.35, 0.9, 0.8), Vector3.new(0, -1.6, 0), Color3.fromRGB(230, 220, 200), Enum.Material.Fabric)
+	end
+	return { Parts = parts, Details = details, From = Vector3.zero, To = Vector3.zero, T = 0, Length = 0, Phase = walkRng:NextNumber(0, math.pi * 2) }
 end
 
 local walkBlocks: { Layout.Block } = {}
@@ -334,6 +376,9 @@ local function poseWalker(walker: Walker, now: number)
 		for _, part in parts do
 			part.CFrame = CFrame.new(0, -500, 0)
 		end
+		for _, detail in walker.Details do
+			detail.Part.CFrame = CFrame.new(0, -500, 0)
+		end
 		return
 	end
 	local dir = (walker.To - walker.From).Unit
@@ -348,6 +393,9 @@ local function poseWalker(walker: Walker, now: number)
 	local shoulder = root * CFrame.new(0, 3.9 * P, 0)
 	parts[5].CFrame = shoulder * CFrame.new(-1.43 * P, 0, 0) * CFrame.Angles(-swing * 0.8, 0, 0) * CFrame.new(0, -0.9 * P, 0)
 	parts[6].CFrame = shoulder * CFrame.new(1.43 * P, 0, 0) * CFrame.Angles(swing * 0.8, 0, 0) * CFrame.new(0, -0.9 * P, 0)
+	for _, detail in walker.Details do
+		detail.Part.CFrame = parts[detail.On].CFrame * detail.Offset
+	end
 end
 
 local function updateWalkers(dt: number, now: number)
@@ -361,6 +409,9 @@ local function updateWalkers(dt: number, now: number)
 		local walker = table.remove(walkers) :: Walker
 		for _, part in walker.Parts do
 			part:Destroy()
+		end
+		for _, detail in walker.Details do
+			detail.Part:Destroy()
 		end
 	end
 	for _, walker in walkers do

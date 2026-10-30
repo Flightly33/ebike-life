@@ -13,6 +13,7 @@ local LayoutModule = require(script.Parent.Layout)
 local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local Detail = require(script.Parent.Detail)
+local Interior = require(script.Parent.Interior)
 local CarModel = require(script.Parent.Parent.Models.CarModel)
 local Config = require(script.Parent.Parent.Config)
 local PartKit = require(script.Parent.Parent.PartKit)
@@ -172,7 +173,8 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 	local h = floors * floorH + 2
 	local brick = if stucco then pick(rng, PASTELS) else pick(rng, BRICKS)
 	local material = if stucco or rng:NextNumber() >= 0.75 then Enum.Material.Plaster else Enum.Material.Brick
-	PartKit.Box(model, "Body", Vector3.new(w, h, d), CFrame.new(cx, Y + h / 2, cz), brick, material)
+	-- the ground floor is the shop (Interior, built with the storefront below); the body sits on it
+	PartKit.Box(model, "Body", Vector3.new(w, h - floorH, d), CFrame.new(cx, Y + floorH + (h - floorH) / 2, cz), brick, material)
 	local trim = pick(rng, { Color3.fromRGB(235, 230, 220), Color3.fromRGB(60, 62, 66), Color3.fromRGB(200, 196, 186) })
 	local style: Detail.WindowStyle = {
 		Width = pick(rng, { 4, 4.5, 5 }),
@@ -216,7 +218,19 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 	local faceWidth = if math.abs(front.X) > 0.5 then d else w
 	local faceDepth = if math.abs(front.X) > 0.5 then w else d
 	local face = Detail.Face(cx, cz, front, faceDepth / 2, Y)
-	Detail.Storefront(model, face, faceWidth, 9.5, pick(rng, shopNames or SHOPS), pick(rng, AWNINGS), rng)
+	local shopName = pick(rng, shopNames or SHOPS)
+	Detail.Storefront(model, face, faceWidth, 9.5, shopName, pick(rng, AWNINGS), rng)
+	Interior.Build(model, face * CFrame.new(0, 0, faceDepth / 2) * CFrame.Angles(0, 0, 0), faceWidth, faceDepth, floorH, {
+		Kind = "Shop",
+		Name = shopName,
+		Accent = pick(rng, AWNINGS),
+		Wall = brick:Lerp(Color3.new(1, 1, 1), 0.6),
+		Front = false,
+		Sides = true,
+		Rng = rng,
+	})
+	-- the wall above the shopfront, up to the first floor
+	PartKit.Box(model, "ShopHeader", Vector3.new(faceWidth, floorH - 9.5, 1), face * CFrame.new(0, 9.5 + (floorH - 9.5) / 2, 0.5), brick, material)
 	-- side door to the flats above
 	-- fire escape on one side
 	if floors >= 3 and rng:NextNumber() < 0.45 then
@@ -941,11 +955,17 @@ function Buildings.FastFood(parent: Instance, x0: number, x1: number, z0: number
 	end
 	local bx, bz = -W * 0.1, D * 0.08
 	local building = look * CFrame.new(bx, top, bz)
-	PartKit.Box(model, "Restaurant", Vector3.new(bw, bh, bd), building * CFrame.new(0, bh / 2, 0), brand.Trim:Lerp(Color3.new(1, 1, 1), 0.5), Enum.Material.Plaster)
-	-- the street face: glass, a door, the brand band
-	local glass = PartKit.Box(model, "ShopGlass", Vector3.new(bw - 6, 7.5, 0.4), building * CFrame.new(0, 4.6, -bd / 2 - 0.15), Color3.fromRGB(70, 96, 110), GLASS, DECOR)
-	glass.Reflectance = 0.2
-	PartKit.Box(model, "Door", Vector3.new(4.2, 7.6, 0.45), building * CFrame.new(bw / 2 - 6, 3.8, -bd / 2 - 0.25), Color3.fromRGB(56, 76, 90), GLASS, DECOR)
+	-- a dining room you walk into (Interior: glazed front, counter, tables), under the brand band
+	Interior.Build(model, building, bw, bd, bh - 3.4, {
+		Kind = "Food",
+		Name = brand.Icon .. " " .. brand.Name,
+		Accent = brand.Main,
+		Wall = brand.Trim:Lerp(Color3.new(1, 1, 1), 0.5),
+		Front = true,
+		DoorX = bw / 2 - 6,
+		Sides = true,
+		Rng = rng,
+	})
 	local band = PartKit.Box(model, "Band", Vector3.new(bw + 0.4, 3.4, bd + 0.4), building * CFrame.new(0, bh - 1.7, 0), brand.Main, SMOOTH)
 	local sign = PartKit.Box(model, "BrandSign", Vector3.new(bw * 0.8, 3, 0.2), building * CFrame.new(0, bh - 1.7, -bd / 2 - 0.35), brand.Main, SMOOTH, DECOR)
 	sign.Transparency = 1
@@ -1027,14 +1047,28 @@ function Buildings.StripMall(parent: Instance, x0: number, x1: number, z0: numbe
 	local bd, bh = math.min(44, D * 0.4), 18
 	local row = look * CFrame.new(0, 0.2, D / 2 - bd / 2 - 4)
 	local wall = pick(rng, PASTELS)
-	PartKit.Box(model, "Mall", Vector3.new(W - 12, bh, bd), row * CFrame.new(0, bh / 2, 0), wall, Enum.Material.Plaster)
+	-- the units are rooms (Interior); the mall's box is only the storey above them
+	local shopH = 12
+	PartKit.Box(model, "Mall", Vector3.new(W - 12, bh - shopH, bd), row * CFrame.new(0, shopH + (bh - shopH) / 2, 0), wall, Enum.Material.Plaster)
 	PartKit.Box(model, "Arcade", Vector3.new(W - 10, 1, 8), row * CFrame.new(0, 11, -bd / 2 - 4), Color3.fromRGB(245, 245, 240), SMOOTH, NO_COLLIDE)
 	local units = math.max(2, math.floor((W - 12) / 30))
 	local unitW = (W - 12) / units
 	local face = row * CFrame.new(0, 0, -bd / 2)
 	for i = 0, units - 1 do
 		local x = -(W - 12) / 2 + (i + 0.5) * unitW
-		Detail.Storefront(model, face * CFrame.new(x, 0, 0), unitW - 1, 9.5, pick(rng, SHOPS), pick(rng, AWNINGS), rng)
+		local shopName = pick(rng, SHOPS)
+		local awning = pick(rng, AWNINGS)
+		Detail.Storefront(model, face * CFrame.new(x, 0, 0), unitW - 1, 9.5, shopName, awning, rng)
+		Interior.Build(model, face * CFrame.new(x, 0, bd / 2), unitW, bd, shopH, {
+			Kind = if i == 0 and rng:NextNumber() < 0.5 then "Food" else "Shop",
+			Name = shopName,
+			Accent = awning,
+			Wall = wall:Lerp(Color3.new(1, 1, 1), 0.6),
+			Front = false,
+			Sides = true,
+			Rng = rng,
+		})
+		PartKit.Box(model, "ShopHeader", Vector3.new(unitW, shopH - 9.5, 1), face * CFrame.new(x, 9.5 + (shopH - 9.5) / 2, 0.5), wall, Enum.Material.Plaster)
 		if i > 0 then
 			PartKit.Box(model, "Column", Vector3.new(1.2, 10.5, 1.2), face * CFrame.new(x - unitW / 2, 5.25, -7.5), Color3.fromRGB(245, 245, 240), SMOOTH)
 		end
@@ -1085,9 +1119,16 @@ function Buildings.GasStation(parent: Instance, x0: number, x1: number, z0: numb
 	end
 	-- the store
 	local store = look * CFrame.new(W * 0.18, 0.2, D / 2 - 18)
-	PartKit.Box(model, "Store", Vector3.new(math.min(50, W * 0.4), 14, 28), store * CFrame.new(0, 7, 0), Color3.fromRGB(240, 238, 230), Enum.Material.Plaster)
-	local sglass = PartKit.Box(model, "ShopGlass", Vector3.new(math.min(44, W * 0.36), 8, 0.4), store * CFrame.new(0, 4.6, -14.15), Color3.fromRGB(70, 96, 110), GLASS, DECOR)
-	sglass.Reflectance = 0.2
+	Interior.Build(model, store, math.min(50, W * 0.4), 28, 11.6, {
+		Kind = "Gas",
+		Name = "☀ SUNFUEL MART",
+		Accent = brand,
+		Wall = Color3.fromRGB(240, 238, 230),
+		Front = true,
+		DoorX = 0,
+		Sides = true,
+		Rng = rng,
+	})
 	PartKit.Box(model, "StoreBand", Vector3.new(math.min(50, W * 0.4) + 0.4, 2.4, 28.4), store * CFrame.new(0, 12.8, 0), brand, SMOOTH, DECOR)
 	-- price sign
 	local base = (look * CFrame.new(-W / 2 + 10, 0.2, -D / 2 + 5)).Position

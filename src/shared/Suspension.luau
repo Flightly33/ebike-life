@@ -40,7 +40,7 @@ local FRONT_SHARE = 0.45 -- of the sprung weight on the front wheel
 local TYRE_SAG = 0.02 -- m of tyre squash under static load
 local ENVELOP = 0.6 -- a tyre wraps round a sharp edge over this fraction of its radius (rising ground
 -- under a wheel is smoothed over that much travel; falling ground isn't)
-local LEGS = 0.6 -- of the landing speed that reaches the suspension (the rider's legs take the rest)
+local LEGS = 0.45 -- of the landing speed that reaches the suspension (the rider's legs take the rest)
 Suspension.TYRE_SAG = TYRE_SAG
 
 export type Corner = {
@@ -124,8 +124,8 @@ local function cornerFor(x: number, radius: number, travel: number, share: numbe
 		K = k,
 		P = preload,
 		Prog = prog,
-		Comp = (if level >= 1 then 0.4 else 0.33) * critical,
-		Reb = (if level >= 1 then 0.62 else 0.55) * critical,
+		Comp = (if level >= 1 then 0.48 else 0.42) * critical,
+		Reb = (if level >= 1 then 0.85 else 0.78) * critical,
 		Mw = mWheel,
 		Kt = kt,
 		Ct = 2 * 0.2 * math.sqrt(kt * mWheel),

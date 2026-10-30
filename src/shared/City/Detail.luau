@@ -82,21 +82,28 @@ end
 function Detail.Storefront(parent: Instance, face: CFrame, width: number, height: number, name: string, color: Color3, rng: Random)
 	local w = width - 2
 	local frame = Color3.fromRGB(40, 42, 46)
-	PartKit.Box(parent, "Bulkhead", Vector3.new(w, 2.2, 0.8), face * CFrame.new(0, 1.1, -0.4), color:Lerp(Color3.new(0, 0, 0), 0.35), SMOOTH, SOLID_DECOR)
-	local glass = PartKit.Box(parent, "ShopGlass", Vector3.new(w, height - 3, 0.3), face * CFrame.new(0, 2.2 + (height - 3) / 2, -0.25), Color3.fromRGB(80, 110, 124), GLASS, DECOR)
-	glass.Reflectance = 0.22
-	glass.Transparency = 0.15
 	local bays = math.max(2, math.floor(w / 9))
+	-- door (in a bay near one end), propped open: the shop behind is a room you can walk into
+	local dx = (rng:NextNumber() < 0.5 and -1 or 1) * (w / 2 - w / bays / 2)
+	-- the glass either side of the doorway is solid
+	for _, span in { { -w / 2, dx - 2.5 }, { dx + 2.5, w / 2 } } do
+		local sw = span[2] - span[1]
+		if sw > 0.2 then
+			PartKit.Box(parent, "Bulkhead", Vector3.new(sw, 2.2, 0.8), face * CFrame.new((span[1] + span[2]) / 2, 1.1, -0.4), color:Lerp(Color3.new(0, 0, 0), 0.35), SMOOTH, SOLID_DECOR)
+			local glass = PartKit.Box(parent, "ShopGlass", Vector3.new(sw, height - 3, 0.3), face * CFrame.new((span[1] + span[2]) / 2, 2.2 + (height - 3) / 2, -0.25), Color3.fromRGB(80, 110, 124), GLASS, SOLID)
+			glass.Reflectance = 0.22
+			glass.Transparency = 0.35
+		end
+	end
 	for i = 0, bays do
 		local x = -w / 2 + i * w / bays
 		PartKit.Box(parent, "ShopMullion", Vector3.new(0.45, height - 0.8, 0.5), face * CFrame.new(x, height / 2 - 0.4 + 0.4, -0.35), frame, METAL, DECOR)
 	end
 	PartKit.Box(parent, "ShopTransom", Vector3.new(w, 0.45, 0.5), face * CFrame.new(0, height - 2.3, -0.35), frame, METAL, DECOR)
-	-- door (in a bay near one end)
-	local dx = (rng:NextNumber() < 0.5 and -1 or 1) * (w / 2 - w / bays / 2)
-	PartKit.Box(parent, "Door", Vector3.new(4.2, 7.6, 0.35), face * CFrame.new(dx, 3.8, -0.42), Color3.fromRGB(70, 96, 110), GLASS, DECOR)
+	local hinge = face * CFrame.new(dx - 2.1, 0, -0.42) * CFrame.Angles(0, math.rad(-75), 0)
+	PartKit.Box(parent, "Door", Vector3.new(4.2, 7.6, 0.35), hinge * CFrame.new(2.1, 3.8, 0), Color3.fromRGB(70, 96, 110), GLASS, DECOR)
 	PartKit.Box(parent, "DoorFrame", Vector3.new(4.8, 8.0, 0.3), face * CFrame.new(dx, 4.0, -0.3), frame, METAL, DECOR)
-	PartKit.Box(parent, "Handle", Vector3.new(0.2, 1.6, 0.25), face * CFrame.new(dx + 1.4, 3.8, -0.7), LIGHT_STEEL, METAL, DECOR)
+	PartKit.Box(parent, "Handle", Vector3.new(0.2, 1.6, 0.25), hinge * CFrame.new(3.5, 3.8, -0.3), LIGHT_STEEL, METAL, DECOR)
 	PartKit.Box(parent, "Threshold", Vector3.new(5, 0.25, 1.2), face * CFrame.new(dx, 0.12, -0.6), LIGHT_STEEL, METAL, DECOR)
 	-- fascia and sign
 	PartKit.Box(parent, "Fascia", Vector3.new(width, 2.6, 0.6), face * CFrame.new(0, height + 1.3, -0.3), frame, SMOOTH, DECOR)

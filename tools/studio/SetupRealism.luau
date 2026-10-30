@@ -15,7 +15,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MaterialService = game:GetService("MaterialService")
 
-local STUDS_PER_METRE = 2.8571 -- the city's scale (the game sets this again at runtime)
+local STUDS_PER_METRE = 5.3571 -- the city's scale (the game sets this again at runtime)
 
 local MATERIALS = {
 	{ Name = "RealAsphalt", Base = "Asphalt", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "Asphalt_Color", Normal = "Asphalt_Normal", Roughness = "Asphalt_Roughness" } },
