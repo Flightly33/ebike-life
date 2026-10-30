@@ -14,6 +14,7 @@ local Layout: typeof(LayoutModule) = (LayoutModule :: any).Design
 local Props = require(script.Parent.Props)
 local Detail = require(script.Parent.Detail)
 local Interior = require(script.Parent.Interior)
+local Billboards = require(script.Parent.Billboards)
 local CarModel = require(script.Parent.Parent.Models.CarModel)
 local Config = require(script.Parent.Parent.Config)
 local PartKit = require(script.Parent.Parent.PartKit)
@@ -244,6 +245,11 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 	PartKit.Box(model, "Cornice", Vector3.new(w + 1.4, 1.4, d + 1.4), CFrame.new(cx, Y + h + 0.2, cz), trim, CONCRETE)
 	PartKit.Box(model, "CorniceDentil", Vector3.new(w + 0.8, 0.6, d + 0.8), CFrame.new(cx, Y + h - 0.8, cz), trim, CONCRETE, DECOR)
 	Detail.Roof(model, cx, cz, w - 4, d - 4, Y + h + 0.9, rng)
+	-- some low and mid-rise roofs carry a billboard facing the street
+	if floors <= 5 and math.min(w, d) > 30 and rng:NextNumber() < 0.22 then
+		local along = if math.abs(front.X) > 0.5 then d else w
+		Billboards.Rooftop(model, Vector3.new(cx, Y + h + 0.9, cz), front, math.min(along * 0.8, 48), rng)
+	end
 	if rng:NextNumber() < 0.35 then
 		local tank = Vector3.new(cx + rng:NextNumber(-w / 4, w / 4), Y + h + 1, cz + rng:NextNumber(-d / 4, d / 4))
 		for _, o in { Vector3.new(-2, 0, -2), Vector3.new(2, 0, -2), Vector3.new(-2, 0, 2), Vector3.new(2, 0, 2) } do
@@ -309,6 +315,9 @@ function Buildings.Warehouse(parent: Instance, cx: number, cz: number, w: number
 	-- a pipe run down one side
 	local side = Detail.Face(cx, cz, right, (if math.abs(right.X) > 0.5 then w else d) / 2, Y)
 	PartKit.Box(model, "Pipe", Vector3.new(1.2, h, 1.2), side * CFrame.new(faceWidth * 0.3, h / 2, -0.8), Color3.fromRGB(180, 70, 50), METAL, DECOR)
+	if faceWidth > 40 and rng:NextNumber() < 0.3 then
+		Billboards.Rooftop(model, Vector3.new(cx, Y + h + 1.5, cz) - front * (faceDepth * 0.25), front, math.min(faceWidth * 0.7, 52), rng)
+	end
 	return model
 end
 
@@ -687,6 +696,18 @@ function Buildings.Podium(parent: Instance, cx: number, cz: number, w: number, d
 		end
 	end
 	local top = Y + h
+	-- downtown podiums often carry an LED screen up one face
+	if levels >= 3 and rng:NextNumber() < 0.45 then
+		local outs = { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) }
+		local out = outs[rng:NextInteger(1, 4)]
+		local faceW = if out.X ~= 0 then d else w
+		local half = if out.X ~= 0 then w / 2 else d / 2
+		local sw = math.min(faceW * 0.45, 46)
+		local sh = math.min(h - levelH - 4, sw * 0.6)
+		if sh > 12 then
+			Billboards.Screen(model, Detail.Face(cx, cz, out, half + 2.2, Y) * CFrame.new(rng:NextNumber(-0.2, 0.2) * faceW, levelH + 2 + sh / 2, 0), sw, sh, rng)
+		end
+	end
 	PartKit.Box(model, "Parapet", Vector3.new(w + 0.6, 3.4, d + 0.6), CFrame.new(cx, top + 1.7, cz), tone, CONCRETE)
 	-- pool deck
 	local deck = PartKit.Box(model, "PoolDeck", Vector3.new(w - 4, 0.3, d - 4), CFrame.new(cx, top + 0.15, cz), Color3.fromRGB(226, 216, 196), Enum.Material.Pavement)

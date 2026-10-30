@@ -222,8 +222,12 @@ function Detail.BusStop(parent: Instance, cf: CFrame, routeName: string)
 	local back = PartKit.Box(model, "BackGlass", Vector3.new(13, 6, 0.2), cf * CFrame.new(0, 4.5, 3.8), Color3.fromRGB(170, 200, 215), GLASS)
 	back.Transparency = 0.55
 	PartKit.Box(model, "Bench", Vector3.new(10, 0.4, 1.6), cf * CFrame.new(0, 1.8, 2.8), Color3.fromRGB(150, 110, 70), Enum.Material.Wood)
+	-- the lit ad panel (Client/Billboards draws the ad; this sign is what shows from afar)
 	local ad = PartKit.Box(model, "AdPanel", Vector3.new(4.5, 6.5, 0.6), cf * CFrame.new(-4, 4.5, 4.2), Color3.fromRGB(250, 250, 250), Enum.Material.Neon, DECOR)
 	PartKit.Sign(ad, Enum.NormalId.Front, "RIDE FLIGHTLY ⚡", Color3.fromRGB(255, 120, 20), Color3.fromRGB(20, 22, 26), Enum.Font.FredokaOne, 14)
+	ad.Name = "AdFace"
+	ad:SetAttribute("AdKind", "Panel")
+	ad:SetAttribute("AdSeed", math.floor(math.abs(cf.Position.X * 7 + cf.Position.Z * 13)) % 100000)
 	PartKit.Post(model, "SignPole", 0.35, 11, (cf * CFrame.new(7.8, 0, -1)).Position, frame, METAL)
 	local sign = PartKit.Box(model, "StopSign", Vector3.new(2.6, 2.6, 0.2), cf * CFrame.new(7.8, 10.2, -1) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(30, 110, 200), SMOOTH, DECOR)
 	PartKit.Sign(sign, Enum.NormalId.Front, "BUS " .. routeName, Color3.fromRGB(255, 255, 255), nil, Enum.Font.GothamBold, 20)

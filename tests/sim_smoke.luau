@@ -467,6 +467,27 @@ do
 end
 
 --------------------------------------------------------------------------------
+print("== billboards")
+do
+	local screen
+	for _, d in WS:WaitForChild("City"):GetDescendants() do
+		if d.Name == "AdFace" and d:GetAttribute("AdKind") == "Screen" then
+			screen = d
+			break
+		end
+	end
+	check(screen ~= nil, "the city has LED ad screens")
+	if screen then
+		rig:PivotTo(CFrame.new(screen.Position + screen.CFrame.LookVector * 60))
+		world:Run(3)
+		local gui = screen:FindFirstChild("Ad")
+		check(gui ~= nil, "an ad screen near the player shows an ad")
+		world:Run(9)
+		check(gui ~= nil and #gui:GetChildren() >= 2, "the screen has its ticker and its ad")
+	end
+end
+
+--------------------------------------------------------------------------------
 print("== admin")
 check(player:GetAttribute("Admin") == true, "play-testing in Studio makes you an admin")
 local AdminRemote = ClientRemotes.Function("Admin")

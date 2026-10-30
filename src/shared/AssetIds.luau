@@ -37,6 +37,13 @@ AssetIds.Sounds = {
 -- Background music ids (a shuffled playlist). Empty: the server searches the library.
 AssetIds.Music = {} :: { string }
 
+-- Billboard images (uploaded decals or images: Creator Dashboard -> Development Items -> Decals).
+-- Each entry is an ad of your own that the billboards, rooftop boards, LED screens and bus shelter
+-- panels show in turn with the built-in ones (Shared/Ads). `Wide` images (about 3:1) suit the
+-- billboards and screens, `Tall` ones (about 2:3) the bus shelter panels; leave the other "".
+-- Example: { Wide = "1234567890", Tall = "", Name = "My Brand" }
+AssetIds.Billboards = {} :: { { Wide: string, Tall: string, Name: string } }
+
 -- Game pass ids (Creator Dashboard -> your experience -> Monetization -> Passes). 0 = not set up yet;
 -- the Shop shows those as "Coming soon".
 AssetIds.GamePasses = {

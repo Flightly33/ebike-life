@@ -18,6 +18,7 @@ local Neighborhoods = require(script.Parent.Neighborhoods)
 local Airport = require(script.Parent.Airport)
 local Port = require(script.Parent.Port)
 local Everglades = require(script.Parent.Everglades)
+local Billboards = require(script.Parent.Billboards)
 local Realism = require(script.Parent.Parent.Realism)
 local PartKit = require(script.Parent.Parent.PartKit)
 local Config = require(script.Parent.Parent.Config)
@@ -479,6 +480,43 @@ local function dealership(blocks: Instance, block: LayoutModule.Block, rng: Rand
 	end
 end
 
+-- Highway billboards along the turnpike, the rural roads and the freeways where the ground beside
+-- them is open, `spacing` apart along each road (design units, before Builder scales the city)
+local function billboards(city: Instance, rng: Random)
+	local folder = PartKit.Folder(city, "Billboards")
+	local placed: { Vector3 } = {}
+	local spacing = 380 * Layout.SPREAD
+	local count = 0
+	for _, edge in Layout.Edges do
+		if edge.Kind == "Highway" or edge.Kind == "Rural" or edge.Kind == "Freeway" then
+			local a = Layout.Nodes[edge.A].Position
+			local b = Layout.Nodes[edge.B].Position
+			local n = math.floor(edge.Length / spacing)
+			for k = 1, n do
+				local t = (k - 0.5 + rng:NextNumber(-0.2, 0.2)) / math.max(n, 1)
+				local p = a:Lerp(b, t)
+				local along = edge.Direction
+				local sideSign = if rng:NextNumber() < 0.5 then 1 else -1
+				local side = Vector3.new(-along.Z, 0, along.X) * sideSign
+				local spot = p + side * (edge.Width / 2 + 34)
+				local clear = not Countryside.Blocked(spot.X, spot.Z, 16)
+				for _, q in placed do
+					if (q - spot).Magnitude < spacing * 0.7 then
+						clear = false
+						break
+					end
+				end
+				if clear then
+					table.insert(placed, spot)
+					count += 1
+					Billboards.Monopole(folder, Vector3.new(spot.X, Layout.ROAD_Y, spot.Z), along, side, rng)
+				end
+			end
+		end
+	end
+	return count
+end
+
 function Builder.Build(): Model
 	local city = Instance.new("Model")
 	city.Name = "City"
@@ -515,6 +553,7 @@ function Builder.Build(): Model
 	Port.Build(city, rng)
 	Everglades.Build(city, rng)
 	Countryside.Build(city, rng)
+	billboards(city, rng)
 	spawnPoint(city)
 	-- real-world materials by role (roofs, tyres, glass...)
 	Realism.Apply(city)
