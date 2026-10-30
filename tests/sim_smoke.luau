@@ -488,6 +488,24 @@ do
 end
 
 --------------------------------------------------------------------------------
+print("== street and building detail")
+do
+	local detail = WS:FindFirstChild("CityDetail")
+	local roads, buildings = 0, 0
+	if detail then
+		for _, m in detail:GetChildren() do
+			if m.Name == "RoadDetail" then
+				roads += 1
+			elseif m.Name == "BuildingDetail" then
+				buildings += 1
+			end
+		end
+	end
+	check(roads > 3, "road detail round the player (" .. roads .. " chunks)")
+	check(buildings > 0, "building detail round the player (" .. buildings .. " buildings)")
+end
+
+--------------------------------------------------------------------------------
 print("== admin")
 check(player:GetAttribute("Admin") == true, "play-testing in Studio makes you an admin")
 local AdminRemote = ClientRemotes.Function("Admin")
