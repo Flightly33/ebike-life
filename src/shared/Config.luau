@@ -8,8 +8,9 @@
 	The city is authored in Roblox's standard units (1 stud = 0.28 m, real sizes) and built at
 	WORLD_SCALE times that. A Roblox avatar is stocky (a big head, arms and shoulders 4 studs
 	across): a city built to its height (0.8) made it look like a giant next to bus shelters,
-	doors and cars, and 1.2 still did (the owner's avatar measured ~6.5 studs in a screenshot, before characters were
-	scaled to one height). At 1.5 a lane is 19 studs, a storey ~16, a door ~11, a sedan ~7.8 tall.
+	doors and cars, and 1.2 still did (the owner's avatar measured ~6.5 studs in a screenshot,
+	before characters were scaled to one height). At 1.5 a lane is 19 studs, a storey ~16, a door
+	~11, a sedan ~7.8 tall.
 	Cars (traffic, police, parked) are part of the world and built at its scale; bikes stay fitted to
 	their riders. Where things are on the plan (the streets, blocks, islands and places) is spread
 	by CITY_SPREAD: the map grows with the world (MAP_SCALE).
