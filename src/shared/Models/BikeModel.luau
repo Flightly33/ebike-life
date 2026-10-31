@@ -24,6 +24,7 @@
 ]]
 
 local Bikes = require(script.Parent.Parent.Bikes)
+local Livery = require(script.Parent.Parent.Livery)
 local Config = require(script.Parent.Parent.Config)
 local Paints = require(script.Parent.Parent.Paints)
 local Realism = require(script.Parent.Parent.Realism)
@@ -42,7 +43,7 @@ local TIRE = Color3.fromRGB(32, 32, 34)
 local SILVER = Color3.fromRGB(190, 192, 196)
 local DARK = Color3.fromRGB(52, 54, 58)
 
-export type PaintChoice = { Frame: string?, Accent: string?, Rims: string?, Glow: string? }
+export type PaintChoice = { Frame: string?, Accent: string?, Rims: string?, Seat: string?, Susp: string?, Glow: string? }
 export type Options = {
 	Static: boolean?,
 	Scale: number?, -- drawn this many times BIKE_SIZE (BikeModel.FitScale fits a rider); default 1
@@ -670,20 +671,59 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	box(b, frame, "SeatAnchor", Vector3.new(0.1, 0.1, 0.1), CFrame.new(scale(seatFront:Lerp(seatBack, 0.35))), nil, BLACK).Transparency = 1
 end
 
-local function resolvePaints(bike: Bikes.Bike, choice: PaintChoice?): ({ Frame: Color3, Accent: Color3, Rims: Color3 }, { [string]: Enum.Material? })
-	local colors = { Frame = bike.Colors.Frame, Accent = bike.Colors.Accent, Rims = bike.Colors.Rims }
-	local materials: { [string]: Enum.Material? } = {}
-	if choice then
-		for _, slot in { "Frame", "Accent", "Rims" } do
-			local id = (choice :: any)[slot]
-			local paint = Paints.Get(id)
-			if paint and paint.Kind == "Paint" and paint.Id ~= "stock" then
-				(colors :: any)[slot] = paint.Color
-				materials[slot] = paint.Material
-			end
-		end
+-- Each slot's look (Shared/Livery: crate paints and custom coats), and the colours and materials
+-- alone for the builders
+local function looks(bike: Bikes.Bike, choice: PaintChoice?): { [string]: Livery.Look }
+	local defaults = { Frame = bike.Colors.Frame, Accent = bike.Colors.Accent, Rims = bike.Colors.Rims }
+	local out: { [string]: Livery.Look } = {}
+	for _, slot in Livery.Slots do
+		out[slot.Key] = Livery.Look(slot.Key, if choice then (choice :: any)[slot.Key] else nil, defaults)
 	end
-	return colors, materials
+	return out
+end
+
+local function resolvePaints(bike: Bikes.Bike, choice: PaintChoice?): ({ Frame: Color3, Accent: Color3, Rims: Color3 }, { [string]: Enum.Material? })
+	local colors: { [string]: Color3 } = {}
+	local materials: { [string]: Enum.Material? } = {}
+	for key, look in looks(bike, choice) do
+		colors[key] = look.Color
+		materials[key] = look.Material
+	end
+	return colors :: any, materials
+end
+
+-- Part names the paint slots reach on the part-built bikes (beyond the parts built with a slot)
+local SLOT_BY_NAME: { [string]: string } = {
+	Saddle = "Seat",
+	SaddleNose = "Seat",
+	SeatPad = "Seat",
+	Bench = "Seat",
+	Stanchion = "Susp",
+	ShockBody = "Susp",
+}
+
+-- Is a pattern's MaterialVariant in the game (the realism pack's import)?
+local function hasVariant(name: string): boolean
+	local ok, found = pcall(function()
+		return game:GetService("MaterialService"):FindFirstChild(name)
+	end)
+	return ok and typeof(found) == "Instance"
+end
+
+-- Puts a look on a part (a pattern only if its variant is in the game)
+local function dress(part: BasePart, look: Livery.Look, value: string?)
+	local variant = look.Variant
+	if variant and not hasVariant(variant) then
+		local fallback = Livery.Fallback(value)
+		if fallback then
+			look = fallback
+		end
+		variant = nil
+	end
+	part.Color = look.Color
+	part.Material = look.Material
+	part.Reflectance = look.Reflectance
+	part.MaterialVariant = variant or ""
 end
 
 -- Recolour an existing bike (a respray in the Tuning menu)
@@ -818,15 +858,21 @@ local function hellfire(b: Builder, bike: Bikes.Bike, g: Geo)
 end
 
 function BikeModel.ApplyPaint(model: Model, bike: Bikes.Bike, choice: PaintChoice?)
-	local colors, materials = resolvePaints(bike, choice)
+	local all = looks(bike, choice)
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			local slot = d:GetAttribute("Paint")
+			if type(slot) ~= "string" then
+				local byName = SLOT_BY_NAME[d.Name]
+				if byName then
+					d:SetAttribute("Paint", byName)
+					slot = byName
+				end
+			end
 			if type(slot) == "string" then
-				local color = (colors :: any)[slot]
-				if color then
-					d.Color = color
-					d.Material = materials[slot] or SMOOTH
+				local look = all[slot]
+				if look then
+					dress(d, look, if choice then (choice :: any)[slot] else nil)
 				end
 			end
 		end

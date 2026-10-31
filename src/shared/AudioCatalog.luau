@@ -34,6 +34,11 @@ AudioCatalog.Effects = {
 	Escaped = { Keywords = { "success", "victory jingle", "win" }, MaxDuration = 4, Volume = 0.5 },
 	CrateOpen = { Keywords = { "chest open", "reward", "unlock" }, MaxDuration = 4, Volume = 0.5 },
 	Charge = { Keywords = { "electric charge", "power up", "charging" }, MaxDuration = 4, Volume = 0.45 },
+	-- Flighty Garage
+	SprayPaint = { Keywords = { "spray paint can", "spray can", "aerosol spray" }, MaxDuration = 4, Volume = 0.5 },
+	Ratchet = { Keywords = { "ratchet wrench", "socket wrench", "ratchet" }, MaxDuration = 3, Volume = 0.5 },
+	AirWrench = { Keywords = { "impact wrench", "air wrench", "pneumatic wrench" }, MaxDuration = 3, Volume = 0.45 },
+	Lift = { Keywords = { "hydraulic lift", "hydraulic press", "pneumatic hiss" }, MaxDuration = 4, Volume = 0.4 },
 	-- ambience (Client/Ambient blends them by where the camera is and the hour)
 	AmbientCity = { Keywords = { "city ambience", "city traffic ambience", "urban ambience" }, MinDuration = 20, MaxDuration = 600, Volume = 0.22 },
 	AmbientSurf = { Keywords = { "ocean waves", "beach waves ambience", "sea waves" }, MinDuration = 15, MaxDuration = 600, Volume = 0.35 },

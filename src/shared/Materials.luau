@@ -47,13 +47,16 @@ function Materials.Apply(): number
 			copy = variant:Clone()
 		end
 		local live = copy :: MaterialVariant
+		-- livery patterns (Shared/Livery) are painted on bikes by name: bike-sized tiles, and never
+		-- the override for their base material
+		local pattern = variant:GetAttribute("Pattern") == true or string.sub(variant.Name, 1, 11) == "RealPattern"
 		local tile = variant:GetAttribute("TileMeters")
 		if type(tile) == "number" then
-			live.StudsPerTile = tile * Config.CITY_STUDS_PER_METER
+			live.StudsPerTile = tile * (if pattern then Config.VISUAL_STUDS_PER_METER else Config.CITY_STUDS_PER_METER)
 		end
 		live.Parent = MaterialService
 		local base = live.BaseMaterial
-		if (variant:GetAttribute("Turned") == true) == (Config.Realism.Turned[base.Name] == true) then
+		if not pattern and (variant:GetAttribute("Turned") == true) == (Config.Realism.Turned[base.Name] == true) then
 			pcall(function()
 				MaterialService:SetBaseMaterialOverride(base, live.Name)
 			end)

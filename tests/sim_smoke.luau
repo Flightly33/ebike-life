@@ -12,7 +12,7 @@ local roblox = require("@lune/roblox")
 local World = require("../tools/sim/World")
 local Sim = require("../tools/sim/Instance")
 
-local CFrame, Vector3 = roblox.CFrame, roblox.Vector3
+local CFrame, Vector3, Color3 = roblox.CFrame, roblox.Vector3, roblox.Color3
 
 local root = process.cwd
 if string.sub(root, -1) ~= "/" then
@@ -307,7 +307,13 @@ ok, message = invoke(BuyBike, "storm_x")
 check(ok == true, "bought the Storm X (" .. tostring(message) .. ")")
 check(data.Owned.storm_x == true, "the Storm X is owned")
 ok, message = invoke(ClientRemotes.Function("BuyUpgrade"), "storm_x", "Battery", 1)
-check(ok == true, "bought a battery upgrade (" .. tostring(message) .. ")")
+check(ok ~= true, "parts are only fitted at Flighty Garage (" .. tostring(message) .. ")")
+-- walk into the garage
+local returnTo = rig:GetPivot()
+rig:PivotTo(CFrame.new(Layout.Places.Garage + Vector3.new(0, 4, 0)))
+world:Run(1)
+ok, message = invoke(ClientRemotes.Function("BuyUpgrade"), "storm_x", "Battery", 1)
+check(ok == true, "bought a battery upgrade at the garage (" .. tostring(message) .. ")")
 ok, message = invoke(ClientRemotes.Function("BuyUpgrade"), "storm_x", "Limiter", 1)
 check(ok ~= true, "off-road bikes have no limiter to unlock (" .. tostring(message) .. ")")
 ok, message = invoke(ClientRemotes.Function("SetPaint"), "storm_x", "Frame", "red")
@@ -316,6 +322,42 @@ local crateOk, crateName, paintId = invoke(ClientRemotes.Function("OpenCrate"), 
 check(crateOk == true and type(paintId) == "string", "opened a crate: " .. tostring(crateName))
 ok, message = invoke(ClientRemotes.Function("BuyBoost"), "cash2x_10")
 check(ok == true and data.BoostUntil > 0, "bought a 2x boost (" .. tostring(message) .. ")")
+
+-- a custom paint job and the mechanic's setup
+do
+	local Livery = server.Require(Shared:WaitForChild("Livery"))
+	local before = data.Cash
+	local job = { Frame = Livery.Encode(Color3.fromRGB(20, 200, 120), "pearl", nil), Seat = Livery.Encode(Color3.fromRGB(120, 30, 30), "suede", nil), Rims = "red" }
+	ok, message = invoke(ClientRemotes.Function("SetLivery"), "storm_x", job)
+	check(ok == true and data.Cash < before, "a custom paint job costs cash (" .. tostring(message) .. ")")
+	check(data.Paint.storm_x.Frame == job.Frame and data.Paint.storm_x.Seat == job.Seat, "the paint job is saved")
+	ok, message = invoke(ClientRemotes.Function("SetLivery"), "storm_x", { Frame = "#12345/nope/none" })
+	check(ok ~= true, "a bad coat is refused (" .. tostring(message) .. ")")
+	ok, message = invoke(ClientRemotes.Function("SetLivery"), "storm_x", { Frame = Livery.Encode(Color3.new(1, 1, 1), "suede", nil) })
+	check(ok ~= true, "a seat-only finish stays off the frame (" .. tostring(message) .. ")")
+	local spent = before - data.Cash
+	before = data.Cash
+	ok = invoke(ClientRemotes.Function("SetLivery"), "storm_x", job)
+	check(ok == true and data.Cash == before, "re-applying the same job costs nothing (first was " .. spent .. ")")
+	ok, message = invoke(ClientRemotes.Function("SetSetup"), "storm_x", { Gearing = 2, Spring = -1, Pressure = 9 })
+	check(ok == true and data.Upgrades.storm_x.S_Gearing == 2 and data.Upgrades.storm_x.S_Pressure == 2, "setup saved, out-of-range values clamped (" .. tostring(message) .. ")")
+	local BikeStats = server.Require(Shared:WaitForChild("BikeStats"))
+	local Bikes = server.Require(Shared:WaitForChild("Bikes"))
+	local stock = BikeStats.Compute(Bikes.Get("storm_x"), { Limiter = 1 })
+	local geared = BikeStats.Compute(Bikes.Get("storm_x"), { Limiter = 1, S_Gearing = 2 })
+	check(geared.WheelForceN < stock.WheelForceN and geared.CutoffKmh >= stock.CutoffKmh, "taller gearing trades wheel force for top speed")
+	-- the garage screen opens with the bike on the lift
+	UI.Open("Garage")
+	world:Run(2)
+	local garageScene = WS:FindFirstChild("GarageScene")
+	check(garageScene ~= nil and garageScene:FindFirstChildOfClass("Model") ~= nil, "the garage puts your bike on the lift")
+	shot("garage")
+	UI.Open("Garage")
+	world:Run(0.5)
+	check(WS:FindFirstChild("GarageScene") == nil, "leaving the garage clears the scene")
+end
+rig:PivotTo(returnTo)
+world:Run(1)
 
 --------------------------------------------------------------------------------
 print("== the new bike: spawn, ride, charge")

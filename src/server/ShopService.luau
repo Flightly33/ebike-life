@@ -13,12 +13,15 @@ local AssetIds = require(Shared.AssetIds)
 local Bikes = require(Shared.Bikes)
 local BikeStats = require(Shared.BikeStats)
 local Economy = require(Shared.Economy)
+local Config = require(Shared.Config)
 local Layout = require(Shared.City.Layout)
 local Modes = require(Shared.Modes)
 local Paints = require(Shared.Paints)
 local Profile = require(Shared.Profile)
 local Remotes = require(Shared.Remotes)
 local Shop = require(Shared.Shop)
+local Livery = require(Shared.Livery)
+local Setup = require(Shared.Setup)
 local Achievements = require(Shared.Achievements)
 local Upgrades = require(Shared.Upgrades)
 
@@ -80,9 +83,28 @@ local function buyBike(player: Player, bikeId: any): (boolean, string)
 	return true, "Bought"
 end
 
+-- Tuning, parts and paint happen at Flighty Garage: is the player in (or at the door of) it?
+local GARAGE_REACH = 60 * Config.MAP_SCALE / 1.25
+function ShopService.AtGarage(player: Player): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return false
+	end
+	local g = Layout.Garage
+	local p = root.Position
+	local dx = math.max(g.MinX - p.X, 0, p.X - g.MaxX)
+	local dz = math.max(g.MinZ - p.Z, 0, p.Z - g.MaxZ)
+	return math.sqrt(dx * dx + dz * dz) < GARAGE_REACH
+end
+local NOT_THERE = "Bring it to Flighty Garage, next to the dealership"
+
 local function buyUpgrade(player: Player, bikeId: any, slotName: any, level: any): (boolean, string)
 	if type(bikeId) ~= "string" or type(slotName) ~= "string" or type(level) ~= "number" then
 		return false, "Bad request"
+	end
+	if not ShopService.AtGarage(player) then
+		return false, NOT_THERE
 	end
 	local bike = Bikes.Get(bikeId)
 	local slot = Upgrades.BySlot[slotName]
@@ -132,6 +154,9 @@ local function setPaint(player: Player, bikeId: any, slotName: any, paintId: any
 	if not data or not bike or not data.Owned[bikeId] or not table.find(Paints.Slots, slotName) then
 		return false, "Bad request"
 	end
+	if not ShopService.AtGarage(player) then
+		return false, NOT_THERE
+	end
 	local choice = data.Paint[bikeId] or {}
 	if paintId == "stock" or paintId == "none" then
 		(choice :: any)[slotName] = nil
@@ -152,6 +177,81 @@ local function setPaint(player: Player, bikeId: any, slotName: any, paintId: any
 		BikeService.Refresh(player)
 	end
 	return true, "Painted"
+end
+
+-- A whole paint job: every slot's crate paint or custom coat (Shared/Livery), paid for at once
+local function setLivery(player: Player, bikeId: any, choice: any): (boolean, string, number?)
+	if type(bikeId) ~= "string" or type(choice) ~= "table" then
+		return false, "Bad request"
+	end
+	local data = DataService.Get(player)
+	local bike = Bikes.Get(bikeId)
+	if not data or not bike or not data.Owned[bikeId] then
+		return false, "You don't own that bike"
+	end
+	if not ShopService.AtGarage(player) then
+		return false, NOT_THERE
+	end
+	local vip = ShopService.OwnsPass(player, "VIP")
+	local clean: { [string]: string } = {}
+	for _, slot in Paints.Slots do
+		local value = choice[slot]
+		if value == nil or value == "stock" or value == "" then
+			continue
+		end
+		if type(value) ~= "string" or not Livery.Valid(slot, value) then
+			return false, "That paint doesn't go there"
+		end
+		if Livery.Decode(value) == nil and not (Profile.HasPaint(data, value) or vip) then
+			return false, "Unlock that paint in a crate first"
+		end
+		clean[slot] = value
+	end
+	local old = data.Paint[bikeId] or {}
+	local cost = Livery.Cost(bike.Price, old :: any, clean)
+	if cost > 0 and not DataService.Spend(player, cost) then
+		return false, string.format("You need %s more", Economy.FormatCash(cost - data.Cash))
+	end
+	data.Paint[bikeId] = clean :: any
+	DataService.Changed(player)
+	local ride = BikeService.Get(player)
+	if ride and ride.Bike.Id == bikeId then
+		BikeService.Refresh(player)
+	end
+	return true, if cost > 0 then string.format("Paint job done: %s", Economy.FormatCash(cost)) else "Paint job done", cost
+end
+
+-- The mechanic's setup (Shared/Setup): free, but only at the garage
+local function setSetup(player: Player, bikeId: any, values: any): (boolean, string)
+	if type(bikeId) ~= "string" or type(values) ~= "table" then
+		return false, "Bad request"
+	end
+	local data = DataService.Get(player)
+	local bike = Bikes.Get(bikeId)
+	if not data or not bike or not data.Owned[bikeId] then
+		return false, "You don't own that bike"
+	end
+	if not ShopService.AtGarage(player) then
+		return false, NOT_THERE
+	end
+	local levels: Upgrades.Levels = data.Upgrades[bikeId] or {}
+	for _, setting in Setup.List do
+		local v = values[setting.Key]
+		levels["S_" .. setting.Key] = nil
+		if type(v) == "number" and v == v then
+			local clamped = math.clamp(math.floor(v + 0.5), setting.Min, setting.Max)
+			if clamped ~= setting.Default then
+				levels["S_" .. setting.Key] = clamped
+			end
+		end
+	end
+	data.Upgrades[bikeId] = levels
+	DataService.Changed(player)
+	local ride = BikeService.Get(player)
+	if ride and ride.Bike.Id == bikeId then
+		BikeService.Refresh(player)
+	end
+	return true, "Setup saved"
 end
 
 local function openCrate(player: Player, crateId: any): (boolean, string, string?, boolean?)
@@ -251,6 +351,8 @@ function ShopService.Init()
 	Remotes.Function("SetPaint").OnServerInvoke = setPaint
 	Remotes.Function("OpenCrate").OnServerInvoke = openCrate
 	Remotes.Function("BuyBoost").OnServerInvoke = buyBoost
+	Remotes.Function("SetLivery").OnServerInvoke = setLivery
+	Remotes.Function("SetSetup").OnServerInvoke = setSetup
 	Remotes.Function("ClaimAchievement").OnServerInvoke = claimAchievement
 	Remotes.Event("Teleport").OnServerEvent:Connect(teleport)
 	Remotes.Event("SetMode").OnServerEvent:Connect(function(player: Player, mode: any)

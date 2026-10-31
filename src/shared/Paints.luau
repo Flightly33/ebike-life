@@ -68,7 +68,8 @@ for _, paint in list do
 	Paints.ById[paint.Id] = paint
 end
 
-Paints.Slots = { "Frame", "Accent", "Rims", "Glow" }
+-- (Shared/Livery: what each slot is, custom coats)
+Paints.Slots = { "Frame", "Accent", "Rims", "Seat", "Susp", "Glow" }
 
 function Paints.Get(id: string?): Paint?
 	if id == nil then

@@ -20,6 +20,8 @@
 		SetPaint(bikeId, slot, paintId)
 		OpenCrate(crateId)                also returns the paint won
 		BuyBoost(boostId)
+		SetLivery(bikeId, choice)         a whole paint job at Flighty Garage (Shared/Livery); pays for custom coats
+		SetSetup(bikeId, values)          the mechanic's free setup (Shared/Setup), at Flighty Garage
 		ClaimAchievement(id)              pays an achievement's reward once its goal is met
 		Order(counter, itemId)            buy off a shop counter's menu (OrderService checks you're at it)
 		GetProfile()                      the player's whole save
@@ -57,7 +59,7 @@ local EVENTS = {
 	"GotUp",
 }
 local UNRELIABLE = { "BikeState" }
-local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "OpenCrate", "BuyBoost", "Order", "ClaimAchievement", "GetProfile", "Admin" }
+local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "SetLivery", "SetSetup", "OpenCrate", "BuyBoost", "Order", "ClaimAchievement", "GetProfile", "Admin" }
 
 local Remotes = {}
 

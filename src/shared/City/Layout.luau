@@ -1160,10 +1160,22 @@ local function make(K: number)
 	local dealershipEast = (dealership.LotMinX + dealership.LotMaxX) / 2 + math.min(dealership.LotMaxX - dealership.LotMinX, Layout.DEALERSHIP_WIDTH) / 2
 
 	local beachZ = 180 * KS
+	-- Flighty Garage: the mechanic's shop beside the showroom (east end of the dealership's lot), its
+	-- door on the forecourt (+Z); Lift is the middle of the lift's deck the player's bike stands on
+	Layout.Garage = {
+		MinX = dealership.LotMaxX - 80 * K,
+		MaxX = dealership.LotMaxX - 2 * K,
+		MinZ = dealership.LotMinZ + 12 * K,
+		MaxZ = dealership.LotMinZ + 118 * K,
+		Height = 30 * K,
+		Lift = Vector3.new(dealership.LotMaxX - 41 * K, Layout.CURB_Y + 0.3 * K, dealership.LotMinZ + 58 * K),
+	}
 	Layout.Places = {
 		-- Spawn: the forecourt in front of the dealership, facing it (north)
 		Spawn = Vector3.new((dealership.LotMinX + dealership.LotMaxX) / 2, Layout.CURB_Y, dealership.LotMaxZ - 50 * K),
 		Dealership = Vector3.new((dealership.LotMinX + dealership.LotMaxX) / 2, Layout.CURB_Y, dealership.LotMaxZ - Layout.DEALERSHIP_DEPTH / 2),
+		-- (on the forecourt, just outside the garage's door)
+		Garage = Vector3.new(dealership.LotMaxX - 41 * K, Layout.CURB_Y, dealership.LotMinZ + 128 * K),
 		Police = lotCenter(police),
 		-- (inside its south edge: the park keeps its ridden size, so what's in its middle depends on
 		-- how big the city's lots are)
@@ -1189,6 +1201,7 @@ local function make(K: number)
 	-- Teleports offered in the Menus panel
 	Layout.Teleports = {
 		{ Id = "Dealership", Name = "Flighty Mechanics" },
+		{ Id = "Garage", Name = "Flighty Garage (tuning)" },
 		{ Id = "JumpPark", Name = "Jump Park" },
 		{ Id = "Downtown", Name = "Downtown" },
 		{ Id = "Wynwood", Name = "Wynwood" },

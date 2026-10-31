@@ -58,10 +58,11 @@ local function scroller(parent: Instance): ScrollingFrame
 end
 
 function Tuning.new(gui: Instance): Panel.Panel
-	local panel = Panel.new(gui, "Tuning", "Tuning", Vector2.new(1080, 600), nil)
+	-- (parts and paint moved to Flighty Garage, UI/Garage: this is the ride modes panel now)
+	local panel = Panel.new(gui, "RideModes", "Ride Modes", Vector2.new(1080, 600), "Parts, paint and setup: Flighty Garage, next to the dealership")
 	local body = panel.Body
 	local bikeId = ""
-	local tab = "Performance"
+	local tab = "Ride Modes"
 
 	-- Left: bike picker, preview, numbers
 	local left = New("Frame", { BackgroundColor3 = C.Card, Size = UDim2.new(0, 300, 1, 0), Parent = body })
@@ -340,7 +341,7 @@ function Tuning.new(gui: Instance): Panel.Panel
 		end
 	end
 
-	for i, name in { "Performance", "Paint", "Ride Modes" } do
+	for i, name in { "Ride Modes" } do
 		tabButtons[name] = Theme.Button({ Text = name, Size = UDim2.fromOffset(150, 32), Color = C.Gray, TextSize = 18, LayoutOrder = i, Parent = tabs, OnClick = function()
 			tab = name
 			render()

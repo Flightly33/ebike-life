@@ -32,7 +32,8 @@ local APPS: { App } = {
 	{ Name = "Map", Icon = "🗺", Top = rgb(90, 200, 120), Bottom = rgb(30, 130, 80), Opens = "Map" },
 	{ Name = "My Rides", Icon = "🏍", Top = rgb(255, 160, 60), Bottom = rgb(230, 90, 20), Opens = "MyRides" },
 	{ Name = "Dealer", Icon = "🛒", Top = rgb(90, 160, 255), Bottom = rgb(40, 80, 210), Opens = "Dealership" },
-	{ Name = "Tuning", Icon = "🔧", Top = rgb(160, 160, 170), Bottom = rgb(80, 80, 92), Opens = "Tuning" },
+	{ Name = "Garage", Icon = "🔧", Top = rgb(160, 160, 170), Bottom = rgb(80, 80, 92), Opens = "Tuning" },
+	{ Name = "Modes", Icon = "⚡", Top = rgb(120, 220, 255), Bottom = rgb(30, 120, 200), Opens = "RideModes" },
 	{ Name = "Crates", Icon = "🎁", Top = rgb(220, 120, 255), Bottom = rgb(140, 50, 200), Opens = "Crates" },
 	{ Name = "Shop", Icon = "💵", Top = rgb(140, 240, 90), Bottom = rgb(50, 160, 40), Opens = "Shop" },
 	{ Name = "Stats", Icon = "🏆", Top = rgb(255, 220, 80), Bottom = rgb(230, 150, 20), Opens = "Stats" },
@@ -87,7 +88,7 @@ function Phone.new(gui: Instance, open: (string) -> (), close: () -> ()): Panel.
 	local clockBig = Theme.Label({ Text = "12:00", Size = UDim2.new(1, 0, 0, 78), Position = UDim2.fromOffset(0, 54), TextSize = 74, Stroke = 0, ZIndex = 31, Parent = screen })
 	local weather = Theme.Label({ Text = "Miami", Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 132), TextSize = 19, Font = Theme.Body, Stroke = 0, ZIndex = 31, Parent = screen })
 	-- the app grid
-	local grid = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -28, 0, 220), Position = UDim2.fromOffset(14, 180), ZIndex = 31, Parent = screen })
+	local grid = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -28, 0, 320), Position = UDim2.fromOffset(14, 180), ZIndex = 31, Parent = screen })
 	New("UIGridLayout", { CellSize = UDim2.fromOffset(68, 96), CellPadding = UDim2.fromOffset(5, 10), SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
 	local badges: { TextLabel } = {}
 	local function appIcon(parent: Instance, app: App, order: number, label: boolean): Frame

@@ -37,6 +37,7 @@ local Toasts = require(script.Toasts)
 local TouchControls = require(script.TouchControls)
 local TrickHud = require(script.TrickHud)
 local Tuning = require(script.Tuning)
+local Garage = require(script.Garage)
 local WantedHud = require(script.WantedHud)
 
 local UI = {}
@@ -55,6 +56,15 @@ local function close()
 end
 
 function UI.Open(name: string)
+	-- tuning, parts and paint happen at Flighty Garage
+	if name == "Tuning" then
+		if Garage.Near() then
+			name = "Garage"
+		else
+			Toasts.Message("Info", "🔧 Tuning, parts and paint are done at Flighty Garage, next to the dealership")
+			name = "Map"
+		end
+	end
 	if openName == name then
 		close()
 		return
@@ -112,7 +122,8 @@ function UI.Init()
 		UI.Open("Dealership")
 	end)
 	panels.Dealership = Rides.Dealership(menus, close)
-	panels.Tuning = Tuning.new(menus)
+	panels.RideModes = Tuning.new(menus)
+	panels.Garage = Garage.new(menus, close)
 	panels.Crates = Store.Crates(menus)
 	panels.Shop = Store.Shop(menus)
 	panels.Order = OrderMenu.new(menus)
@@ -151,7 +162,7 @@ function UI.Init()
 		if prompt.Name == "DealershipPrompt" then
 			UI.Open("Dealership")
 		elseif prompt.Name == "TuningPrompt" then
-			UI.Open("Tuning")
+			UI.Open("Garage")
 		elseif prompt.Name == "OrderPrompt" then
 			local counter = prompt.Parent
 			if counter and counter:IsA("BasePart") then

@@ -61,6 +61,9 @@ MeshKit.Slots = {
 
 -- Slots the player's paint (or a car's colour) decides
 MeshKit.Paintable = { Frame = true, Accent = true, Rims = true, Paint = true }
+-- On bikes, fixed slots the paint shop can reach too (Shared/Livery's Seat and Suspension): the
+-- seat's leather and the fork's gold tubes and coil spring
+MeshKit.BikeAlias = { Leather = "Seat", Brown = "Seat", Gold = "Susp", Orange = "Susp" }
 
 -- the share of a vehicle's meshes that may be missing before it falls back to parts
 MeshKit.MaxMissing = 0.25
@@ -278,10 +281,12 @@ function MeshKit.Place(model: Model, vehicleId: string, scale: number, colors: {
 			part.CanTouch = false
 			part.Massless = true
 			local slot = MeshKit.Slots[entry.Slot]
-			if MeshKit.Paintable[entry.Slot] then
-				part.Color = colors[entry.Slot] or Color3.fromRGB(200, 30, 35)
-				part.Material = (materials and materials[entry.Slot]) or SM
-				part:SetAttribute("Paint", entry.Slot)
+			local alias = if string.sub(vehicleId, 1, 4) ~= "Car_" and string.sub(vehicleId, 1, 4) ~= "Kit_" then MeshKit.BikeAlias[entry.Slot] else nil
+			local paintSlot = if MeshKit.Paintable[entry.Slot] then entry.Slot elseif alias and colors[alias] then alias else nil
+			if paintSlot then
+				part.Color = colors[paintSlot] or Color3.fromRGB(200, 30, 35)
+				part.Material = (materials and materials[paintSlot]) or SM
+				part:SetAttribute("Paint", paintSlot)
 			elseif slot then
 				part.Color = slot.Color
 				part.Material = slot.Material

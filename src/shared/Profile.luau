@@ -7,6 +7,7 @@
 local Bikes = require(script.Parent.Bikes)
 local Config = require(script.Parent.Config)
 local Modes = require(script.Parent.Modes)
+local Livery = require(script.Parent.Livery)
 local Paints = require(script.Parent.Paints)
 local Upgrades = require(script.Parent.Upgrades)
 
@@ -14,7 +15,7 @@ local Profile = {}
 
 Profile.VERSION = 1
 
-export type PaintChoice = { Frame: string?, Accent: string?, Rims: string?, Glow: string? }
+export type PaintChoice = { Frame: string?, Accent: string?, Rims: string?, Seat: string?, Susp: string?, Glow: string? }
 
 export type Stats = {
 	BestWheelie: number,
@@ -126,7 +127,8 @@ function Profile.Sanitize(saved: any): Data
 				local clean: PaintChoice = {}
 				for _, slot in Paints.Slots do
 					local paintId = choice[slot]
-					if type(paintId) == "string" and Profile.HasPaint(data, paintId) then
+					-- a crate paint the player has, or a custom coat (Shared/Livery)
+					if type(paintId) == "string" and Livery.Valid(slot, paintId) and (Livery.Decode(paintId) ~= nil or Profile.HasPaint(data, paintId)) then
 						(clean :: any)[slot] = paintId
 					end
 				end

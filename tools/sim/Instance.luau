@@ -244,6 +244,7 @@ local EVENTS: { [string]: { string } } = {
 	GuiObject = { "InputBegan", "InputEnded", "InputChanged", "MouseEnter", "MouseLeave" },
 	BasePart = { "Touched", "TouchEnded" },
 	Tween = { "Completed" },
+	TextBox = { "FocusLost", "Focused", "ReturnPressedFromOnScreenKeyboard" },
 	RunService = { "Heartbeat", "RenderStepped", "Stepped", "PreSimulation", "PostSimulation", "PreAnimation", "PreRender" },
 	UserInputService = { "InputBegan", "InputEnded", "InputChanged", "TouchStarted", "LastInputTypeChanged" },
 	Workspace = {},

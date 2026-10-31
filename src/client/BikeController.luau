@@ -26,6 +26,7 @@ local Modes = require(Shared.Modes)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 local Upgrades = require(Shared.Upgrades)
+local Setup = require(Shared.Setup)
 
 local BikeCamera = require(script.Parent.BikeCamera)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -128,6 +129,13 @@ local function computeSpec(model: Model): (Bikes.Bike?, BikeStats.Spec?)
 		local level = model:GetAttribute("Up_" .. slot.Name)
 		if type(level) == "number" and level > 0 then
 			levels[slot.Name] = level
+		end
+	end
+	-- the mechanic's setup (Shared/Setup)
+	for _, setting in Setup.List do
+		local value = model:GetAttribute("S_" .. setting.Key)
+		if type(value) == "number" then
+			levels["S_" .. setting.Key] = value
 		end
 	end
 	-- drawn to fit its rider: its wheels and wheelbase grow with it
@@ -472,7 +480,7 @@ function BikeController.Start(model: Model)
 	BikeCamera.Start(part.CFrame)
 	-- Tuning while riding (attributes from the server)
 	table.insert(connections, model.AttributeChanged:Connect(function(name: string)
-		if string.sub(name, 1, 3) == "Up_" then
+		if string.sub(name, 1, 3) == "Up_" or string.sub(name, 1, 2) == "S_" then
 			local _, newSpec = computeSpec(model)
 			if newSpec then
 				local fraction = BikeController.BatteryFraction()

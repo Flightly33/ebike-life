@@ -23,6 +23,7 @@ local Profile = require(Shared.Profile)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 local Upgrades = require(Shared.Upgrades)
+local Setup = require(Shared.Setup)
 local BikeModel = require(Shared.Models.BikeModel)
 
 local DataService = require(script.Parent.DataService)
@@ -311,6 +312,9 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 	for _, slot in Upgrades.Slots do
 		model:SetAttribute("Up_" .. slot.Name, Upgrades.Level(levels, slot.Name))
 	end
+	for _, setting in Setup.List do
+		model:SetAttribute("S_" .. setting.Key, Setup.Get(levels, setting.Key))
+	end
 	local bikeRoot = model.PrimaryPart :: BasePart
 	local seat = model:FindFirstChildOfClass("Seat") :: Seat
 
@@ -409,6 +413,9 @@ function BikeService.Refresh(player: Player)
 	ride.Spec = BikeStats.Scaled(BikeStats.Compute(ride.Bike, levels), ride.Spec.Scale)
 	for _, slot in Upgrades.Slots do
 		ride.Model:SetAttribute("Up_" .. slot.Name, Upgrades.Level(levels, slot.Name))
+	end
+	for _, setting in Setup.List do
+		ride.Model:SetAttribute("S_" .. setting.Key, Setup.Get(levels, setting.Key))
 	end
 	BikeModel.ApplyPaint(ride.Model, ride.Bike, data.Paint[ride.Bike.Id])
 end
