@@ -6,6 +6,7 @@
 ]]
 
 local Bikes = require(script.Parent.Bikes)
+local Setup = require(script.Parent.Setup)
 
 local Upgrades = {}
 
@@ -126,6 +127,8 @@ function Upgrades.Sanitize(saved: any): Levels
 			out[slot.Name .. "Max"] = owned
 		end
 	end
+	-- the mechanic's setup rides along in the same table (Shared/Setup)
+	Setup.Sanitize(saved, out)
 	return out
 end
 

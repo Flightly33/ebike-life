@@ -5,6 +5,7 @@
 
 local Bikes = require(script.Parent.Bikes)
 local Upgrades = require(script.Parent.Upgrades)
+local Setup = require(script.Parent.Setup)
 local Config = require(script.Parent.Config)
 
 local BikeStats = {}
@@ -48,6 +49,10 @@ export type Spec = {
 	BikeKg: number, -- the bike alone (MassKg adds the rider)
 	SeatHeightM: number,
 	SuspensionLevel: number, -- the Suspension upgrade: 0 stock, 1 tuned damping, 2 pro coil setup
+	-- the mechanic's setup (Shared/Setup)
+	SpringScale: number,
+	DampScale: number,
+	SteerScale: number,
 }
 
 type TireTable = { Crr: number, Off: number, Grip: number, GripOff: number }
@@ -84,7 +89,7 @@ function BikeStats.Compute(bike: Bikes.Bike, levels: Upgrades.Levels?): Spec
 	local tire = TIRES[BikeStats.TireKind(bike, levels)] or TIRES.Hybrid
 	local rearDiameter = geo.RearWheelDiameter or geo.WheelDiameter
 	local rearRadiusM = rearDiameter / 2
-	return {
+	local spec: Spec = {
 		Id = bike.Id,
 		MassKg = bike.WeightKg + BikeStats.RIDER_KG,
 		MotorW = bike.PeakW * power * Config.SpeedBoost ^ 3,
@@ -118,7 +123,12 @@ function BikeStats.Compute(bike: Bikes.Bike, levels: Upgrades.Levels?): Spec
 		BikeKg = bike.WeightKg,
 		SeatHeightM = geo.SeatHeight,
 		SuspensionLevel = suspension,
+		SpringScale = 1,
+		DampScale = 1,
+		SteerScale = 1,
 	}
+	Setup.Apply(spec, levels, unlocked)
+	return spec
 end
 
 -- Top speed on flat tarmac in the given mode (km/h), solved from the power balance. Used by the

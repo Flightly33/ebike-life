@@ -108,13 +108,13 @@ export type Frame = {
 	LoopRadius: number?, -- m, inside a loop
 }
 
-local function cornerFor(x: number, radius: number, travel: number, share: number, mSprung: number, mWheel: number, level: number): Corner
+local function cornerFor(x: number, radius: number, travel: number, share: number, mSprung: number, mWheel: number, level: number, springScale: number, dampScale: number): Corner
 	local load = share * mSprung * G
 	travel = math.max(travel, 0.02)
 	local sag = SAG * travel
 	local preload = PRELOAD * travel
 	local prog = if level >= 2 then 2.2 else 1.4
-	local k = load / ((sag + preload) * (1 + prog * SAG * SAG))
+	local k = load / ((sag + preload) * (1 + prog * SAG * SAG)) * springScale
 	local critical = 2 * math.sqrt(k * share * mSprung)
 	local kt = load / TYRE_SAG
 	return {
@@ -124,8 +124,8 @@ local function cornerFor(x: number, radius: number, travel: number, share: numbe
 		K = k,
 		P = preload,
 		Prog = prog,
-		Comp = (if level >= 1 then 0.48 else 0.42) * critical,
-		Reb = (if level >= 1 then 0.85 else 0.78) * critical,
+		Comp = (if level >= 1 then 0.48 else 0.42) * critical * dampScale,
+		Reb = (if level >= 1 then 0.85 else 0.78) * critical * dampScale,
 		Mw = mWheel,
 		Kt = kt,
 		Ct = 2 * 0.2 * math.sqrt(kt * mWheel),
@@ -140,14 +140,15 @@ function Suspension.Params(spec: any): Params
 	local mSprung = spec.MassKg - 2 * mWheel
 	local xcg = -wheelbase * (0.5 - FRONT_SHARE) -- a 45/55 split puts the mass behind the middle
 	local level = spec.SuspensionLevel or 0
+	local springScale, dampScale = spec.SpringScale or 1, spec.DampScale or 1
 	return {
 		M = mSprung,
 		I = mSprung * (0.33 * wheelbase) ^ 2,
 		H = spec.SeatHeightM * 0.75 + 0.25,
 		Xcg = xcg,
 		Corners = {
-			cornerFor(wheelbase / 2 - xcg, spec.WheelRadius / studs, spec.FrontTravel, FRONT_SHARE, mSprung, mWheel, level),
-			cornerFor(-wheelbase / 2 - xcg, spec.RearWheelRadius / studs, spec.RearTravel, 1 - FRONT_SHARE, mSprung, mWheel, level),
+			cornerFor(wheelbase / 2 - xcg, spec.WheelRadius / studs, spec.FrontTravel, FRONT_SHARE, mSprung, mWheel, level, springScale, dampScale),
+			cornerFor(-wheelbase / 2 - xcg, spec.RearWheelRadius / studs, spec.RearTravel, 1 - FRONT_SHARE, mSprung, mWheel, level, springScale, dampScale),
 		},
 	}
 end

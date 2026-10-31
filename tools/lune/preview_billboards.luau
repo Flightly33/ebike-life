@@ -28,5 +28,6 @@ local K = Config.WORLD_SCALE
 fs.writeFile(process.args[1], serde.encode("json", Preview.Export(root)))
 fs.writeFile(process.args[2], serde.encode("json", {
 	{ name = "billboards", pos = { -60 * K, 30 * K, -200 * K }, look = { 150 * K, 50 * K, 0 }, fov = 60, width = 1400, height = 800 },
-	{ name = "monopole", pos = { 60 * K, 8 * K, -110 * K }, look = { 0, 55 * K, -20 * K }, fov = 55, width = 1000, height = 800 },
+	{ name = "monopole", pos = { -120 * K, 6 * K, -60 * K }, look = { 0, 50 * K, -20 * K }, fov = 55, width = 1000, height = 800 },
+	{ name = "monopole_below", pos = { -14 * K, 2 * K, -30 * K }, look = { 0, 55 * K, -20 * K }, fov = 70, width = 1000, height = 800 },
 }))

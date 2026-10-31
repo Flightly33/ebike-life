@@ -633,7 +633,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	local handsFactor = if input.NoHands then 0.45 elseif input.OneHand then 0.8 else 1
 	local steerTarget = if riding then input.Steer * handsFactor else 0
 	-- the bars ease toward the input (fast at first, settling in), slower at speed like a real bike
-	local steerEase = TU.SteerRate / (1 + math.abs(v) / TU.SteerFadeSpeed)
+	local steerEase = TU.SteerRate * (spec.SteerScale or 1) / (1 + math.abs(v) / TU.SteerFadeSpeed)
 	s.Steer += (steerTarget - s.Steer) * math.min(1, steerEase * dt)
 	if math.abs(steerTarget - s.Steer) < 1e-3 then
 		s.Steer = steerTarget
@@ -645,7 +645,7 @@ local function groundStep(s: State, spec: Spec, mode: Mode, input: Input, world:
 	local wheelbaseM = spec.Wheelbase / Config.VISUAL_STUDS_PER_METER
 	local geometric = v * math.tan(s.Steer * P.MaxSteer) / wheelbaseM
 	local gripScale = math.clamp(grip / 0.9, 0.55, 1.05)
-	local carve = math.abs(s.Steer) * TU.Rate * gripScale / (1 + math.max(0, math.abs(v) - TU.FadeFrom) / TU.FadeOver)
+	local carve = math.abs(s.Steer) * TU.Rate * (1 + ((spec.SteerScale or 1) - 1) * 0.6) * gripScale / (1 + math.max(0, math.abs(v) - TU.FadeFrom) / TU.FadeOver)
 	local wantedRate = math.sign(geometric) * math.min(math.abs(geometric), carve)
 	if s.Wheelie > 0.08 or s.Stoppie > 0.05 then
 		wantedRate *= 0.55

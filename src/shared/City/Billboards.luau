@@ -50,48 +50,63 @@ local function framedFace(parent: Instance, kind: string, cf: CFrame, w: number,
 	end
 end
 
--- A catwalk with a railing under a face
+-- A catwalk with a railing under a face (the railing stays below the ad)
 local function catwalk(parent: Instance, cf: CFrame, w: number, h: number)
-	local walk = cf * CFrame.new(0, -h / 2 - 1.4, -1.6)
+	local walk = cf * CFrame.new(0, -h / 2 - 3.2, -1.6)
 	PartKit.Box(parent, "Catwalk", Vector3.new(w + 1, 0.3, 2.6), walk, STEEL, Enum.Material.DiamondPlate, DECOR)
-	PartKit.Box(parent, "Rail", Vector3.new(w + 1, 0.2, 0.2), walk * CFrame.new(0, 2.6, -1.2), STEEL, METAL, DECOR)
+	PartKit.Box(parent, "Rail", Vector3.new(w + 1, 0.2, 0.2), walk * CFrame.new(0, 2.4, -1.2), STEEL, METAL, DECOR)
+	PartKit.Box(parent, "Rail", Vector3.new(w + 1, 0.15, 0.15), walk * CFrame.new(0, 1.2, -1.2), STEEL, METAL, DECOR)
 	local posts = math.max(2, math.floor(w / 8))
 	for i = 0, posts do
-		PartKit.Box(parent, "RailPost", Vector3.new(0.2, 2.6, 0.2), walk * CFrame.new(-w / 2 + i * w / posts, 1.3, -1.2), STEEL, METAL, DECOR)
+		PartKit.Box(parent, "RailPost", Vector3.new(0.2, 2.4, 0.2), walk * CFrame.new(-w / 2 + i * w / posts, 1.2, -1.2), STEEL, METAL, DECOR)
+	end
+	-- brackets from the catwalk up to the face's frame
+	for i = 0, posts, 2 do
+		PartKit.Box(parent, "WalkBracket", Vector3.new(0.3, 3.2, 0.3), cf * CFrame.new(-w / 2 + i * w / posts, -h / 2 - 1.6, -0.4), STEEL, METAL, DECOR)
 	end
 end
 
--- A highway monopole at `base` (ground), its two faces turned toward traffic each way along `along`
+-- A highway billboard at `base` (ground): one flat, double-sided board square on a steel pole, its
+-- faces looking up and down the road (`along`) so drivers each way see one, the front face turned
+-- a little toward the road (`side` points away from it)
 function Billboards.Monopole(parent: Instance, base: Vector3, along: Vector3, side: Vector3, rng: Random, w: number?, h: number?)
 	local model = PartKit.Model(parent, "Billboard")
 	local fw, fh = w or 48, h or 16
-	local height = rng:NextNumber(46, 60)
+	local height = rng:NextNumber(40, 52)
 	PartKit.Post(model, "Column", 4.5, height, base, STEEL, METAL)
-	PartKit.Post(model, "Footing", 7, 1.2, base - Vector3.new(0, 0.6, 0), Color3.fromRGB(170, 168, 160), Enum.Material.Concrete)
+	PartKit.Post(model, "ColumnCollar", 6, 2.4, base, STEEL, METAL)
+	PartKit.Post(model, "Footing", 8, 1.2, base - Vector3.new(0, 0.6, 0), Color3.fromRGB(170, 168, 160), Enum.Material.Concrete)
 	local top = base + Vector3.new(0, height, 0)
-	PartKit.Box(model, "Head", Vector3.new(6, 3, 6), CFrame.new(top), STEEL, METAL, DECOR)
-	-- two faces in a V hinged at the column, opening toward the road (`side` points away from it),
-	-- each turned 22 degrees off square to the road toward the drivers it faces
-	local angle = math.rad(22)
-	local towardRoad = -side
-	for _, dir in { 1, -1 } do
-		local look = (-along * dir * math.cos(angle) + towardRoad * math.sin(angle)).Unit
-		local across = Vector3.new(-look.Z, 0, look.X)
-		if across:Dot(towardRoad) < 0 then
-			across = -across
-		end
-		local centre = top + Vector3.new(0, fh / 2 + 1.5, 0) + across * (fw / 2 + 1.5) + look * 0.6
-		local cf = CFrame.lookAt(centre, centre + look)
-		framedFace(model, "Billboard", cf, fw, fh, rng)
-		catwalk(model, cf, fw, fh)
-		-- the truss behind the face, and an arm from the column
-		PartKit.Box(model, "Truss", Vector3.new(fw * 0.9, 0.6, 0.6), cf * CFrame.new(0, 0, 1.4), STEEL, METAL, DECOR)
+	-- the board looks along the road, turned 12 degrees toward it
+	local turn = math.rad(12)
+	local look = (along * math.cos(turn) - side * math.sin(turn)).Unit
+	local centre = top + Vector3.new(0, fh / 2 + 4.5, 0)
+	local cf = CFrame.lookAt(centre, centre + look)
+	-- the head on the pole and the cabinet the two faces are mounted on
+	PartKit.Box(model, "Head", Vector3.new(7, 3, 7), CFrame.new(top + Vector3.new(0, 1.5, 0)) * (cf - cf.Position), STEEL, METAL, DECOR)
+	PartKit.Box(model, "Cabinet", Vector3.new(fw + 1.6, fh + 1.6, 2.4), cf, DARK, METAL, NO_COLLIDE)
+	PartKit.Box(model, "CabinetCap", Vector3.new(fw + 2.2, 0.6, 3.0), cf * CFrame.new(0, fh / 2 + 1.1, 0), STEEL, METAL, DECOR)
+	PartKit.Box(model, "Stringer", Vector3.new(fw * 0.8, 1.2, 1.2), cf * CFrame.new(0, -fh / 2 - 1.4, 0), STEEL, METAL, DECOR)
+	for _, sx in { -1, 1 } do
+		PartKit.Box(model, "Brace", Vector3.new(1, 1, ((fw * 0.4) ^ 2 + 9) ^ 0.5), CFrame.lookAt((top + Vector3.new(0, 2, 0) + (cf * CFrame.new(sx * fw * 0.4, -fh / 2 - 1.4, 0)).Position) / 2, (cf * CFrame.new(sx * fw * 0.4, -fh / 2 - 1.4, 0)).Position), STEEL, METAL, DECOR)
+	end
+	-- a face, lamps and a catwalk on each side
+	for _, flip in { 0, math.pi } do
+		local f = cf * CFrame.Angles(0, flip, 0) * CFrame.new(0, 0, -1.3)
+		PartKit.Box(model, "AdTrim", Vector3.new(fw + 1.4, 0.5, 0.5), f * CFrame.new(0, fh / 2 + 0.5, 0.1), STEEL, METAL, DECOR)
+		PartKit.Box(model, "AdTrim", Vector3.new(fw + 1.4, 0.5, 0.5), f * CFrame.new(0, -fh / 2 - 0.5, 0.1), STEEL, METAL, DECOR)
 		for _, sx in { -1, 1 } do
-			PartKit.Box(model, "Strut", Vector3.new(0.6, fh + 2, 0.6), cf * CFrame.new(sx * fw * 0.3, 0, 1.4), STEEL, METAL, DECOR)
+			PartKit.Box(model, "AdTrim", Vector3.new(0.5, fh + 1.5, 0.5), f * CFrame.new(sx * (fw / 2 + 0.45), 0, 0.1), STEEL, METAL, DECOR)
 		end
-		local armEnd = (cf * CFrame.new(0, -fh / 2 - 1, 1.4)).Position
-		local armStart = top + Vector3.new(0, 1, 0)
-		PartKit.Box(model, "Arm", Vector3.new(1, 1, (armEnd - armStart).Magnitude), CFrame.lookAt((armStart + armEnd) / 2, armEnd), STEEL, METAL, DECOR)
+		face(model, "Billboard", Vector3.new(fw, fh, 0.2), f, rng)
+		local lamps = math.max(2, math.floor(fw / 12))
+		for i = 0, lamps - 1 do
+			local x = -fw / 2 + (i + 0.5) * fw / lamps
+			PartKit.Box(model, "LampArm", Vector3.new(0.3, 0.3, 4.2), f * CFrame.new(x, -fh / 2 - 1.2, -1.9) * CFrame.Angles(math.rad(25), 0, 0), STEEL, METAL, DECOR)
+			local lamp = PartKit.Box(model, "AdLamp", Vector3.new(1.6, 0.6, 1.0), f * CFrame.new(x, -fh / 2 - 1.9, -3.8) * CFrame.Angles(math.rad(-35), 0, 0), LAMP, SMOOTH, DECOR)
+			lamp:SetAttribute("Lit", Color3.fromRGB(255, 240, 200))
+		end
+		catwalk(model, f, fw, fh)
 	end
 	return model
 end
