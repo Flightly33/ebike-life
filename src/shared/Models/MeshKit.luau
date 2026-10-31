@@ -15,11 +15,17 @@
 	opposite of Blender's), which keeps every size the same but puts each piece back to front. The
 	import keeps the pieces laid out as a vehicle, so that turn is read from where they sit compared
 	with the manifest and undone. A "Turn" attribute (0 or 180) on VehicleMeshes overrides it.
+
+	When the bikes are remodelled, an import made before that still holds the old meshes under the
+	same names. MeshManifestV1 keeps the old entries of every vehicle that changed; each vehicle uses
+	whichever manifest its imported meshes match best, so the old import keeps working until the
+	owner re-imports. A "ManifestVersion" attribute (1 or 2) on VehicleMeshes overrides the choice.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MeshManifest = require(script.Parent.MeshManifest)
+local MeshManifestV1 = require(script.Parent.MeshManifestV1)
 
 local MeshKit = {}
 
@@ -70,6 +76,7 @@ MeshKit.MaxMissing = 0.25
 
 local checked: { [string]: boolean } = {}
 local turns: { [string]: number } = {}
+local chosen: { [string]: { MeshManifest.Entry } } = {}
 local rootFolder: Instance? = nil
 
 local index: { [string]: MeshPart }? = nil
@@ -122,6 +129,46 @@ local function sameShape(a: Vector3, b: Vector3): boolean
 	end
 	local na, nb = norm(a), norm(b)
 	return (na - nb).Magnitude < 0.12
+end
+
+-- How far an import is from a manifest's shapes: the mean shape error, a missing mesh counting 1
+local function misfit(entries: { MeshManifest.Entry }, meshes: { [string]: MeshPart }): number
+	local total = 0
+	for _, entry in entries do
+		local mesh = meshes[entry.Name]
+		if not mesh or not mesh:IsA("MeshPart") then
+			total += 1
+			continue
+		end
+		local a, b = mesh.MeshSize, entry.Size
+		local ma, mb = math.max(a.X, a.Y, a.Z, 1e-6), math.max(b.X, b.Y, b.Z, 1e-6)
+		total += math.min(1, (a / ma - b / mb).Magnitude)
+	end
+	return total / math.max(1, #entries)
+end
+
+-- The manifest entries an import of this vehicle was made from: the current ones, or the old ones
+-- (MeshManifestV1) when the imported meshes match those better
+local function entriesFor(vehicleId: string): { MeshManifest.Entry }?
+	local cached = chosen[vehicleId]
+	if cached then
+		return cached
+	end
+	local current, old = MeshManifest[vehicleId], MeshManifestV1[vehicleId]
+	if not old or not current then
+		return current or old
+	end
+	local meshes = meshIndex()
+	local forced = if rootFolder then rootFolder:GetAttribute("ManifestVersion") else nil
+	local pick = current
+	if forced == 1 then
+		pick = old
+	elseif forced ~= 2 and next(meshes) ~= nil and misfit(old, meshes) < misfit(current, meshes) then
+		pick = old
+		print(string.format("[MeshKit] %s: this import is from before the bikes were remodelled; re-import Vehicles.fbx for the new model", vehicleId))
+	end
+	chosen[vehicleId] = pick
+	return pick
 end
 
 -- How far the importer turned this vehicle about the vertical (0 or 180 degrees): compare where its
@@ -177,8 +224,8 @@ function MeshKit.Has(vehicleId: string): boolean
 	if cached ~= nil then
 		return cached
 	end
-	local entries = MeshManifest[vehicleId]
 	local meshes = meshIndex()
+	local entries = entriesFor(vehicleId)
 	local ok = entries ~= nil and next(meshes) ~= nil
 	if ok and entries then
 		-- a few missing pieces (an older import, or the importer dropping some) don't throw the whole
@@ -229,7 +276,7 @@ function MeshKit.Pieces(vehicleId: string): { Piece }?
 	if not MeshKit.Has(vehicleId) then
 		return nil
 	end
-	local entries = MeshManifest[vehicleId]
+	local entries = entriesFor(vehicleId) :: { MeshManifest.Entry }
 	local meshes = meshIndex()
 	local out: { Piece } = {}
 	for _, entry in entries do
@@ -245,6 +292,7 @@ end
 function MeshKit.Forget(vehicleId: string)
 	checked[vehicleId] = nil
 	turns[vehicleId] = nil
+	chosen[vehicleId] = nil
 	index = nil
 end
 
@@ -257,8 +305,8 @@ export type Placed = { Part: MeshPart, Group: string, Slot: string }
 ]]
 function MeshKit.Place(model: Model, vehicleId: string, scale: number, colors: { [string]: Color3 }, materials: { [string]: Enum.Material? }?): { Placed }
 	local placed: { Placed } = {}
-	local entries = MeshManifest[vehicleId]
 	local meshes = meshIndex()
+	local entries = entriesFor(vehicleId)
 	if not entries then
 		return placed
 	end

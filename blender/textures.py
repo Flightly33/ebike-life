@@ -31,12 +31,13 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out", "textures"
 MATERIALS = []
 
 
-def material(name, base, tile, pattern, tint, size=1024, directional=False, metal=None, seed=None):
+def material(name, base, tile, pattern, tint, size=1024, directional=False, metal=None, seed=None, livery=False):
     """Register a generator: it returns colour (H, W, 3), height (m), roughness and optionally
-    metalness (H, W) or a constant via `metal`."""
+    metalness (H, W) or a constant via `metal`. Livery patterns (Shared/Livery: carbon, camo...)
+    are painted on bikes by name and never override their base material."""
 
     def wrap(fn):
-        MATERIALS.append({"Name": name, "Base": base, "Tile": tile, "Pattern": pattern, "Tint": tint, "Size": size, "Directional": directional, "Metal": metal, "Seed": seed or (zlib.crc32(name.encode()) % 100000), "Fn": fn})
+        MATERIALS.append({"Name": name, "Base": base, "Tile": tile, "Pattern": pattern, "Tint": tint, "Size": size, "Directional": directional, "Metal": metal, "Seed": seed or (zlib.crc32(name.encode()) % 100000), "Livery": livery, "Fn": fn})
         return fn
 
     return wrap
@@ -572,6 +573,216 @@ def marble(n, x, y, S, tile):
     return {"color": color, "height": height, "rough": rough}
 
 
+# ---------------------------------------------------------------------------- livery patterns
+# Bike paint patterns (Shared/Livery), named "Pattern<Name>" so their variants are
+# "RealPattern<Name>". Most are luminance only, so the coat's colour sets the hue; woodland camo,
+# splatter and flames carry their own colours (they show true on a white coat).
+
+
+def _window(size, cx, cy, r):
+    """The pixels within `r` of (cx, cy), wrapping: (row/col index, dx, dy from the centre)."""
+    r = int(math.ceil(r)) + 1
+    xs = np.arange(int(cx) - r, int(cx) + r + 1)
+    ys = np.arange(int(cy) - r, int(cy) + r + 1)
+    dx = (xs + 0.5 - cx)[None, :].astype(F)
+    dy = (ys + 0.5 - cy)[:, None].astype(F)
+    return np.ix_(ys % size, xs % size), dx, dy
+
+
+@material("PatternCarbon", "Plastic", 0.2, "Regular", (60, 60, 64), livery=True)
+def pattern_carbon(n, x, y, S, tile):
+    k = 40  # 2x2 twill, 5 mm tows
+    i, j = np.floor(x * k), np.floor(y * k)
+    warp = ((i + j) % 4) < 2
+    fx, fy = x * k % 1, y * k % 1
+    across = np.where(warp, fx, fy)
+    bulge = np.sin(math.pi * across)
+    fibre = np.where(warp, n.perlin(x, y, 640, 16), n.perlin(x, y, 16, 640))
+    lum = np.where(warp, 0.46, 0.25) + 0.2 * bulge ** 2 + 0.04 * fibre - 0.14 * (1 - bulge) ** 6
+    return {"color": gray(lum), "height": 0.00018 * bulge, "rough": 0.16 + 0.06 * (1 - bulge)}
+
+
+@material("PatternForged", "Plastic", 0.25, "Organic", (60, 60, 64), livery=True)
+def pattern_forged(n, x, y, S, tile):
+    rng = np.random.default_rng(31)
+    lum = 0.2 + 0.03 * n.fbm(x, y, 20, 3)
+    height = np.zeros_like(x)
+    px = S / tile
+    for _ in range(2600):
+        cx, cy = rng.uniform(0, S, 2)
+        length = rng.uniform(0.012, 0.032) * px
+        width = rng.uniform(0.003, 0.009) * px
+        a = rng.uniform(0, math.pi)
+        idx, dx, dy = _window(S, cx, cy, length / 2)
+        u = dx * math.cos(a) + dy * math.sin(a)
+        v = -dx * math.sin(a) + dy * math.cos(a)
+        ragged = 1 - 0.25 * np.abs(np.sin(u * 0.9 + a * 7))
+        inside = (np.abs(u) < length / 2 * ragged) & (np.abs(v) < width / 2)
+        # the flakes catch the light by the way their fibres run
+        sheen = 0.14 + 0.46 * abs(math.cos(2 * (a - 0.6))) ** 2 + rng.uniform(-0.04, 0.04)
+        lum[idx] = np.where(inside, sheen + 0.03 * np.sin(v * 2.5), lum[idx])
+        height[idx] = np.where(inside, height[idx] + 0.00003, height[idx])
+    return {"color": gray(lum), "height": height, "rough": 0.18 + 0.04 * n.fbm(x, y, 12, 2)}
+
+
+@material("PatternBrushed", "Metal", 0.3, "Regular", (200, 202, 206), metal=1.0, livery=True)
+def pattern_brushed(n, x, y, S, tile):
+    streak = 0.5 * n.perlin(x, y, 2, 520) + 0.3 * n.perlin(x, y, 4, 1000) + 0.2 * n.perlin(x, y, 1, 260)
+    lum = 0.84 + 0.07 * streak + 0.02 * n.fbm(x, y, 6, 3)
+    return {"color": gray(lum), "height": 0.00002 * streak, "rough": 0.3 + 0.08 * streak}
+
+
+@material("PatternCamo", "Plastic", 0.6, "Organic", (200, 200, 200), livery=True)
+def pattern_camo(n, x, y, S, tile):
+    # woodland: khaki ground, green, brown and black blobs
+    khaki, green, brown, black = rgb(0.86, 0.8, 0.62), rgb(0.36, 0.45, 0.26), rgb(0.46, 0.34, 0.22), rgb(0.1, 0.1, 0.09)
+    a = n.fbm(x, y, 5, 4)
+    b = n.fbm(x, y, 6, 4)
+    c = n.fbm(x, y, 7, 4)
+    color = np.broadcast_to(khaki, x.shape + (3,)).copy()
+    for field, level, tone in ((a, 0.02, green), (b, 0.12, brown), (c, 0.24, black)):
+        m = smoothstep(level, level + 0.015, field)[..., None]
+        color = color * (1 - m) + tone * m
+    return {"color": color, "height": 0.00002 * a, "rough": 0.55 + 0.05 * n.fbm(x, y, 20, 2)}
+
+
+@material("PatternDigiCamo", "Plastic", 0.5, "Regular", (200, 200, 200), livery=True)
+def pattern_digicamo(n, x, y, S, tile):
+    k = 48  # 10 mm pixels
+    qx, qy = (np.floor(x * k) + 0.5) / k, (np.floor(y * k) + 0.5) / k
+    lum = np.full(x.shape, 0.96, F)
+    for cells, level, tone in ((5, 0.0, 0.7), (6, 0.12, 0.46), (8, 0.26, 0.24)):
+        field = n.fbm(qx, qy, cells, 4)
+        lum = np.where(field > level, tone, lum)
+    return {"color": gray(lum), "height": np.zeros_like(x), "rough": 0.6}
+
+
+@material("PatternHex", "Plastic", 0.2, "Regular", (70, 70, 74), livery=True)
+def pattern_hex(n, x, y, S, tile):
+    cols = 24  # 8 mm cells
+    rows = 14  # (rows * sqrt 3 ~ cols, so the honeycomb tiles with a 1% stretch)
+    px, py = x * cols, y * rows * math.sqrt(3)
+    best = np.full(x.shape, np.inf, F)
+    rel_x = np.zeros_like(x)
+    rel_y = np.zeros_like(x)
+    for ox, oy in ((0.0, 0.0), (0.5, math.sqrt(3) / 2)):
+        cx = np.round(px - ox) + ox
+        cy = np.round((py - oy) / math.sqrt(3)) * math.sqrt(3) + oy
+        d = np.hypot(px - cx, py - cy)
+        closer = d < best
+        best = np.where(closer, d, best)
+        rel_x = np.where(closer, px - cx, rel_x)
+        rel_y = np.where(closer, py - cy, rel_y)
+    hexd = np.maximum(np.abs(rel_x), np.maximum(np.abs(0.5 * rel_x + 0.866 * rel_y), np.abs(-0.5 * rel_x + 0.866 * rel_y)))
+    wall = smoothstep(0.43, 0.49, hexd)
+    dome = 1 - (hexd / 0.5) ** 2
+    lum = 0.3 + 0.2 * dome - 0.2 * wall + 0.12 * smoothstep(0.1, 0.4, rel_y * -0.8 + rel_x * 0.3)
+    return {"color": gray(lum), "height": 0.0002 * dome - 0.0002 * wall, "rough": 0.22 + 0.2 * wall}
+
+
+@material("PatternSnake", "Plastic", 0.3, "Organic", (200, 196, 180), livery=True)
+def pattern_snake(n, x, y, S, tile):
+    f1, f2, ids = n.worley(x, y, 36, jitter=0.3)
+    edge = smoothstep(0.0, 0.14, f2 - f1)
+    dome = np.clip(1 - f1 * 1.4, 0, 1)
+    b1, _, _ = n.worley(x + 0.02 * n.fbm(x, y, 8, 3), y, 7, jitter=0.85)
+    blotch = smoothstep(0.36, 0.3, b1)
+    ring = smoothstep(0.46, 0.4, b1) - blotch
+    lum = 0.9 + n.per_cell(36 * 36, -0.06, 0.04)[ids] - 0.62 * ring - 0.3 * blotch
+    lum = lum * (0.5 + 0.5 * edge)
+    return {"color": gray(lum), "height": 0.00035 * dome * edge, "rough": 0.42 - 0.12 * dome}
+
+
+@material("PatternTiger", "Plastic", 0.6, "Organic", (230, 140, 40), livery=True)
+def pattern_tiger(n, x, y, S, tile):
+    warp = 0.13 * n.fbm(x, y, 2, 4) + 0.03 * n.fbm(x, y, 6, 3)
+    s = (x * 6 + y * 1 + warp * 6) % 1
+    # stripes swell and taper to points, and break up into forks
+    width = np.clip(0.16 + 0.32 * n.fbm(x, y, 3, 3, cy=7), 0, 0.5)
+    stripe = smoothstep(width / 2 + 0.01, width / 2 - 0.01, np.abs(s - 0.5))
+    stripe = stripe * smoothstep(-0.2, -0.17, n.fbm(x, y, 3, 3, cy=9))
+    lum = 0.95 - 0.88 * stripe
+    return {"color": gray(lum), "height": np.zeros_like(x), "rough": 0.4}
+
+
+@material("PatternChecker", "Plastic", 0.32, "Regular", (240, 240, 240), livery=True)
+def pattern_checker(n, x, y, S, tile):
+    k = 8  # 40 mm squares
+    fx, fy = x * k % 1, y * k % 1
+    edge = np.minimum(np.minimum(fx, 1 - fx), np.minimum(fy, 1 - fy))
+    sq = ((np.floor(x * k) + np.floor(y * k)) % 2).astype(F)
+    lum = np.where(sq > 0.5, 0.95, 0.06) + 0.03 * smoothstep(0.004, 0.0, edge)
+    return {"color": gray(lum), "height": np.zeros_like(x), "rough": 0.3}
+
+
+@material("PatternSplatter", "Plastic", 0.5, "Organic", (240, 240, 240), livery=True)
+def pattern_splatter(n, x, y, S, tile):
+    rng = np.random.default_rng(57)
+    palette = [rgb(0.1, 0.1, 0.1), rgb(0.0, 0.72, 0.95), rgb(0.95, 0.12, 0.55), rgb(1.0, 0.84, 0.0), rgb(0.3, 0.88, 0.25)]
+    color = np.full(x.shape + (3,), 0.95, F)
+    height = np.zeros_like(x)
+    px = S / tile
+    for _ in range(70):
+        tone = palette[rng.integers(len(palette))]
+        cx, cy = rng.uniform(0, S, 2)
+        R = rng.uniform(0.006, 0.022) * px
+        drops = [(cx, cy, R, rng.uniform(0, 6.28), rng.integers(5, 9))]
+        for _ in range(rng.integers(6, 16)):
+            a, d = rng.uniform(0, 2 * math.pi), rng.uniform(1.2, 2.8) * R
+            drops.append((cx + math.cos(a) * d, cy + math.sin(a) * d, R * rng.uniform(0.08, 0.28), 0.0, 0))
+        for dx0, dy0, r, phase, lobes in drops:
+            idx, dx, dy = _window(S, dx0, dy0, r * 1.4)
+            ang = np.arctan2(dy, dx)
+            edge = r * (1 + (0.28 * np.sin(lobes * ang + phase) + 0.1 * np.sin(2.3 * lobes * ang) if lobes else 0))
+            inside = smoothstep(edge + 1.0, edge - 1.0, np.hypot(dx, dy))[..., None]
+            color[idx] = color[idx] * (1 - inside) + tone * inside
+            height[idx] = height[idx] + 0.00004 * inside[..., 0]
+    return {"color": color, "height": height, "rough": 0.35}
+
+
+@material("PatternFlames", "Plastic", 0.6, "Regular", (240, 240, 240), livery=True)
+def pattern_flames(n, x, y, S, tile):
+    # hot-rod flames licking along +x on a dark ground (a white coat shows them true)
+    rng = np.random.default_rng(13)
+    d = np.full(x.shape, -1.0, F)
+    rows, per_row = 3, 7
+    for r in range(rows):
+        yc = (r + 0.5) / rows
+        for t in range(per_row):
+            x0 = t / per_row + rng.uniform(-0.03, 0.03) + r * 0.11
+            length = rng.uniform(0.22, 0.42)
+            u = ((x - x0) % 1) / length
+            amp = rng.uniform(0.04, 0.08) * rng.choice([-1, 1])
+            # each tongue curls one way then flicks back at its tip
+            centre = yc + rng.uniform(-0.05, 0.05) + amp * (np.sin(math.pi * u) * 0.7 + np.sin(2.6 * math.pi * u) * 0.3 * u)
+            hw = 0.05 * np.clip(1 - u, 0, 1) ** 1.1 * np.clip(u * 5, 0, 1) ** 0.5
+            dist = np.abs(((y - centre + 0.5) % 1) - 0.5)
+            d = np.maximum(d, np.where(u < 1, hw - dist, -1.0))
+    dark, outline, red, orange, yellow = rgb(0.1, 0.1, 0.1), rgb(0.3, 0.02, 0.02), rgb(0.92, 0.12, 0.05), rgb(1.0, 0.46, 0.05), rgb(1.0, 0.86, 0.22)
+    color = np.broadcast_to(dark, x.shape + (3,)).copy()
+    for edge, tone in ((0.0, outline), (0.004, red), (0.012, orange), (0.024, yellow)):
+        m = smoothstep(edge, edge + 0.002, d)[..., None]
+        color = color * (1 - m) + tone * m
+    inside = smoothstep(0.0, 0.002, d)
+    return {"color": color, "height": 0.00003 * inside, "rough": 0.3 - 0.1 * inside}
+
+
+@material("PatternQuilted", "Leather", 0.2, "Regular", (40, 36, 34), livery=True)
+def pattern_quilted(n, x, y, S, tile):
+    k = 5  # 40 mm diamonds
+    u, v = (x + y) * k, (x - y) * k
+    fu, fv = u % 1, v % 1
+    e = np.minimum(np.minimum(fu, 1 - fu), np.minimum(fv, 1 - fv))
+    pillow = smoothstep(0.0, 0.3, e)
+    seam = smoothstep(0.035, 0.0, e)
+    stitch = smoothstep(0.014, 0.0, np.abs(e - 0.06)) * (np.sin(2 * math.pi * (u + v) * 9) > 0.1)
+    f1, f2, _ = n.worley(x, y, 60, jitter=1.0)
+    pebble = np.clip(f2 - f1, 0, 1) ** 0.5
+    lum = 0.74 + 0.16 * pillow - 0.42 * seam + 0.2 * stitch + 0.04 * pebble
+    height = 0.004 * pillow - 0.001 * seam + 0.0003 * pebble + 0.0003 * stitch
+    return {"color": gray(lum), "height": height, "rough": 0.58 - 0.1 * pillow + 0.1 * seam}
+
+
 # ---------------------------------------------------------------------------- output
 
 
@@ -636,7 +847,7 @@ def main():
         x, y = T.grid(size)
         n = T.Noise(spec["Seed"])
         maps = finish(spec, spec["Fn"](n, x, y, size, spec["Tile"]))
-        entry = {k: spec[k] for k in ("Name", "Base", "Tile", "Pattern", "Tint", "Size", "Directional")}
+        entry = {k: spec[k] for k in ("Name", "Base", "Tile", "Pattern", "Tint", "Size", "Directional", "Livery")}
         entry["Maps"] = write(spec["Name"], maps, spec)
         done[spec["Name"]] = entry
         if spec["Directional"]:

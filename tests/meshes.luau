@@ -169,6 +169,54 @@ MeshKit.Forget("flit_s")
 local fallback = BikeModel.Build(Bikes.Get("flit_s"), nil)
 check(#meshes(fallback) == 0, "a turned import falls back to the part-built bike")
 
+-- An import made before a bike was remodelled is placed by its old entries (MeshManifestV1)
+do
+	local V1 = server.Require(Models:WaitForChild("MeshManifestV1"))
+	local id: string? = nil
+	for _, bike in Bikes.List do
+		if V1[bike.Id] and bike.Id ~= "flit_mini" and bike.Id ~= "flit_s" then
+			id = bike.Id
+			break
+		end
+	end
+	if id then
+		for _, part in folder:GetChildren() do
+			if string.sub(part.Name, 1, #id + 2) == id .. "__" then
+				part.Parent = nil
+			end
+		end
+		local old: { [string]: any } = {}
+		for _, entry in V1[id] do
+			old[entry.Name] = entry
+			local part = Sim.Raw("MeshPart")
+			Sim.States[part].Name = entry.Name
+			Sim.States[part].Props.MeshSize = entry.Size * 2.5
+			part.CFrame = CFrame.new(entry.Center * 2.5 + Vector3.new(40, 3, -12))
+			part.Parent = folder
+		end
+		MeshKit.Forget(id)
+		local list = meshes(BikeModel.Build(Bikes.Get(id), nil, { Static = true }))
+		local ratio: number? = nil
+		local consistent = #list == #V1[id]
+		for _, part in list do
+			local entry = old[part.Name]
+			if not entry then
+				consistent = false
+				break
+			end
+			local axis = if entry.Size.X >= entry.Size.Y and entry.Size.X >= entry.Size.Z then "X" elseif entry.Size.Y >= entry.Size.Z then "Y" else "Z"
+			local r = part.Size[axis] / entry.Size[axis]
+			ratio = ratio or r
+			if math.abs(r - (ratio :: number)) > 1e-3 * (ratio :: number) then
+				consistent = false
+			end
+		end
+		check(consistent, string.format("%s: an import from before the remodel is placed by the old manifest (%d meshes)", id, #list))
+	else
+		check(true, "no remodelled vehicles in MeshManifestV1")
+	end
+end
+
 -- The city kit on a little street: windows, the three tree species, a lamp
 do
 	local CityKit = server.Require(Models:WaitForChild("CityKit"))

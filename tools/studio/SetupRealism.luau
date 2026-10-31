@@ -18,34 +18,46 @@ local MaterialService = game:GetService("MaterialService")
 local STUDS_PER_METRE = 5.3571 -- the city's scale (the game sets this again at runtime)
 
 local MATERIALS = {
-	{ Name = "RealAsphalt", Base = "Asphalt", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "Asphalt_Color", Normal = "Asphalt_Normal", Roughness = "Asphalt_Roughness" } },
-	{ Name = "RealPavement", Base = "Pavement", Pattern = "Regular", TileMeters = 3.0, Turned = false, Maps = { Color = "Pavement_Color", Normal = "Pavement_Normal", Roughness = "Pavement_Roughness" } },
-	{ Name = "RealConcrete", Base = "Concrete", Pattern = "Organic", TileMeters = 4.0, Turned = false, Maps = { Color = "Concrete_Color", Normal = "Concrete_Normal", Roughness = "Concrete_Roughness" } },
-	{ Name = "RealCobblestone", Base = "Cobblestone", Pattern = "Regular", TileMeters = 1.0, Turned = false, Maps = { Color = "Cobblestone_Color", Normal = "Cobblestone_Normal", Roughness = "Cobblestone_Roughness" } },
-	{ Name = "RealPlaster", Base = "Plaster", Pattern = "Organic", TileMeters = 1.0, Turned = false, Maps = { Color = "Plaster_Color", Normal = "Plaster_Normal", Roughness = "Plaster_Roughness" } },
-	{ Name = "RealBrick", Base = "Brick", Pattern = "Regular", TileMeters = 1.125, Turned = false, Maps = { Color = "Brick_Color", Normal = "Brick_Normal", Roughness = "Brick_Roughness" } },
-	{ Name = "RealClayRoofTiles", Base = "ClayRoofTiles", Pattern = "Regular", TileMeters = 1.0, Turned = false, Maps = { Color = "ClayRoofTiles_Color", Normal = "ClayRoofTiles_Normal", Roughness = "ClayRoofTiles_Roughness" } },
-	{ Name = "RealClayRoofTiles90", Base = "ClayRoofTiles", Pattern = "Regular", TileMeters = 1.0, Turned = true, Maps = { Color = "ClayRoofTiles90_Color", Normal = "ClayRoofTiles90_Normal", Roughness = "ClayRoofTiles90_Roughness" } },
-	{ Name = "RealRoofShingles", Base = "RoofShingles", Pattern = "Regular", TileMeters = 1.2, Turned = false, Maps = { Color = "RoofShingles_Color", Normal = "RoofShingles_Normal", Roughness = "RoofShingles_Roughness" } },
-	{ Name = "RealRoofShingles90", Base = "RoofShingles", Pattern = "Regular", TileMeters = 1.2, Turned = true, Maps = { Color = "RoofShingles90_Color", Normal = "RoofShingles90_Normal", Roughness = "RoofShingles90_Roughness" } },
-	{ Name = "RealLimestone", Base = "Limestone", Pattern = "Organic", TileMeters = 1.5, Turned = false, Maps = { Color = "Limestone_Color", Normal = "Limestone_Normal", Roughness = "Limestone_Roughness" } },
-	{ Name = "RealMetal", Base = "Metal", Pattern = "Regular", TileMeters = 1.0, Turned = false, Maps = { Color = "Metal_Color", Normal = "Metal_Normal", Roughness = "Metal_Roughness", Metalness = "Shared_MetalFull" } },
-	{ Name = "RealDiamondPlate", Base = "DiamondPlate", Pattern = "Regular", TileMeters = 0.5, Turned = false, Maps = { Color = "DiamondPlate_Color", Normal = "DiamondPlate_Normal", Roughness = "DiamondPlate_Roughness", Metalness = "Shared_MetalFull" } },
-	{ Name = "RealCorrodedMetal", Base = "CorrodedMetal", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "CorrodedMetal_Color", Normal = "CorrodedMetal_Normal", Roughness = "CorrodedMetal_Roughness", Metalness = "CorrodedMetal_Metalness" } },
-	{ Name = "RealWood", Base = "Wood", Pattern = "Regular", TileMeters = 1.0, Turned = false, Maps = { Color = "Wood_Color", Normal = "Wood_Normal", Roughness = "Wood_Roughness" } },
-	{ Name = "RealWoodPlanks", Base = "WoodPlanks", Pattern = "Regular", TileMeters = 2.0, Turned = false, Maps = { Color = "WoodPlanks_Color", Normal = "WoodPlanks_Normal", Roughness = "WoodPlanks_Roughness" } },
-	{ Name = "RealWoodPlanks90", Base = "WoodPlanks", Pattern = "Regular", TileMeters = 2.0, Turned = true, Maps = { Color = "WoodPlanks90_Color", Normal = "WoodPlanks90_Normal", Roughness = "WoodPlanks90_Roughness" } },
-	{ Name = "RealFabric", Base = "Fabric", Pattern = "Regular", TileMeters = 0.25, Turned = false, Maps = { Color = "Fabric_Color", Normal = "Fabric_Normal", Roughness = "Fabric_Roughness" } },
-	{ Name = "RealRubber", Base = "Rubber", Pattern = "Organic", TileMeters = 0.5, Turned = false, Maps = { Color = "Rubber_Color", Normal = "Rubber_Normal", Roughness = "Rubber_Roughness" } },
-	{ Name = "RealLeather", Base = "Leather", Pattern = "Organic", TileMeters = 0.3, Turned = false, Maps = { Color = "Leather_Color", Normal = "Leather_Normal", Roughness = "Leather_Roughness" } },
-	{ Name = "RealGrass", Base = "Grass", Pattern = "Organic", TileMeters = 1.5, Turned = false, Maps = { Color = "Grass_Color", Normal = "Grass_Normal", Roughness = "Grass_Roughness" } },
-	{ Name = "RealLeafyGrass", Base = "LeafyGrass", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "LeafyGrass_Color", Normal = "LeafyGrass_Normal", Roughness = "LeafyGrass_Roughness" } },
-	{ Name = "RealSand", Base = "Sand", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "Sand_Color", Normal = "Sand_Normal", Roughness = "Sand_Roughness" } },
-	{ Name = "RealGround", Base = "Ground", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "Ground_Color", Normal = "Ground_Normal", Roughness = "Ground_Roughness" } },
-	{ Name = "RealMud", Base = "Mud", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "Mud_Color", Normal = "Mud_Normal", Roughness = "Mud_Roughness" } },
-	{ Name = "RealRock", Base = "Rock", Pattern = "Organic", TileMeters = 3.0, Turned = false, Maps = { Color = "Rock_Color", Normal = "Rock_Normal", Roughness = "Rock_Roughness" } },
-	{ Name = "RealSlate", Base = "Slate", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "Slate_Color", Normal = "Slate_Normal", Roughness = "Slate_Roughness" } },
-	{ Name = "RealMarble", Base = "Marble", Pattern = "Organic", TileMeters = 2.0, Turned = false, Maps = { Color = "Marble_Color", Normal = "Marble_Normal", Roughness = "Marble_Roughness" } },
+	{ Name = "RealAsphalt", Base = "Asphalt", Pattern = "Organic", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "Asphalt_Color", Normal = "Asphalt_Normal", Roughness = "Asphalt_Roughness" } },
+	{ Name = "RealPavement", Base = "Pavement", Pattern = "Regular", TileMeters = 3.0, Turned = false, Livery = false, Maps = { Color = "Pavement_Color", Normal = "Pavement_Normal", Roughness = "Pavement_Roughness" } },
+	{ Name = "RealConcrete", Base = "Concrete", Pattern = "Organic", TileMeters = 4.0, Turned = false, Livery = false, Maps = { Color = "Concrete_Color", Normal = "Concrete_Normal", Roughness = "Concrete_Roughness" } },
+	{ Name = "RealCobblestone", Base = "Cobblestone", Pattern = "Regular", TileMeters = 1.0, Turned = false, Livery = false, Maps = { Color = "Cobblestone_Color", Normal = "Cobblestone_Normal", Roughness = "Cobblestone_Roughness" } },
+	{ Name = "RealPlaster", Base = "Plaster", Pattern = "Organic", TileMeters = 1.0, Turned = false, Livery = false, Maps = { Color = "Plaster_Color", Normal = "Plaster_Normal", Roughness = "Plaster_Roughness" } },
+	{ Name = "RealBrick", Base = "Brick", Pattern = "Regular", TileMeters = 1.125, Turned = false, Livery = false, Maps = { Color = "Brick_Color", Normal = "Brick_Normal", Roughness = "Brick_Roughness" } },
+	{ Name = "RealClayRoofTiles", Base = "ClayRoofTiles", Pattern = "Regular", TileMeters = 1.0, Turned = false, Livery = false, Maps = { Color = "ClayRoofTiles_Color", Normal = "ClayRoofTiles_Normal", Roughness = "ClayRoofTiles_Roughness" } },
+	{ Name = "RealClayRoofTiles90", Base = "ClayRoofTiles", Pattern = "Regular", TileMeters = 1.0, Turned = true, Livery = false, Maps = { Color = "ClayRoofTiles90_Color", Normal = "ClayRoofTiles90_Normal", Roughness = "ClayRoofTiles90_Roughness" } },
+	{ Name = "RealRoofShingles", Base = "RoofShingles", Pattern = "Regular", TileMeters = 1.2, Turned = false, Livery = false, Maps = { Color = "RoofShingles_Color", Normal = "RoofShingles_Normal", Roughness = "RoofShingles_Roughness" } },
+	{ Name = "RealRoofShingles90", Base = "RoofShingles", Pattern = "Regular", TileMeters = 1.2, Turned = true, Livery = false, Maps = { Color = "RoofShingles90_Color", Normal = "RoofShingles90_Normal", Roughness = "RoofShingles90_Roughness" } },
+	{ Name = "RealLimestone", Base = "Limestone", Pattern = "Organic", TileMeters = 1.5, Turned = false, Livery = false, Maps = { Color = "Limestone_Color", Normal = "Limestone_Normal", Roughness = "Limestone_Roughness" } },
+	{ Name = "RealMetal", Base = "Metal", Pattern = "Regular", TileMeters = 1.0, Turned = false, Livery = false, Maps = { Color = "Metal_Color", Normal = "Metal_Normal", Roughness = "Metal_Roughness", Metalness = "Shared_MetalFull" } },
+	{ Name = "RealDiamondPlate", Base = "DiamondPlate", Pattern = "Regular", TileMeters = 0.5, Turned = false, Livery = false, Maps = { Color = "DiamondPlate_Color", Normal = "DiamondPlate_Normal", Roughness = "DiamondPlate_Roughness", Metalness = "Shared_MetalFull" } },
+	{ Name = "RealCorrodedMetal", Base = "CorrodedMetal", Pattern = "Organic", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "CorrodedMetal_Color", Normal = "CorrodedMetal_Normal", Roughness = "CorrodedMetal_Roughness", Metalness = "CorrodedMetal_Metalness" } },
+	{ Name = "RealWood", Base = "Wood", Pattern = "Regular", TileMeters = 1.0, Turned = false, Livery = false, Maps = { Color = "Wood_Color", Normal = "Wood_Normal", Roughness = "Wood_Roughness" } },
+	{ Name = "RealWoodPlanks", Base = "WoodPlanks", Pattern = "Regular", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "WoodPlanks_Color", Normal = "WoodPlanks_Normal", Roughness = "WoodPlanks_Roughness" } },
+	{ Name = "RealWoodPlanks90", Base = "WoodPlanks", Pattern = "Regular", TileMeters = 2.0, Turned = true, Livery = false, Maps = { Color = "WoodPlanks90_Color", Normal = "WoodPlanks90_Normal", Roughness = "WoodPlanks90_Roughness" } },
+	{ Name = "RealFabric", Base = "Fabric", Pattern = "Regular", TileMeters = 0.25, Turned = false, Livery = false, Maps = { Color = "Fabric_Color", Normal = "Fabric_Normal", Roughness = "Fabric_Roughness" } },
+	{ Name = "RealRubber", Base = "Rubber", Pattern = "Organic", TileMeters = 0.5, Turned = false, Livery = false, Maps = { Color = "Rubber_Color", Normal = "Rubber_Normal", Roughness = "Rubber_Roughness" } },
+	{ Name = "RealLeather", Base = "Leather", Pattern = "Organic", TileMeters = 0.3, Turned = false, Livery = false, Maps = { Color = "Leather_Color", Normal = "Leather_Normal", Roughness = "Leather_Roughness" } },
+	{ Name = "RealGrass", Base = "Grass", Pattern = "Organic", TileMeters = 1.5, Turned = false, Livery = false, Maps = { Color = "Grass_Color", Normal = "Grass_Normal", Roughness = "Grass_Roughness" } },
+	{ Name = "RealLeafyGrass", Base = "LeafyGrass", Pattern = "Organic", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "LeafyGrass_Color", Normal = "LeafyGrass_Normal", Roughness = "LeafyGrass_Roughness" } },
+	{ Name = "RealSand", Base = "Sand", Pattern = "Organic", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "Sand_Color", Normal = "Sand_Normal", Roughness = "Sand_Roughness" } },
+	{ Name = "RealGround", Base = "Ground", Pattern = "Organic", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "Ground_Color", Normal = "Ground_Normal", Roughness = "Ground_Roughness" } },
+	{ Name = "RealMud", Base = "Mud", Pattern = "Organic", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "Mud_Color", Normal = "Mud_Normal", Roughness = "Mud_Roughness" } },
+	{ Name = "RealRock", Base = "Rock", Pattern = "Organic", TileMeters = 3.0, Turned = false, Livery = false, Maps = { Color = "Rock_Color", Normal = "Rock_Normal", Roughness = "Rock_Roughness" } },
+	{ Name = "RealSlate", Base = "Slate", Pattern = "Organic", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "Slate_Color", Normal = "Slate_Normal", Roughness = "Slate_Roughness" } },
+	{ Name = "RealMarble", Base = "Marble", Pattern = "Organic", TileMeters = 2.0, Turned = false, Livery = false, Maps = { Color = "Marble_Color", Normal = "Marble_Normal", Roughness = "Marble_Roughness" } },
+	{ Name = "RealPatternCarbon", Base = "Plastic", Pattern = "Regular", TileMeters = 0.2, Turned = false, Livery = true, Maps = { Color = "PatternCarbon_Color", Normal = "PatternCarbon_Normal", Roughness = "PatternCarbon_Roughness" } },
+	{ Name = "RealPatternForged", Base = "Plastic", Pattern = "Organic", TileMeters = 0.25, Turned = false, Livery = true, Maps = { Color = "PatternForged_Color", Normal = "PatternForged_Normal", Roughness = "PatternForged_Roughness" } },
+	{ Name = "RealPatternBrushed", Base = "Metal", Pattern = "Regular", TileMeters = 0.3, Turned = false, Livery = true, Maps = { Color = "PatternBrushed_Color", Normal = "PatternBrushed_Normal", Roughness = "PatternBrushed_Roughness", Metalness = "Shared_MetalFull" } },
+	{ Name = "RealPatternCamo", Base = "Plastic", Pattern = "Organic", TileMeters = 0.6, Turned = false, Livery = true, Maps = { Color = "PatternCamo_Color", Normal = "PatternCamo_Normal", Roughness = "PatternCamo_Roughness" } },
+	{ Name = "RealPatternDigiCamo", Base = "Plastic", Pattern = "Regular", TileMeters = 0.5, Turned = false, Livery = true, Maps = { Color = "PatternDigiCamo_Color", Normal = "PatternDigiCamo_Normal", Roughness = "PatternDigiCamo_Roughness" } },
+	{ Name = "RealPatternHex", Base = "Plastic", Pattern = "Regular", TileMeters = 0.2, Turned = false, Livery = true, Maps = { Color = "PatternHex_Color", Normal = "PatternHex_Normal", Roughness = "PatternHex_Roughness" } },
+	{ Name = "RealPatternSnake", Base = "Plastic", Pattern = "Organic", TileMeters = 0.3, Turned = false, Livery = true, Maps = { Color = "PatternSnake_Color", Normal = "PatternSnake_Normal", Roughness = "PatternSnake_Roughness" } },
+	{ Name = "RealPatternTiger", Base = "Plastic", Pattern = "Organic", TileMeters = 0.6, Turned = false, Livery = true, Maps = { Color = "PatternTiger_Color", Normal = "PatternTiger_Normal", Roughness = "PatternTiger_Roughness" } },
+	{ Name = "RealPatternChecker", Base = "Plastic", Pattern = "Regular", TileMeters = 0.32, Turned = false, Livery = true, Maps = { Color = "PatternChecker_Color", Normal = "PatternChecker_Normal", Roughness = "PatternChecker_Roughness" } },
+	{ Name = "RealPatternSplatter", Base = "Plastic", Pattern = "Organic", TileMeters = 0.5, Turned = false, Livery = true, Maps = { Color = "PatternSplatter_Color", Normal = "PatternSplatter_Normal", Roughness = "PatternSplatter_Roughness" } },
+	{ Name = "RealPatternFlames", Base = "Plastic", Pattern = "Regular", TileMeters = 0.6, Turned = false, Livery = true, Maps = { Color = "PatternFlames_Color", Normal = "PatternFlames_Normal", Roughness = "PatternFlames_Roughness" } },
+	{ Name = "RealPatternQuilted", Base = "Leather", Pattern = "Regular", TileMeters = 0.2, Turned = false, Livery = true, Maps = { Color = "PatternQuilted_Color", Normal = "PatternQuilted_Normal", Roughness = "PatternQuilted_Roughness" } },
 }
 
 local KITS = {
@@ -149,13 +161,15 @@ for _, spec in MATERIALS do
 		variant.StudsPerTile = spec.TileMeters * STUDS_PER_METRE
 		variant:SetAttribute("TileMeters", spec.TileMeters)
 		variant:SetAttribute("Turned", spec.Turned)
+		variant:SetAttribute("Pattern", spec.Livery)
 		setMap(variant, "ColorMap", color)
 		setMap(variant, "NormalMap", map(spec.Maps.Normal))
 		setMap(variant, "RoughnessMap", map(spec.Maps.Roughness))
 		setMap(variant, "MetalnessMap", map(spec.Maps.Metalness))
 		variant.Parent = parent
 	end
-	if not spec.Turned then
+	-- (bike paint patterns are put on by name, never as the override for their base material)
+	if not spec.Turned and not spec.Livery then
 		MaterialService:SetBaseMaterialOverride(base, spec.Name)
 	end
 	made += 1
