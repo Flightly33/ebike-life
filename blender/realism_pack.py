@@ -162,6 +162,7 @@ end
 -- the image ids the import uploaded, by image name
 local uploaded: { [string]: string } = {}
 local swatches = {}
+local sample: Instance? = nil
 for _, d in root:GetDescendants() do
 	if d:IsA("BasePart") and string.find(d.Name, "^Swatch__") then
 		local name = string.match(d.Name, "^Swatch__([%w_]+)") :: string
@@ -190,9 +191,34 @@ for _, d in root:GetDescendants() do
 		end
 		if id ~= "" then
 			uploaded[name] = id
+			table.insert(swatches, d)
+		elseif not sample then
+			sample = d
 		end
-		table.insert(swatches, d)
 	end
+end
+
+-- nothing read back: say what a swatch holds instead of deleting anything
+if next(uploaded) == nil then
+	if not sample then
+		error("[SetupRealism] no Swatch__ parts inside VehicleMeshes: re-import Vehicles.fbx (the swatches were removed by an earlier run)")
+	end
+	local s = sample :: Instance
+	local info = { s:GetFullName() .. " (" .. s.ClassName .. ")" }
+	pcall(function()
+		table.insert(info, "TextureID=" .. tostring((s :: any).TextureID))
+	end)
+	for _, c in s:GetChildren() do
+		local line = c.ClassName .. " " .. c.Name
+		pcall(function()
+			line ..= " ColorMap=" .. tostring((c :: any).ColorMap)
+		end)
+		pcall(function()
+			line ..= " ColorMapContent=" .. tostring((c :: any).ColorMapContent.Uri)
+		end)
+		table.insert(info, line)
+	end
+	error("[SetupRealism] no texture ids on the swatches: the images didn't upload. Publish the place, turn on Game Settings > Security > Studio Access to API Services, re-import Vehicles.fbx and run this again. A swatch holds: " .. table.concat(info, " | "))
 end
 
 local missing = {}
