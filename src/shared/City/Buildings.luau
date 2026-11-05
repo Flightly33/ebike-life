@@ -130,13 +130,13 @@ function Buildings.Tower(parent: Instance, cx: number, cz: number, w: number, d:
 		local n = math.floor((faceW - 6) / spacing)
 		for i = 1, n - 1 do
 			local x = -faceW / 2 + 3 + i * (faceW - 6) / n
-			PartKit.Box(model, "Mullion", Vector3.new(0.5, h - lobbyH, 0.6), face * CFrame.new(x, lobbyH + (h - lobbyH) / 2, -0.2), stone, CONCRETE, DECOR)
+			PartKit.Kit(PartKit.Box(model, "Mullion", Vector3.new(0.5, h - lobbyH, 0.6), face * CFrame.new(x, lobbyH + (h - lobbyH) / 2, -0.2), stone, CONCRETE, DECOR), "TowerMullion")
 		end
 		-- lobby columns and doors
 		local cols = math.max(3, math.floor(faceW / 14))
 		for i = 1, cols - 1 do
 			local x = -faceW / 2 + i * faceW / cols
-			PartKit.Box(model, "Column", Vector3.new(1.8, lobbyH, 1.8), face * CFrame.new(x, lobbyH / 2, 1.5), stone, CONCRETE)
+			PartKit.Kit(PartKit.Box(model, "Column", Vector3.new(1.8, lobbyH, 1.8), face * CFrame.new(x, lobbyH / 2, 1.5), stone, CONCRETE), "LobbyColumn")
 		end
 	end
 	local front = Detail.Face(cx, cz, Vector3.new(0, 0, 1), d / 2 - 3, Y)
@@ -175,13 +175,19 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 	local brick = if stucco then pick(rng, PASTELS) else pick(rng, BRICKS)
 	local material = if stucco or rng:NextNumber() >= 0.75 then Enum.Material.Plaster else Enum.Material.Brick
 	-- the ground floor is the shop (Interior, built with the storefront below); the body sits on it
-	PartKit.Box(model, "Body", Vector3.new(w, h - floorH, d), CFrame.new(cx, Y + floorH + (h - floorH) / 2, cz), brick, material)
+	-- some rendered walls are an older sand-float stucco, some brick is old and sooted (named
+	-- materials from the realism pack, so the street isn't all one texture)
+	local facade = if material == Enum.Material.Plaster then PartKit.FacadeFor(Vector3.new(cx, 0, cz), "RealStucco", 0.5) else PartKit.FacadeFor(Vector3.new(cx, 0, cz), "RealBrickOld", 0.45)
+	PartKit.Wear(facade, PartKit.Box(model, "Body", Vector3.new(w, h - floorH, d), CFrame.new(cx, Y + floorH + (h - floorH) / 2, cz), brick, material))
 	local trim = pick(rng, { Color3.fromRGB(235, 230, 220), Color3.fromRGB(60, 62, 66), Color3.fromRGB(200, 196, 186) })
 	local style: Detail.WindowStyle = {
 		Width = pick(rng, { 4, 4.5, 5 }),
 		Height = pick(rng, { 6, 7, 7.5 }),
 		Spacing = pick(rng, { 8, 9, 10 }),
 		Frame = trim,
+		-- rendered walls get Miami's aluminium windows under concrete eyebrows; brick keeps the
+		-- classical surround
+		Kit = if material == Enum.Material.Plaster then "Window_Modern" else nil,
 	}
 	for _, out in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
 		local faceW = if out.X ~= 0 then d else w
@@ -211,7 +217,7 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 		-- string course between floors on the street face
 		if out == front then
 			for f = 1, floors - 1 do
-				PartKit.Box(model, "StringCourse", Vector3.new(faceW + 0.4, 0.6, 0.5), face * CFrame.new(0, f * floorH, -0.15), trim, CONCRETE, DECOR)
+				PartKit.Kit(PartKit.Box(model, "StringCourse", Vector3.new(faceW + 0.4, 0.6, 0.5), face * CFrame.new(0, f * floorH, -0.15), trim, CONCRETE, DECOR), "StringCourse")
 			end
 		end
 	end
@@ -232,7 +238,7 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 		Rng = rng,
 	})
 	-- the wall above the shopfront, up to the first floor
-	PartKit.Box(model, "ShopHeader", Vector3.new(faceWidth, floorH - 9.5, 1), face * CFrame.new(0, 9.5 + (floorH - 9.5) / 2, 0.5), brick, material)
+	PartKit.Wear(facade, PartKit.Box(model, "ShopHeader", Vector3.new(faceWidth, floorH - 9.5, 1), face * CFrame.new(0, 9.5 + (floorH - 9.5) / 2, 0.5), brick, material))
 	-- side door to the flats above
 	-- fire escape on one side
 	if floors >= 3 and rng:NextNumber() < 0.45 then
@@ -241,9 +247,11 @@ function Buildings.Midrise(parent: Instance, cx: number, cz: number, w: number, 
 		local sideDepth = if math.abs(side.X) > 0.5 then w else d
 		Detail.FireEscape(model, Detail.Face(cx, cz, side, sideDepth / 2, Y), sideWidth * 0.15, floors, floorH)
 	end
-	-- cornice, roof clutter and sometimes a water tank
-	PartKit.Box(model, "Cornice", Vector3.new(w + 1.4, 1.4, d + 1.4), CFrame.new(cx, Y + h + 0.2, cz), trim, CONCRETE)
-	PartKit.Box(model, "CorniceDentil", Vector3.new(w + 0.8, 0.6, d + 0.8), CFrame.new(cx, Y + h - 0.8, cz), trim, CONCRETE, DECOR)
+	-- cornice (the city kit's bracketed cornice runs round the Cornice box; the roof's top shows
+	-- inside it), roof clutter and sometimes a water tank
+	PartKit.Box(model, "RoofCap", Vector3.new(w, 1.38, d), CFrame.new(cx, Y + h + 0.19, cz), trim, CONCRETE, NO_COLLIDE)
+	PartKit.Kit(PartKit.Box(model, "Cornice", Vector3.new(w + 1.4, 1.4, d + 1.4), CFrame.new(cx, Y + h + 0.2, cz), trim, CONCRETE), "Cornice")
+	PartKit.KitDrop(PartKit.Box(model, "CorniceDentil", Vector3.new(w + 0.8, 0.6, d + 0.8), CFrame.new(cx, Y + h - 0.8, cz), trim, CONCRETE, DECOR), "Cornice")
 	Detail.Roof(model, cx, cz, w - 4, d - 4, Y + h + 0.9, rng)
 	-- some low and mid-rise roofs carry a billboard facing the street
 	if floors <= 5 and math.min(w, d) > 30 and rng:NextNumber() < 0.22 then
@@ -263,7 +271,9 @@ end
 function Buildings.Warehouse(parent: Instance, cx: number, cz: number, w: number, d: number, h: number, front: Vector3, rng: Random): Model
 	local model = PartKit.Model(parent, "Warehouse")
 	local wall = pick(rng, { Color3.fromRGB(190, 192, 186), Color3.fromRGB(160, 170, 175), Color3.fromRGB(196, 180, 150), Color3.fromRGB(120, 140, 150) })
-	PartKit.Box(model, "Walls", Vector3.new(w, h, d), CFrame.new(cx, Y + h / 2, cz), wall, Enum.Material.Concrete)
+	-- half are clad in corrugated steel (the realism pack's named material; plain metal without it)
+	local cladding = PartKit.FacadeFor(Vector3.new(cx, 0, cz), "RealCorrugated", 0.5)
+	PartKit.Wear(cladding, PartKit.Box(model, "Walls", Vector3.new(w, h, d), CFrame.new(cx, Y + h / 2, cz), wall, if cladding then METAL else Enum.Material.Concrete))
 	PartKit.Box(model, "Roof", Vector3.new(w + 2, 1.5, d + 2), CFrame.new(cx, Y + h + 0.75, cz), Color3.fromRGB(110, 115, 120), Enum.Material.DiamondPlate)
 	local rib = wall:Lerp(Color3.new(0, 0, 0), 0.12)
 	-- corrugated cladding (ribs) above a concrete plinth, and a strip of high windows
@@ -339,7 +349,8 @@ function Buildings.House(parent: Instance, center: Vector3, front: Vector3, setb
 	local wall = pick(rng, HOUSE_COLORS)
 	local roof = pick(rng, ROOFS)
 	local material = if rng:NextNumber() < 0.85 then Enum.Material.Plaster else Enum.Material.WoodPlanks
-	PartKit.Box(model, "Walls", Vector3.new(w, h, d), look * CFrame.new(0, h / 2, 0), wall, material)
+	local facade = if material == Enum.Material.Plaster then PartKit.FacadeFor(center, "RealStucco", 0.5) else nil
+	PartKit.Wear(facade, PartKit.Box(model, "Walls", Vector3.new(w, h, d), look * CFrame.new(0, h / 2, 0), wall, material))
 	-- gable roof: two pitched slabs meeting at the ridge (along the width), wedge gables closing the ends
 	local pitch = math.rad(35)
 	local rise = d / 2 * math.tan(pitch)
@@ -350,21 +361,21 @@ function Buildings.House(parent: Instance, center: Vector3, front: Vector3, setb
 		for _, xs in { -1, 1 } do
 			-- full height on local +Z: turn the back half round so both rise to the ridge
 			local turn = if zs > 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity
-			PartKit.Wedge(model, "Gable", Vector3.new(0.8, rise, d / 2), look * CFrame.new(xs * (w / 2 - 0.4), h + rise / 2, zs * d / 4) * turn, wall, material)
+			PartKit.Wear(facade, PartKit.Wedge(model, "Gable", Vector3.new(0.8, rise, d / 2), look * CFrame.new(xs * (w / 2 - 0.4), h + rise / 2, zs * d / 4) * turn, wall, material))
 		end
 	end
 	PartKit.Box(model, "Ridge", Vector3.new(w + 2.6, 0.6, 0.9), look * CFrame.new(0, h + rise + 0.3, 0), roof:Lerp(Color3.new(0, 0, 0), 0.3), Enum.Material.Slate, DECOR)
 	-- the floor line between the storeys
 	PartKit.Box(model, "Band", Vector3.new(w + 0.4, 0.6, d + 0.4), look * CFrame.new(0, 10.4, 0), Color3.fromRGB(245, 245, 242), SMOOTH, DECOR)
 	for _, x in { -w * 0.36, -w * 0.12, w * 0.15, w * 0.36 } do
-		PartKit.Box(model, "WindowFrame", Vector3.new(5, 5, 0.3), look * CFrame.new(x, 15.4, -d / 2 - 0.12), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
+		PartKit.Kit(PartKit.Box(model, "WindowFrame", Vector3.new(5, 5, 0.3), look * CFrame.new(x, 15.4, -d / 2 - 0.12), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR), "Window_House")
 		PartKit.Box(model, "Window", Vector3.new(4.2, 4.2, 0.35), look * CFrame.new(x, 15.4, -d / 2 - 0.15), Color3.fromRGB(70, 100, 125), GLASS, DECOR)
-		PartKit.Box(model, "Sill", Vector3.new(5.8, 0.4, 0.9), look * CFrame.new(x, 12.7, -d / 2 - 0.4), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
+		PartKit.KitDrop(PartKit.Box(model, "Sill", Vector3.new(5.8, 0.4, 0.9), look * CFrame.new(x, 12.7, -d / 2 - 0.4), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR), "Window_House")
 	end
 	for _, side in { -1, 1 } do
 		for _, z in { -d * 0.2, d * 0.2 } do
 			PartKit.Box(model, "SideWindow", Vector3.new(0.35, 4.2, 4.2), look * CFrame.new(side * (w / 2 + 0.1), 15.4, z), Color3.fromRGB(70, 100, 125), GLASS, DECOR)
-			PartKit.Box(model, "SideFrame", Vector3.new(0.3, 5, 5), look * CFrame.new(side * (w / 2 + 0.05), 15.4, z), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
+			PartKit.Kit(PartKit.Box(model, "SideFrame", Vector3.new(0.3, 5, 5), look * CFrame.new(side * (w / 2 + 0.05), 15.4, z), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR), "Window_House", nil, if side > 0 then "+X" else "-X")
 		end
 		-- a small window up in each gable
 		PartKit.Box(model, "SideWindow", Vector3.new(0.35, 2.6, 2.6), look * CFrame.new(side * (w / 2 + 0.1), h + rise * 0.4, 0), Color3.fromRGB(70, 100, 125), GLASS, DECOR)
@@ -372,17 +383,17 @@ function Buildings.House(parent: Instance, center: Vector3, front: Vector3, setb
 	for _, x in { -w * 0.25, w * 0.25 } do
 		PartKit.Box(model, "BackWindow", Vector3.new(5, 4.2, 0.35), look * CFrame.new(x, 15.4, d / 2 + 0.1), Color3.fromRGB(70, 100, 125), GLASS, DECOR)
 	end
-	PartKit.Box(model, "Door", Vector3.new(4, 7.5, 0.4), look * CFrame.new(-w * 0.15, 3.75, -d / 2 - 0.15), Color3.fromRGB(90, 56, 40), Enum.Material.Wood, DECOR)
+	PartKit.Kit(PartKit.Box(model, "Door", Vector3.new(4, 7.5, 0.4), look * CFrame.new(-w * 0.15, 3.75, -d / 2 - 0.15), Color3.fromRGB(90, 56, 40), Enum.Material.Wood, DECOR), "HouseDoor")
 	PartKit.Box(model, "Step", Vector3.new(7, 0.8, 3), look * CFrame.new(-w * 0.15, 0.4, -d / 2 - 1.5), Color3.fromRGB(190, 186, 180), CONCRETE)
 	for _, x in { -w * 0.36, w * 0.15, w * 0.36 } do
-		PartKit.Box(model, "WindowFrame", Vector3.new(5, 5, 0.3), look * CFrame.new(x, 6.5, -d / 2 - 0.12), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
+		PartKit.Kit(PartKit.Box(model, "WindowFrame", Vector3.new(5, 5, 0.3), look * CFrame.new(x, 6.5, -d / 2 - 0.12), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR), "Window_House")
 		PartKit.Box(model, "Window", Vector3.new(4.2, 4.2, 0.35), look * CFrame.new(x, 6.5, -d / 2 - 0.15), Color3.fromRGB(70, 100, 125), GLASS, DECOR)
 	end
 	-- garage + driveway
 	local gx = w / 2 + 9
-	PartKit.Box(model, "Garage", Vector3.new(16, 10, 22), look * CFrame.new(gx, 5, -d / 2 + 11), wall, material)
+	PartKit.Wear(facade, PartKit.Box(model, "Garage", Vector3.new(16, 10, 22), look * CFrame.new(gx, 5, -d / 2 + 11), wall, material))
 	PartKit.Box(model, "GarageRoof", Vector3.new(17, 1, 23), look * CFrame.new(gx, 10.5, -d / 2 + 11), roof, Enum.Material.Slate)
-	PartKit.Box(model, "GarageDoor", Vector3.new(12, 8, 0.3), look * CFrame.new(gx, 4, -d / 2 - 0.1), Color3.fromRGB(240, 240, 238), SMOOTH, DECOR)
+	PartKit.Kit(PartKit.Box(model, "GarageDoor", Vector3.new(12, 8, 0.3), look * CFrame.new(gx, 4, -d / 2 - 0.1), Color3.fromRGB(240, 240, 238), SMOOTH, DECOR), "GarageDoor")
 	local drive = setback - d / 2
 	if drive > 1 then
 		PartKit.Box(model, "Driveway", Vector3.new(12, 0.1, drive), look * CFrame.new(gx, 0.05, -d / 2 - drive / 2), Color3.fromRGB(176, 174, 170), CONCRETE, DECOR)
@@ -395,21 +406,21 @@ function Buildings.House(parent: Instance, center: Vector3, front: Vector3, setb
 	local porchX = -w * 0.15
 	PartKit.Box(model, "PorchRoof", Vector3.new(10, 0.6, 6), look * CFrame.new(porchX, 9.2, -d / 2 - 3) * CFrame.Angles(math.rad(8), 0, 0), roof, Enum.Material.Slate, NO_COLLIDE)
 	for _, sx in { -4.4, 4.4 } do
-		PartKit.Box(model, "PorchPost", Vector3.new(0.6, 9, 0.6), look * CFrame.new(porchX + sx, 4.5, -d / 2 - 5.6), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
+		PartKit.Kit(PartKit.Box(model, "PorchPost", Vector3.new(0.6, 9, 0.6), look * CFrame.new(porchX + sx, 4.5, -d / 2 - 5.6), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR), "PorchPost")
 	end
 	PartKit.Box(model, "PorchLight", Vector3.new(0.7, 1, 0.5), look * CFrame.new(porchX + 2.8, 6.4, -d / 2 - 0.4), Color3.fromRGB(255, 240, 200), Enum.Material.Neon, DECOR)
 	-- shutters beside the front windows, windows on the sides and back
 	local shutter = pick(rng, { Color3.fromRGB(40, 70, 110), Color3.fromRGB(40, 90, 60), Color3.fromRGB(120, 40, 40), Color3.fromRGB(50, 50, 54) })
 	for _, x in { -w * 0.36, w * 0.15, w * 0.36 } do
 		for _, sx in { -1, 1 } do
-			PartKit.Box(model, "Shutter", Vector3.new(1.6, 5, 0.3), look * CFrame.new(x + sx * 3.4, 6.5, -d / 2 - 0.2), shutter, SMOOTH, DECOR)
+			PartKit.Kit(PartKit.Box(model, "Shutter", Vector3.new(1.6, 5, 0.3), look * CFrame.new(x + sx * 3.4, 6.5, -d / 2 - 0.2), shutter, SMOOTH, DECOR), "Shutter")
 		end
-		PartKit.Box(model, "Sill", Vector3.new(5.8, 0.4, 0.9), look * CFrame.new(x, 3.8, -d / 2 - 0.4), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
+		PartKit.KitDrop(PartKit.Box(model, "Sill", Vector3.new(5.8, 0.4, 0.9), look * CFrame.new(x, 3.8, -d / 2 - 0.4), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR), "Window_House")
 	end
 	for _, side in { -1, 1 } do
 		for _, z in { -d * 0.2, d * 0.2 } do
 			PartKit.Box(model, "SideWindow", Vector3.new(0.35, 4.2, 4.2), look * CFrame.new(side * (w / 2 + 0.1), 6.5, z), Color3.fromRGB(70, 100, 125), GLASS, DECOR)
-			PartKit.Box(model, "SideFrame", Vector3.new(0.3, 5, 5), look * CFrame.new(side * (w / 2 + 0.05), 6.5, z), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR)
+			PartKit.Kit(PartKit.Box(model, "SideFrame", Vector3.new(0.3, 5, 5), look * CFrame.new(side * (w / 2 + 0.05), 6.5, z), Color3.fromRGB(250, 250, 250), SMOOTH, DECOR), "Window_House", nil, if side > 0 then "+X" else "-X")
 		end
 	end
 	for _, x in { -w * 0.25, w * 0.25 } do
@@ -418,7 +429,7 @@ function Buildings.House(parent: Instance, center: Vector3, front: Vector3, setb
 	PartKit.Box(model, "Gutter", Vector3.new(w + 2.4, 0.5, 0.6), look * CFrame.new(0, eaveY - 0.6, -d / 2 - over - 0.2), Color3.fromRGB(240, 240, 240), SMOOTH, DECOR)
 	-- garage door panels and a light
 	for k = 1, 3 do
-		PartKit.Box(model, "GaragePanel", Vector3.new(12, 0.2, 0.4), look * CFrame.new(gx, k * 2, -d / 2 - 0.2), Color3.fromRGB(215, 215, 212), SMOOTH, DECOR)
+		PartKit.KitDrop(PartKit.Box(model, "GaragePanel", Vector3.new(12, 0.2, 0.4), look * CFrame.new(gx, k * 2, -d / 2 - 0.2), Color3.fromRGB(215, 215, 212), SMOOTH, DECOR), "GarageDoor")
 	end
 
 	-- the garden out front: flower bed under the windows, a fence or hedge with gaps for the drive
@@ -678,7 +689,7 @@ function Buildings.Podium(parent: Instance, cx: number, cz: number, w: number, d
 	local levelH = 11
 	local h = levels * levelH
 	local tone = pick(rng, CONCRETE_TONES)
-	PartKit.Box(model, "Body", Vector3.new(w, h, d), CFrame.new(cx, Y + h / 2, cz), tone, CONCRETE)
+	PartKit.Wear(PartKit.FacadeFor(Vector3.new(cx, 0, cz), "RealConcreteBoard", 0.45), PartKit.Box(model, "Body", Vector3.new(w, h, d), CFrame.new(cx, Y + h / 2, cz), tone, CONCRETE))
 	local lobby = PartKit.Box(model, "ShopGlass", Vector3.new(w + 0.3, 9, d + 0.3), CFrame.new(cx, Y + 5, cz), Color3.fromRGB(80, 110, 124), GLASS, DECOR)
 	lobby.Reflectance = 0.2
 	for l = 1, levels - 1 do
@@ -841,7 +852,8 @@ function Buildings.DecoHotel(parent: Instance, center: Vector3, front: Vector3, 
 	local trim = pick(rng, DECO_TRIM)
 	local neon = pick(rng, NEON)
 	local plaster = Enum.Material.Plaster
-	PartKit.Box(model, "Body", Vector3.new(along, h, depth), look * CFrame.new(0, h / 2, 0), wall, plaster)
+	local facade = PartKit.FacadeFor(center, "RealStucco", 0.4)
+	PartKit.Wear(facade, PartKit.Box(model, "Body", Vector3.new(along, h, depth), look * CFrame.new(0, h / 2, 0), wall, plaster))
 	-- rounded corners on the street side
 	for _, sx in { -1, 1 } do
 		PartKit.Post(model, "Corner", 9, h, (look * CFrame.new(sx * (along / 2 - 3.5), 0, -depth / 2 + 3.5)).Position, wall, plaster)
@@ -849,13 +861,13 @@ function Buildings.DecoHotel(parent: Instance, center: Vector3, front: Vector3, 
 	-- ground floor: a glass lobby and a canopy
 	local lobby = PartKit.Box(model, "ShopGlass", Vector3.new(along - 14, 8, 0.4), look * CFrame.new(0, 4.5, -depth / 2 - 0.15), Color3.fromRGB(70, 96, 110), GLASS, DECOR)
 	lobby.Reflectance = 0.2
-	PartKit.Box(model, "Canopy", Vector3.new(along * 0.4, 0.8, 7), look * CFrame.new(0, 9.6, -depth / 2 - 3.5), trim, SMOOTH, NO_COLLIDE)
+	PartKit.Kit(PartKit.Box(model, "Canopy", Vector3.new(along * 0.4, 0.8, 7), look * CFrame.new(0, 9.6, -depth / 2 - 3.5), trim, SMOOTH, NO_COLLIDE), "DecoEyebrow")
 	-- ribbon windows and eyebrows, floor by floor
 	for f = 1, floors - 1 do
 		local y = f * floorH
 		local band = PartKit.Box(model, "Window", Vector3.new(along - 16, 4.6, 0.4), look * CFrame.new(0, y + 5, -depth / 2 - 0.15), Color3.fromRGB(64, 92, 112), GLASS, DECOR)
 		band.Reflectance = 0.18
-		PartKit.Box(model, "Eyebrow", Vector3.new(along + 1, 0.6, 3.2), look * CFrame.new(0, y + 8.2, -depth / 2 - 1.5), trim:Lerp(Color3.new(1, 1, 1), 0.4), SMOOTH, DECOR)
+		PartKit.Kit(PartKit.Box(model, "Eyebrow", Vector3.new(along + 1, 0.6, 3.2), look * CFrame.new(0, y + 8.2, -depth / 2 - 1.5), trim:Lerp(Color3.new(1, 1, 1), 0.4), SMOOTH, DECOR), "DecoEyebrow")
 		-- the mullions that break the ribbon into bays
 		for i = 1, 3 do
 			PartKit.Box(model, "Mullion", Vector3.new(0.6, 4.6, 0.5), look * CFrame.new(-along / 2 + 8 + i * (along - 16) / 4, y + 5, -depth / 2 - 0.3), wall, plaster, DECOR)
@@ -1093,7 +1105,7 @@ function Buildings.StripMall(parent: Instance, x0: number, x1: number, z0: numbe
 		})
 		PartKit.Box(model, "ShopHeader", Vector3.new(unitW, shopH - 9.5, 1), face * CFrame.new(x, 9.5 + (shopH - 9.5) / 2, 0.5), wall, Enum.Material.Plaster)
 		if i > 0 then
-			PartKit.Box(model, "Column", Vector3.new(1.2, 10.5, 1.2), face * CFrame.new(x - unitW / 2, 5.25, -7.5), Color3.fromRGB(245, 245, 240), SMOOTH)
+			PartKit.Kit(PartKit.Box(model, "Column", Vector3.new(1.2, 10.5, 1.2), face * CFrame.new(x - unitW / 2, 5.25, -7.5), Color3.fromRGB(245, 245, 240), SMOOTH), "Column")
 		end
 	end
 	PartKit.Box(model, "Parapet", Vector3.new(W - 11, 3, bd + 1), row * CFrame.new(0, bh + 1.5, 0), wall:Lerp(Color3.new(1, 1, 1), 0.3), Enum.Material.Plaster)

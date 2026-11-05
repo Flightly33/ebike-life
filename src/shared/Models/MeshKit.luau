@@ -58,6 +58,8 @@ MeshKit.Slots = {
 	Red = { Color = Color3.fromRGB(170, 30, 30), Material = SM },
 	-- city kit
 	Stone = { Color = Color3.fromRGB(206, 200, 186), Material = Enum.Material.Limestone },
+	Alu = { Color = Color3.fromRGB(198, 202, 206), Material = METAL },
+	Yellow = { Color = Color3.fromRGB(242, 196, 38), Material = SM },
 	Bark = { Color = Color3.fromRGB(86, 64, 46), Material = Enum.Material.Wood },
 	Birch = { Color = Color3.fromRGB(226, 222, 212), Material = Enum.Material.Wood },
 	-- vegetation's plain pieces (the rest wear the realism pack's SurfaceAppearances)
@@ -245,7 +247,10 @@ function MeshKit.Has(vehicleId: string): boolean
 				break
 			end
 		end
-		if ok and #missing > 0 then
+		if ok and #missing == #entries and string.sub(vehicleId, 1, 4) == "Kit_" then
+			-- a city kit newer than this import: CityKit lists those in one line
+			ok = false
+		elseif ok and #missing > 0 then
 			local share = #missing / #entries
 			warn(string.format("[MeshKit] %s: %d of %d meshes missing from VehicleMeshes (e.g. %s)%s", vehicleId, #missing, #entries, missing[1], if share > MeshKit.MaxMissing then "; using the part-built model" else "; using the rest"))
 			ok = share <= MeshKit.MaxMissing

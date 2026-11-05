@@ -415,9 +415,12 @@ def subtract(bm, cutter):
 
 
 UV_TILE = 0.25  # metres per UV unit: one tile of a livery pattern (Shared/Livery) is 25 cm on the bike
+# per vehicle (or kit) overrides: the facade kits are modelled in design studs, and their stone,
+# plaster and fabric should tile at building scale (blender/facadekit.py)
+UV_TILES = {}
 
 
-def box_uvs(bm):
+def box_uvs(bm, tile=UV_TILE):
     """UVs by box projection in world metres (each face mapped from the plane it faces most), so
     the game's livery patterns (MaterialVariants) tile at real size on every piece."""
     bm.normal_update()
@@ -428,11 +431,11 @@ def box_uvs(bm):
         for loop in face.loops:
             co = loop.vert.co
             if ax >= ay and ax >= az:
-                loop[uv].uv = (co.y / UV_TILE, co.z / UV_TILE)
+                loop[uv].uv = (co.y / tile, co.z / tile)
             elif ay >= az:
-                loop[uv].uv = (co.x / UV_TILE, co.z / UV_TILE)
+                loop[uv].uv = (co.x / tile, co.z / tile)
             else:
-                loop[uv].uv = (co.x / UV_TILE, co.y / UV_TILE)
+                loop[uv].uv = (co.x / tile, co.y / tile)
 
 
 def build_objects(smooth_angle=35):
@@ -459,7 +462,7 @@ def build_objects(smooth_angle=35):
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
         if not bm.verts:
             continue
-        box_uvs(bm)
+        box_uvs(bm, UV_TILES.get(veh, UV_TILE))
         lo = Vector((min(v.co.x for v in bm.verts), min(v.co.y for v in bm.verts), min(v.co.z for v in bm.verts)))
         hi = Vector((max(v.co.x for v in bm.verts), max(v.co.y for v in bm.verts), max(v.co.z for v in bm.verts)))
         center = (lo + hi) / 2

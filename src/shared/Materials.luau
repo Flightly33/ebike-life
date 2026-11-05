@@ -21,6 +21,17 @@ local Config = require(script.Parent.Config)
 
 local Materials = {}
 
+-- The named facade materials (blender/textures.py, `named`) and the base material each is a variant
+-- of: the builders give a share of walls one by name (PartKit.Facade) so a street isn't all one
+-- texture. Without the pack (or before the owner re-imports it) those walls keep their base
+-- material's look.
+Materials.Facade = {
+	RealStucco = Enum.Material.Plaster,
+	RealBrickOld = Enum.Material.Brick,
+	RealConcreteBoard = Enum.Material.Concrete,
+	RealCorrugated = Enum.Material.Metal,
+} :: { [string]: Enum.Material }
+
 -- The pack's variants (nil without the import)
 function Materials.Pack(): Instance?
 	local ok, root = pcall(function()
@@ -48,15 +59,18 @@ function Materials.Apply(): number
 		end
 		local live = copy :: MaterialVariant
 		-- livery patterns (Shared/Livery) are painted on bikes by name: bike-sized tiles, and never
-		-- the override for their base material
+		-- the override for their base material. Named facade materials (a second stucco, old brick,
+		-- board-formed concrete, corrugated sheeting) are city-sized and put on some walls by name
+		-- (Materials.Facade), never the override either.
 		local pattern = variant:GetAttribute("Pattern") == true or string.sub(variant.Name, 1, 11) == "RealPattern"
+		local named = variant:GetAttribute("Named") == true or Materials.Facade[variant.Name] ~= nil
 		local tile = variant:GetAttribute("TileMeters")
 		if type(tile) == "number" then
 			live.StudsPerTile = tile * (if pattern then Config.VISUAL_STUDS_PER_METER else Config.CITY_STUDS_PER_METER)
 		end
 		live.Parent = MaterialService
 		local base = live.BaseMaterial
-		if not pattern and (variant:GetAttribute("Turned") == true) == (Config.Realism.Turned[base.Name] == true) then
+		if not pattern and not named and (variant:GetAttribute("Turned") == true) == (Config.Realism.Turned[base.Name] == true) then
 			pcall(function()
 				MaterialService:SetBaseMaterialOverride(base, live.Name)
 			end)

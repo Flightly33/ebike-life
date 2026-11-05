@@ -51,6 +51,49 @@ local function apply(p: BasePart, opts: Opts?)
 	end
 end
 
+-- Marks `part` as the stand-in for a city kit mesh ("Kit_<kit>" in the Blender import): Models/
+-- CityKit fits the mesh to the part's box when the owner has imported it, and the part stays as it
+-- is when they haven't. The kit is modelled up its +Y with its front toward -Z; `up` and `out`
+-- name the part's own axes that play those roles ("+X", "-Z"...) when they differ (a PartKit.Post
+-- stands on its X axis).
+function PartKit.Kit<T>(part: T, kit: string, up: string?, out: string?): T
+	local p = part :: any
+	p:SetAttribute("Kit", kit)
+	if up then
+		p:SetAttribute("KitUp", up)
+	end
+	if out then
+		p:SetAttribute("KitOut", out)
+	end
+	return part
+end
+
+-- Marks `part` as trim that the kit mesh "Kit_<kit>" draws itself: it goes when that kit is imported
+function PartKit.KitDrop<T>(part: T, kit: string): T
+	(part :: any):SetAttribute("KitDrop", kit)
+	return part
+end
+
+-- A named facade material (Shared/Materials.Facade: "RealStucco", "RealBrickOld"...) for a share of
+-- the buildings, picked by where `at` is (x, z) so it takes nothing from the builders' random
+-- streams; nil for the rest. Give it to the building's walls with PartKit.Wear.
+function PartKit.FacadeFor(at: Vector3, variant: string, share: number): string?
+	local h = math.abs(math.sin(at.X * 12.9898 + at.Z * 78.233) * 43758.5453) % 1
+	return if h < share then variant else nil
+end
+
+-- Puts a named material (PartKit.FacadeFor) on parts; their base material shows where it's not
+-- imported. Returns the first part.
+function PartKit.Wear<T>(variant: string?, ...: T): T
+	local parts = { ... }
+	if variant then
+		for _, part in parts do
+			(part :: any).MaterialVariant = variant
+		end
+	end
+	return parts[1]
+end
+
 -- A box. `cframe` is the centre.
 function PartKit.Box(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material, opts: Opts?): Part
 	local p = Instance.new("Part")

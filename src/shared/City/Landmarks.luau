@@ -644,7 +644,7 @@ function Landmarks.Police(parent: Instance, block: LayoutModule.Block, rng: Rand
 	PartKit.Sign(porticoSign, Enum.NormalId.Back, "POLICE", WHITE, nil, Enum.Font.GothamBlack, 10)
 	PartKit.Sign(porticoSign, Enum.NormalId.Front, "POLICE", WHITE, nil, Enum.Font.GothamBlack, 10)
 	for _, x in { -18, -7, 7, 18 } do
-		PartKit.Post(model, "Column", 2.4, storey, Vector3.new(ex + x, floorY, front + 14), stone:Lerp(WHITE, 0.3), Enum.Material.Marble)
+		PartKit.Kit(PartKit.Post(model, "Column", 2.4, storey, Vector3.new(ex + x, floorY, front + 14), stone:Lerp(WHITE, 0.3), Enum.Material.Marble), "Column", "+X")
 	end
 	PartKit.Box(model, "EntranceGlass", Vector3.new(16, 11, 0.5), CFrame.new(ex, floorY + 5.5, front + 0.3), Color3.fromRGB(120, 160, 190), GLASS, DECOR).Transparency = 0.4
 	for _, x in { -8, 0, 8 } do

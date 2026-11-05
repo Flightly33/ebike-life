@@ -47,6 +47,9 @@ export type WindowStyle = {
 	Frame: Color3,
 	Glass: Color3?,
 	Sill: boolean?,
+	-- the city kit's surround for these windows (Models/CityKit: "Window_Modern"; the classical
+	-- "Window" when nil)
+	Kit: string?,
 }
 
 -- A grid of framed windows on a face between heights y0 and y1 (relative to the face), one row per
@@ -66,7 +69,10 @@ function Detail.Windows(parent: Instance, face: CFrame, width: number, y0: numbe
 		for i = 0, count - 1 do
 			local x = -span / 2 + style.Spacing * (i + 0.5)
 			local at = face * CFrame.new(x, wy, 0)
-			PartKit.Box(parent, "WindowFrame", Vector3.new(style.Width + 0.7, style.Height + 0.7, 0.3), at * CFrame.new(0, 0, -0.1), style.Frame, SMOOTH, DECOR)
+			local frame = PartKit.Box(parent, "WindowFrame", Vector3.new(style.Width + 0.7, style.Height + 0.7, 0.3), at * CFrame.new(0, 0, -0.1), style.Frame, SMOOTH, DECOR)
+			if style.Kit then
+				frame:SetAttribute("WindowKit", style.Kit)
+			end
 			local pane = PartKit.Box(parent, "Window", Vector3.new(style.Width, style.Height, 0.3), at * CFrame.new(0, 0, -0.2), glass, GLASS, DECOR)
 			pane.Reflectance = 0.15
 			if style.Sill ~= false then
@@ -90,7 +96,7 @@ function Detail.Storefront(parent: Instance, face: CFrame, width: number, height
 	for _, span in { { -w / 2, dx - 2.5 }, { dx + 2.5, w / 2 } } do
 		local sw = span[2] - span[1]
 		if sw > 0.2 then
-			PartKit.Box(parent, "Bulkhead", Vector3.new(sw, 2.2, 0.8), face * CFrame.new((span[1] + span[2]) / 2, 1.1, -0.4), color:Lerp(Color3.new(0, 0, 0), 0.35), SMOOTH, SOLID_DECOR)
+			PartKit.Kit(PartKit.Box(parent, "Bulkhead", Vector3.new(sw, 2.2, 0.8), face * CFrame.new((span[1] + span[2]) / 2, 1.1, -0.4), color:Lerp(Color3.new(0, 0, 0), 0.35), SMOOTH, SOLID_DECOR), "Bulkhead")
 			local glass = PartKit.Box(parent, "ShopGlass", Vector3.new(sw, height - 3, 0.3), face * CFrame.new((span[1] + span[2]) / 2, 2.2 + (height - 3) / 2, -0.25), Color3.fromRGB(80, 110, 124), GLASS, SOLID)
 			glass.Reflectance = 0.22
 			glass.Transparency = 0.35
@@ -98,16 +104,16 @@ function Detail.Storefront(parent: Instance, face: CFrame, width: number, height
 	end
 	for i = 0, bays do
 		local x = -w / 2 + i * w / bays
-		PartKit.Box(parent, "ShopMullion", Vector3.new(0.45, height - 0.8, 0.5), face * CFrame.new(x, height / 2 - 0.4 + 0.4, -0.35), frame, METAL, DECOR)
+		PartKit.Kit(PartKit.Box(parent, "ShopMullion", Vector3.new(0.45, height - 0.8, 0.5), face * CFrame.new(x, height / 2 - 0.4 + 0.4, -0.35), frame, METAL, DECOR), "ShopMullion")
 	end
-	PartKit.Box(parent, "ShopTransom", Vector3.new(w, 0.45, 0.5), face * CFrame.new(0, height - 2.3, -0.35), frame, METAL, DECOR)
+	PartKit.Kit(PartKit.Box(parent, "ShopTransom", Vector3.new(w, 0.45, 0.5), face * CFrame.new(0, height - 2.3, -0.35), frame, METAL, DECOR), "ShopTransom")
 	local hinge = face * CFrame.new(dx - 2.1, 0, -0.42) * CFrame.Angles(0, math.rad(-75), 0)
-	PartKit.Box(parent, "Door", Vector3.new(4.2, 7.6, 0.35), hinge * CFrame.new(2.1, 3.8, 0), Color3.fromRGB(70, 96, 110), GLASS, DECOR)
-	PartKit.Box(parent, "DoorFrame", Vector3.new(4.8, 8.0, 0.3), face * CFrame.new(dx, 4.0, -0.3), frame, METAL, DECOR)
-	PartKit.Box(parent, "Handle", Vector3.new(0.2, 1.6, 0.25), hinge * CFrame.new(3.5, 3.8, -0.3), LIGHT_STEEL, METAL, DECOR)
+	PartKit.Kit(PartKit.Box(parent, "Door", Vector3.new(4.2, 7.6, 0.35), hinge * CFrame.new(2.1, 3.8, 0), Color3.fromRGB(70, 96, 110), GLASS, DECOR), "ShopDoor")
+	PartKit.Kit(PartKit.Box(parent, "DoorFrame", Vector3.new(4.8, 8.0, 0.3), face * CFrame.new(dx, 4.0, -0.3), frame, METAL, DECOR), "ShopDoorFrame")
+	PartKit.KitDrop(PartKit.Box(parent, "Handle", Vector3.new(0.2, 1.6, 0.25), hinge * CFrame.new(3.5, 3.8, -0.3), LIGHT_STEEL, METAL, DECOR), "ShopDoor")
 	PartKit.Box(parent, "Threshold", Vector3.new(5, 0.25, 1.2), face * CFrame.new(dx, 0.12, -0.6), LIGHT_STEEL, METAL, DECOR)
 	-- fascia and sign
-	PartKit.Box(parent, "Fascia", Vector3.new(width, 2.6, 0.6), face * CFrame.new(0, height + 1.3, -0.3), frame, SMOOTH, DECOR)
+	PartKit.Kit(PartKit.Box(parent, "Fascia", Vector3.new(width, 2.6, 0.6), face * CFrame.new(0, height + 1.3, -0.3), frame, SMOOTH, DECOR), "Fascia")
 	local sign = PartKit.Box(parent, "ShopSign", Vector3.new(math.min(w - 4, 30), 2.2, 0.3), face * CFrame.new(0, height + 1.3, -0.65), Color3.fromRGB(245, 242, 235), SMOOTH, DECOR)
 	PartKit.Sign(sign, Enum.NormalId.Front, name, color, nil, Enum.Font.FredokaOne, 14)
 	-- awning, sloping out over the pavement: a striped one over the door's end of a wide front
@@ -120,9 +126,10 @@ function Detail.Storefront(parent: Instance, face: CFrame, width: number, height
 	for i = 0, stripes - 1 do
 		local x = ax - aw / 2 + (i + 0.5) * aw / stripes
 		local c = if i % 2 == 0 then color else Color3.fromRGB(245, 242, 235)
-		PartKit.Box(parent, "Awning", Vector3.new(aw / stripes + 0.02, 0.3, depth), face * CFrame.new(x, height - 0.6, -depth / 2 - 0.2) * CFrame.Angles(math.rad(-18), 0, 0), c, Enum.Material.Fabric, DECOR)
+		PartKit.Kit(PartKit.Box(parent, "Awning", Vector3.new(aw / stripes + 0.02, 0.3, depth), face * CFrame.new(x, height - 0.6, -depth / 2 - 0.2) * CFrame.Angles(math.rad(-18), 0, 0), c, Enum.Material.Fabric, DECOR), "AwningStripe")
 	end
-	PartKit.Box(parent, "AwningValance", Vector3.new(aw, 1.0, 0.2), face * CFrame.new(ax, height - 1.9 - 0.4, -depth - 0.05), color, Enum.Material.Fabric, DECOR)
+	-- (the kit's stripes hang their own scalloped valance)
+	PartKit.KitDrop(PartKit.Box(parent, "AwningValance", Vector3.new(aw, 1.0, 0.2), face * CFrame.new(ax, height - 1.9 - 0.4, -depth - 0.05), color, Enum.Material.Fabric, DECOR), "AwningStripe")
 	-- blade sign
 	if rng:NextNumber() < 0.5 then
 		local side = -dx / math.max(math.abs(dx), 1e-3)
@@ -174,9 +181,9 @@ function Detail.Roof(parent: Instance, cx: number, cz: number, w: number, d: num
 	local units = math.clamp(math.floor(w * d / 900), 1, 6)
 	for _ = 1, units do
 		local p = Vector3.new(cx + rng:NextNumber(-w / 2 + 6, w / 2 - 6), top, cz + rng:NextNumber(-d / 2 + 6, d / 2 - 6))
-		PartKit.Box(parent, "ACUnit", Vector3.new(6, 3.4, 4.5), CFrame.new(p + Vector3.new(0, 1.7, 0)), Color3.fromRGB(196, 198, 200), METAL, SOLID_DECOR)
-		PartKit.Cylinder(parent, "Fan", 3.2, 0.3, CFrame.new(p + Vector3.new(0, 3.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), DARK, METAL, DECOR)
-		PartKit.Box(parent, "Grille", Vector3.new(5.4, 2.4, 0.2), CFrame.new(p + Vector3.new(0, 1.6, -2.3)), STEEL, METAL, DECOR)
+		PartKit.Kit(PartKit.Box(parent, "ACUnit", Vector3.new(6, 3.4, 4.5), CFrame.new(p + Vector3.new(0, 1.7, 0)), Color3.fromRGB(196, 198, 200), METAL, SOLID_DECOR), "ACUnit")
+		PartKit.KitDrop(PartKit.Cylinder(parent, "Fan", 3.2, 0.3, CFrame.new(p + Vector3.new(0, 3.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), DARK, METAL, DECOR), "ACUnit")
+		PartKit.KitDrop(PartKit.Box(parent, "Grille", Vector3.new(5.4, 2.4, 0.2), CFrame.new(p + Vector3.new(0, 1.6, -2.3)), STEEL, METAL, DECOR), "ACUnit")
 	end
 	for _ = 1, rng:NextInteger(1, 3) do
 		local p = Vector3.new(cx + rng:NextNumber(-w / 2 + 3, w / 2 - 3), top, cz + rng:NextNumber(-d / 2 + 3, d / 2 - 3))

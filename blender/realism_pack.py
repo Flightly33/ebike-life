@@ -109,7 +109,8 @@ def write_snippet(world_scale):
     for m in manifest["Materials"]:
         maps = ", ".join(f"{k} = {lua_string(stem(v))}" for k, v in m["Maps"].items())
         livery = "true" if m.get("Livery") else "false"
-        mats.append(f'\t{{ Name = "Real{m["Name"]}", Base = "{m["Base"]}", Pattern = "{m["Pattern"]}", TileMeters = {m["Tile"]}, Turned = {"true" if m.get("Turned") else "false"}, Livery = {livery}, Maps = {{ {maps} }} }},')
+        named = "true" if m.get("Named") else "false"
+        mats.append(f'\t{{ Name = "Real{m["Name"]}", Base = "{m["Base"]}", Pattern = "{m["Pattern"]}", TileMeters = {m["Tile"]}, Turned = {"true" if m.get("Turned") else "false"}, Livery = {livery}, Named = {named}, Maps = {{ {maps} }} }},')
     kits = []
     by_name = {k["Name"]: k for k in manifest.get("Kits", [])}
     for slot, tex in V.TEXTURED.items():
@@ -271,14 +272,16 @@ for _, spec in MATERIALS do
 		variant:SetAttribute("TileMeters", spec.TileMeters)
 		variant:SetAttribute("Turned", spec.Turned)
 		variant:SetAttribute("Pattern", spec.Livery)
+		variant:SetAttribute("Named", spec.Named)
 		setMap(variant, "ColorMap", color)
 		setMap(variant, "NormalMap", map(spec.Maps.Normal))
 		setMap(variant, "RoughnessMap", map(spec.Maps.Roughness))
 		setMap(variant, "MetalnessMap", map(spec.Maps.Metalness))
 		variant.Parent = parent
 	end
-	-- (bike paint patterns are put on by name, never as the override for their base material)
-	if not spec.Turned and not spec.Livery then
+	-- (bike paint patterns and the named facade materials are put on by name, never as the
+	-- override for their base material)
+	if not spec.Turned and not spec.Livery and not spec.Named then
 		MaterialService:SetBaseMaterialOverride(base, spec.Name)
 	end
 	made += 1

@@ -252,7 +252,7 @@ local function clubhouse(parent: Instance, cf: CFrame, name: string, rng: Random
 	Neighborhoods.ArchedWindows(model, front, w - 30, 14, 6, Color3.fromRGB(250, 246, 236))
 	-- the loggia: columns and a flat roof over the entrance
 	for k = -2, 2 do
-		PartKit.Post(model, "Column", 1.6, 12, (front * CFrame.new(k * 7, 0, -8)).Position, stucco, Enum.Material.Plaster)
+		PartKit.Kit(PartKit.Post(model, "Column", 1.6, 12, (front * CFrame.new(k * 7, 0, -8)).Position, stucco, Enum.Material.Plaster), "Column", "+X")
 	end
 	PartKit.Box(model, "LoggiaRoof", Vector3.new(34, 1.2, 10), front * CFrame.new(0, 12.6, -4.5), Color3.fromRGB(176, 84, 52), Enum.Material.ClayRoofTiles)
 	PartKit.Box(model, "Door", Vector3.new(8, 9, 0.4), front * CFrame.new(0, 4.5, -0.2), Color3.fromRGB(90, 60, 40), Enum.Material.Wood, DECOR)

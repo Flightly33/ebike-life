@@ -31,13 +31,16 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out", "textures"
 MATERIALS = []
 
 
-def material(name, base, tile, pattern, tint, size=1024, directional=False, metal=None, seed=None, livery=False):
+def material(name, base, tile, pattern, tint, size=1024, directional=False, metal=None, seed=None, livery=False, named=False):
     """Register a generator: it returns colour (H, W, 3), height (m), roughness and optionally
     metalness (H, W) or a constant via `metal`. Livery patterns (Shared/Livery: carbon, camo...)
-    are painted on bikes by name and never override their base material."""
+    are painted on bikes by name and never override their base material. Named facade materials
+    (`named`: a second stucco, old brick...) are city-scale variants the builders give some walls
+    by name (BasePart.MaterialVariant), so a street isn't all one texture; they never override
+    their base material either."""
 
     def wrap(fn):
-        MATERIALS.append({"Name": name, "Base": base, "Tile": tile, "Pattern": pattern, "Tint": tint, "Size": size, "Directional": directional, "Metal": metal, "Seed": seed or (zlib.crc32(name.encode()) % 100000), "Livery": livery, "Fn": fn})
+        MATERIALS.append({"Name": name, "Base": base, "Tile": tile, "Pattern": pattern, "Tint": tint, "Size": size, "Directional": directional, "Metal": metal, "Seed": seed or (zlib.crc32(name.encode()) % 100000), "Livery": livery, "Named": named, "Fn": fn})
         return fn
 
     return wrap
@@ -573,6 +576,105 @@ def marble(n, x, y, S, tile):
     return {"color": color, "height": height, "rough": rough}
 
 
+# ---------------------------------------------------------------------------- facade variants (named)
+
+
+@material("Stucco", "Plaster", 2.0, "Organic", (246, 238, 222), named=True)
+def stucco(n, x, y, S, tile):
+    """Miami's sand-float stucco: coarse aggregate, trowel swirls, hairline cracks, weathered
+    patches and lighter patch repairs (coarser and older than the smooth Plaster)."""
+    f1, _, _ = n.worley(x, y, 360, jitter=1.0)
+    grit = (1 - np.clip(f1, 0, 1)) ** 3
+    swirl = n.fbm(x, y, 14, 4)
+    # (sand-float: a coarse, sandy face; trowel arcs read as soft bands of light and shade)
+    height = 0.0018 * grit + 0.002 * smoothstep(0.3, 0.8, swirl) + 0.0009 * n.fbm(x, y, 90, 3)
+    lum = 0.86 + 0.08 * (grit - 0.3) + 0.04 * n.fbm(x, y, 6, 4) + 0.05 * (swirl - 0.5)
+    c1, c2, _ = n.worley(x, y, 5, jitter=1.0)
+    crack = smoothstep(0.014, 0.0, c2 - c1) * smoothstep(0.5, 0.75, n.fbm(x, y, 3, 3))
+    height = height - crack * 0.001
+    lum = lum - 0.18 * crack
+    # weathered patches (dirt held in the texture) and paler patch repairs
+    lum = lum - 0.12 * smoothstep(0.45, 0.85, n.fbm(x + 0.37, y, 2, 5)) + 0.06 * smoothstep(0.6, 0.85, n.fbm(x, y + 0.5, 3, 4))
+    rough = 0.92 + 0.05 * grit - 0.06 * crack
+    return {"color": gray(lum), "height": height, "rough": rough}
+
+
+@material("BrickOld", "Brick", 1.125, "Regular", (140, 76, 58), named=True)
+def brick_old(n, x, y, S, tile):
+    """Old brick: irregular, sooted and weathered faces, eroded mortar, chipped arrises and the odd
+    replaced brick."""
+    courses, per = 15, 5
+    row = np.floor(y * courses)
+    jog = n.per_cell(courses, -0.06, 0.06)[(row % courses).astype(np.int64)]
+    bx = x * per + (row % 2) * 0.5 + jog
+    bi = np.floor(bx) % per
+    bid = ((row % courses) * per + bi).astype(np.int64)
+    lx = (bx % 1) * 0.225
+    ly = (y * courses % 1) * 0.075
+    wobble = 0.0015 * n.fbm(x, y, 60, 2)
+    d = np.minimum(np.minimum(lx - 0.006, 0.219 - lx), np.minimum(ly - 0.006, 0.069 - ly)) + wobble
+    body = smoothstep(-0.001, 0.004, d)
+    shade = n.per_cell(courses * per, -0.26, 0.14)[bid]
+    swap = n.per_cell(courses * per)[bid] < 0.07
+    # (the mortar is recessed and grimy; faces vary a lot, a few are newer replacements)
+    lum = lerp(0.6, 0.62 + shade + 0.08 * n.fbm(x, y, 30, 3) + 0.14 * swap, body)
+    soot = smoothstep(0.4, 0.8, n.fbm(x, y, 2, 5))
+    lum = lum * (1 - 0.38 * soot)
+    # efflorescence: white salt blooming out of the joints in places
+    bloom = smoothstep(0.6, 0.85, n.fbm(x + 0.6, y, 4, 4)) * (1 - body)
+    lum = lum + 0.25 * bloom
+    hue = np.stack([1 + n.per_cell(courses * per, -0.04, 0.1)[bid], 1 + n.per_cell(courses * per, -0.1, 0.02)[bid], 1 + n.per_cell(courses * per, -0.12, 0.0)[bid]], -1)
+    color = tinted(lum, (1, 1, 1)) * lerp(np.ones_like(hue), hue, body[..., None])
+    pits = smoothstep(0.62, 0.8, n.fbm(x, y, 120, 2)) * body
+    height = body * (0.005 + 0.0009 * n.fbm(x, y, 90, 3)) - pits * 0.001 + (1 - body) * (0.0006 * n.fbm(x, y, 200, 2) - 0.001)
+    rough = lerp(0.95, 0.86, body) + 0.03 * soot
+    return {"color": color, "height": height, "rough": rough}
+
+
+@material("ConcreteBoard", "Concrete", 2.4, "Regular", (200, 198, 192), named=True)
+def concrete_board(n, x, y, S, tile):
+    """Board-formed concrete: the grain and joints of the 15 cm planks it was cast against, form-tie
+    holes in a grid, rust and water staining."""
+    boards = 16
+    row = np.floor(y * boards)
+    rid = (row % boards).astype(np.int64)
+    ly = y * boards % 1
+    joint = smoothstep(0.06, 0.0, np.minimum(ly, 1 - ly))
+    grain = n.perlin(x * 0.2, y, 2, 160) * 0.6 + n.fbm(x, y, 40, 3) * 0.4
+    tone = n.per_cell(boards, -0.05, 0.05)[rid]
+    lum = 0.8 + tone + 0.04 * grain - 0.08 * joint + 0.02 * n.fbm(x, y, 5, 4)
+    tx, ty = (x * 4) % 1 - 0.5, (y * 4) % 1 - 0.5
+    tie = smoothstep(0.035, 0.02, np.hypot(tx, ty * 0.95))
+    lum = lum * (1 - 0.45 * tie)
+    stain = smoothstep(0.5, 0.8, n.fbm(x + 0.21, y, 3, 5))
+    lum = lum - 0.07 * stain
+    height = 0.0005 * grain - 0.0012 * joint - 0.003 * tie + 0.0002 * n.fbm(x, y, 200, 2)
+    rough = 0.84 + 0.05 * grain + 0.05 * joint
+    color = gray(lum) * lerp(np.ones(3, F), np.array([1.03, 0.98, 0.92], F), (0.6 * stain)[..., None])
+    return {"color": color, "height": height, "rough": rough}
+
+
+@material("Corrugated", "Metal", 1.0, "Regular", (170, 176, 180), size=512, metal=1.0, named=True)
+def corrugated(n, x, y, S, tile):
+    """Corrugated steel sheeting: 7.6 cm waves, galvanising spangle, rust weeping from the laps and
+    fixings, dull where it's weathered."""
+    waves = 13
+    phase = 2 * math.pi * x * waves
+    height = 0.009 * (0.5 + 0.5 * np.sin(phase))
+    _, _, ids = n.worley(x, y, 70, jitter=1.0)
+    spangle = n.per_cell(70 * 70, -0.04, 0.04)[ids]
+    # fixings through every other crest, in rows a half tile apart (distances in tile units)
+    dx = ((x * waves / 2) % 1 - 0.75) * 2 / waves
+    dy = ((y * 2) % 1 - 0.5) / 2
+    screws = smoothstep(0.006, 0.003, np.hypot(dx, dy))
+    rust = smoothstep(0.55, 0.85, n.fbm(x, y * 0.6, 3, 5)) * (0.6 + 0.4 * np.cos(phase))
+    lum = 0.78 + spangle + 0.05 * np.cos(phase) - 0.25 * screws
+    color = gray(lum) * lerp(np.ones(3, F), np.array([1.1, 0.78, 0.55], F), (0.5 * rust)[..., None])
+    rough = 0.45 + 0.25 * rust + 0.05 * n.fbm(x, y, 20, 3)
+    metal = 1.0 - 0.7 * rust
+    return {"color": color, "height": height, "rough": rough, "metal": metal}
+
+
 # ---------------------------------------------------------------------------- livery patterns
 # Bike paint patterns (Shared/Livery), named "Pattern<Name>" so their variants are
 # "RealPattern<Name>". Most are luminance only, so the coat's colour sets the hue; woodland camo,
@@ -847,7 +949,7 @@ def main():
         x, y = T.grid(size)
         n = T.Noise(spec["Seed"])
         maps = finish(spec, spec["Fn"](n, x, y, size, spec["Tile"]))
-        entry = {k: spec[k] for k in ("Name", "Base", "Tile", "Pattern", "Tint", "Size", "Directional", "Livery")}
+        entry = {k: spec[k] for k in ("Name", "Base", "Tile", "Pattern", "Tint", "Size", "Directional", "Livery", "Named")}
         entry["Maps"] = write(spec["Name"], maps, spec)
         done[spec["Name"]] = entry
         if spec["Directional"]:

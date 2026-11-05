@@ -21,7 +21,9 @@ const parts = JSON.parse(fs.readFileSync(partsPath, "utf8"));
 const views = JSON.parse(fs.readFileSync(viewsPath, "utf8"));
 fs.mkdirSync(outDir, { recursive: true });
 
+// CHROMIUM: a browser binary to use instead of the one Playwright downloads
 const browser = await chromium.launch({
+	executablePath: process.env.CHROMIUM || undefined,
 	args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
 });
 const page = await browser.newPage();

@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import meshkit as K  # noqa: E402
 import emoto  # noqa: E402
 import citykit  # noqa: E402
+import facadekit  # noqa: E402
 import realism_pack  # noqa: E402
 import vegetation  # noqa: E402
 from meshkit import B, Vector as V  # noqa: E402,F401
@@ -65,6 +66,7 @@ SLOT_COLORS = {
     "Interior": (0.18, 0.17, 0.17),
     "White": (0.95, 0.95, 0.95),
     "Orange": (1.0, 0.45, 0.05),
+    "Alu": (0.78, 0.8, 0.82),
 }
 
 
@@ -1332,6 +1334,10 @@ def main():
         citykit.build_all()
         for name in ("Kit_Window", "Kit_Lamp", "Kit_Bin", "Kit_Bollard", "Kit_Meter", "Kit_Hydrant", "Kit_Bench"):
             colors[name] = {"Paint": (0.9, 0.88, 0.82)}
+        # the facade and street kits, fitted to the builders' stand-in parts (Models/CityKit)
+        facadekit.build_all()
+        for name, paint in facadekit.PAINT.items():
+            colors[name] = {"Paint": paint}
     manifest = K.build_objects()
     if kits:
         # the trees and palms (textured, built with their own UVs) and the PBR library's images
@@ -1348,6 +1354,8 @@ def main():
     print("total tris", total)
     print("pieces", K.STATS["pieces"], "flipped outward", K.STATS["flipped"])
     write_manifest(manifest)
+    if kits:
+        facadekit.write_spec(os.path.join(ROOT, "src", "shared", "Models", "KitSpec.luau"))
     bpy.ops.export_scene.fbx(filepath=os.path.join(HERE, "out", "Vehicles.fbx"), use_selection=False, object_types={"EMPTY", "MESH"}, apply_unit_scale=True, axis_forward="-Z", axis_up="Y", mesh_smooth_type="FACE", add_leaf_bones=False, bake_anim=False, path_mode="COPY", embed_textures=True)
     print("wrote blender/out/Vehicles.fbx")
     if kits:

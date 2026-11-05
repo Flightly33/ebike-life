@@ -17,13 +17,35 @@
 
 	Kit space: windows map onto the WindowFrame part's box (the kit's frame is 5.7 x 7.2 x 0.3 at
 	its origin, -Z out of the wall); trees and lamps onto their model's bounding box.
+
+	  Stand-ins      any part the builders marked with PartKit.Kit (a "Kit" attribute): shopfront
+	                 mullions, transoms, fascias, bulkheads, doors and awnings, house windows,
+	                 shutters, doors, garage doors, porch posts and columns, rooftop AC units,
+	                 street light poles, arms and heads, traffic signal heads. The kit
+	                 (blender/facadekit.py) is fitted to the part's box (KitSpec says the box it was
+	                 modelled on; tiled kits repeat along the part, each module in proportion); its
+	                 Paint takes the part's colour and material. A part that collides stays as an
+	                 invisible collider, the rest go. Parts marked PartKit.KitDrop (trim a kit draws
+	                 itself: an AC unit's fan, a garage door's panel lines) go when that kit is there.
+	                 Detail.Windows frames can name their surround (the "WindowKit" attribute:
+	                 Window_Modern for stucco), falling back to the classical one.
 ]]
 
 local MeshKit = require(script.Parent.MeshKit)
+local KitSpec = require(script.Parent.KitSpec)
 
 local CityKit = {}
 
 local WINDOW_FRAME = Vector3.new(5.7, 7.2, 0.3)
+-- a stand-in's axes by name (PartKit.Kit's `up` and `out`)
+local AXES: { [string]: Vector3 } = {
+	["+X"] = Vector3.new(1, 0, 0),
+	["-X"] = Vector3.new(-1, 0, 0),
+	["+Y"] = Vector3.new(0, 1, 0),
+	["-Y"] = Vector3.new(0, -1, 0),
+	["+Z"] = Vector3.new(0, 0, 1),
+	["-Z"] = Vector3.new(0, 0, -1),
+}
 local TREES = { Broadleaf = "Kit_Tree_Broadleaf", Birch = "Kit_Tree_Birch", Conifer = "Kit_Tree_Conifer" }
 -- the realism pack's vegetation by model name and species ("Default" when there's no species)
 local VEGETATION: { [string]: { [string]: string } } = {
@@ -46,8 +68,9 @@ local function bounds(pieces: { Piece }): (Vector3, Vector3)
 end
 
 -- Clone a kit's meshes into `parent`: each piece offset from `origin` by its kit-space centre
--- (less `centre`) scaled by `scale`, sized by `scale`; Paint takes `paint`
-local function place(pieces: { Piece }, parent: Instance, origin: CFrame, centre: Vector3, scale: Vector3, paint: Color3, turn: number): { MeshPart }
+-- (less `centre`) scaled by `scale`, sized by `scale`; Paint takes `paint` (and `paintMaterial`,
+-- smooth plastic by default); `shadow` false keeps small trim out of the shadow map
+local function place(pieces: { Piece }, parent: Instance, origin: CFrame, centre: Vector3, scale: Vector3, paint: Color3, turn: number, paintMaterial: Enum.Material?, shadow: boolean?): { MeshPart }
 	local out = {}
 	for _, piece in pieces do
 		local e = piece.Entry
@@ -64,11 +87,11 @@ local function place(pieces: { Piece }, parent: Instance, origin: CFrame, centre
 		part.CanCollide = false
 		part.CanQuery = false
 		part.CanTouch = false
-		part.CastShadow = true
+		part.CastShadow = shadow ~= false
 		local slot = MeshKit.Slots[e.Slot]
 		if e.Slot == "Paint" then
 			part.Color = paint
-			part.Material = Enum.Material.SmoothPlastic
+			part.Material = paintMaterial or Enum.Material.SmoothPlastic
 		elseif slot then
 			part.Color = slot.Color
 			part.Material = slot.Material
@@ -106,8 +129,83 @@ local function hide(part: BasePart)
 	part.CastShadow = false
 end
 
+-- A stand-in's kit frame: its CFrame turned so the kit's +Y is the part's `KitUp` axis and the kit's
+-- -Z its `KitOut` axis, and the part's size along the kit's axes
+local function kitFrame(part: BasePart): (CFrame, Vector3)
+	local upName, outName = part:GetAttribute("KitUp"), part:GetAttribute("KitOut")
+	local up = (if type(upName) == "string" then AXES[upName] else nil) or AXES["+Y"]
+	local out = (if type(outName) == "string" then AXES[outName] else nil) or AXES["-Z"]
+	local z = -out
+	local x = up:Cross(z)
+	local size = part.Size
+	local function along(v: Vector3): number
+		return math.abs(v.X) * size.X + math.abs(v.Y) * size.Y + math.abs(v.Z) * size.Z
+	end
+	return part.CFrame * CFrame.fromMatrix(Vector3.zero, x, up, z), Vector3.new(along(x), along(up), along(z))
+end
+
+-- Fit a kit to its stand-in: stretched to the part's box, or (a tiled kit) laid along it as many
+-- modules as fit at the module's own proportions. Returns false if the part's box can't take it.
+local function fit(part: BasePart, pieces: { Piece }, spec: KitSpec.Spec, turn: number): boolean
+	local frame, size = kitFrame(part)
+	local ref = spec.Reference
+	if size.X <= 0 or size.Y <= 0 or size.Z <= 0 then
+		return false
+	end
+	local scale = Vector3.new(size.X / ref.X, size.Y / ref.Y, size.Z / ref.Z)
+	local n = 1
+	if spec.Tile then
+		local k = if spec.Tile == "Z" then scale.Z else scale.Y
+		n = math.max(1, math.round(size.X / (ref.X * k)))
+		scale = Vector3.new(size.X / n / ref.X, scale.Y, scale.Z)
+	end
+	local parent = part.Parent :: Instance
+	for i = 1, n do
+		local x = -size.X / 2 + (i - 0.5) * size.X / n
+		place(pieces, parent, frame * CFrame.new(x, 0, 0), Vector3.zero, scale, part.Color, turn, part.Material, part.CastShadow)
+	end
+	return true
+end
+
+-- A ring kit (a cornice) round its stand-in's box, the box being the ring's outside: each wall lies
+-- the kit's projection (scaled) inside it; modules tile along the four walls at their proportions
+-- and the corner kit fills each corner. Returns false if the box can't take it.
+local function ring(part: BasePart, pieces: { Piece }, corner: { Piece }?, spec: KitSpec.Spec, turn: number): boolean
+	local size, ref = part.Size, spec.Reference
+	local k = size.Y / ref.Y
+	local proj = ref.Z * k
+	local a, b = size.X / 2 - proj, size.Z / 2 - proj
+	if k <= 0 or a <= 0 or b <= 0 then
+		return false
+	end
+	local parent, cf = part.Parent :: Instance, part.CFrame
+	-- each wall's frame (its kit -Z pointing out of the building) and length
+	local walls: { { Frame: CFrame, Length: number } } = {
+		{ Frame = CFrame.new(0, 0, -b), Length = 2 * a },
+		{ Frame = CFrame.new(0, 0, b) * CFrame.Angles(0, math.pi, 0), Length = 2 * a },
+		{ Frame = CFrame.new(a, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0), Length = 2 * b },
+		{ Frame = CFrame.new(-a, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), Length = 2 * b },
+	}
+	for _, wall in walls do
+		local frame, length = wall.Frame, wall.Length
+		local n = math.max(1, math.round(length / (ref.X * k)))
+		local scale = Vector3.new(length / n / ref.X, k, k)
+		for i = 1, n do
+			place(pieces, parent, cf * frame * CFrame.new(-length / 2 + (i - 0.5) * length / n, 0, 0), Vector3.zero, scale, part.Color, turn, part.Material, part.CastShadow)
+		end
+	end
+	if corner then
+		-- (the corner kit sits outside the walls' corner: its -Z out of one wall, its +X out of the next)
+		local corners = { CFrame.new(a, 0, -b), CFrame.new(a, 0, b) * CFrame.Angles(0, -math.pi / 2, 0), CFrame.new(-a, 0, b) * CFrame.Angles(0, math.pi, 0), CFrame.new(-a, 0, -b) * CFrame.Angles(0, math.pi / 2, 0) }
+		for _, c in corners do
+			place(corner, parent, cf * c, Vector3.zero, Vector3.new(k, k, k), part.Color, turn, part.Material, part.CastShadow)
+		end
+	end
+	return true
+end
+
 -- Windows: fit the surround to the frame; drop the sill under it; set the glass into the reveal
-local function windows(frames: { BasePart }, sills: { [string]: BasePart }, panes: { [string]: BasePart }, pieces: { Piece }, turn: number, pace: () -> ())
+local function windows(frames: { BasePart }, sills: { [string]: BasePart }, panes: { [string]: BasePart }, pieces: { Piece }, turn: number, pace: () -> (), styled: { [string]: { Piece } }?)
 	local function key(p: Vector3): string
 		return string.format("%d,%d,%d", math.round(p.X * 2), math.round(p.Y * 2), math.round(p.Z * 2))
 	end
@@ -117,7 +215,10 @@ local function windows(frames: { BasePart }, sills: { [string]: BasePart }, pane
 		-- (0.3 in design units) says by how much
 		local k = frame.Size.Z / WINDOW_FRAME.Z
 		local scale = Vector3.new(frame.Size.X / WINDOW_FRAME.X, frame.Size.Y / WINDOW_FRAME.Y, k)
-		place(pieces, frame.Parent :: Instance, cf, Vector3.zero, scale, frame.Color, turn)
+		-- the surround Detail.Windows asked for (its style's Kit), if that one's imported
+		local style = frame:GetAttribute("WindowKit")
+		local own = if styled and type(style) == "string" then styled[style] else nil
+		place(own or pieces, frame.Parent :: Instance, cf, Vector3.zero, scale, frame.Color, turn)
 		-- (Detail.Windows, design units: the frame sits at at * (0, 0, -0.1), the pane at
 		-- at * (0, 0, -0.2), the sill at at * (0, -H / 2 - 0.45, -0.35), H the pane's height)
 		local at = cf * CFrame.new(0, 0, 0.1 * k)
@@ -209,11 +310,41 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 	local hydrants: { Model } = {}
 	local loose: { [string]: { BasePart } } = {}
 	local LOOSE = { Bin = true, BinLid = true, Bollard = true, BollardBand = true, MeterPole = true, Meter = true }
+	local standIns: { BasePart } = {}
+	local drops: { BasePart } = {}
 	local function key(p: Vector3): string
 		return string.format("%d,%d,%d", math.round(p.X * 2), math.round(p.Y * 2), math.round(p.Z * 2))
 	end
+	-- the stand-ins' kits, looked up once each (false: not in this import)
+	local kits: { [string]: { Piece } | false } = {}
+	local missing: { string } = {}
+	local function kitPieces(name: string): { Piece }?
+		local cached = kits[name]
+		if cached == nil then
+			local found: { Piece }? = if KitSpec["Kit_" .. name] then MeshKit.Pieces("Kit_" .. name) else nil
+			if found then
+				kits[name] = found
+				return found
+			end
+			kits[name] = false
+			table.insert(missing, "Kit_" .. name)
+			return nil
+		end
+		if type(cached) == "table" then
+			return cached
+		end
+		return nil
+	end
 	for _, d in city:GetDescendants() do
 		if d:IsA("BasePart") then
+			local kit, drop = d:GetAttribute("Kit"), d:GetAttribute("KitDrop")
+			if type(kit) == "string" and kitPieces(kit) then
+				-- (a house's window frame with its own kit imported skips the classical surround)
+				table.insert(standIns, d)
+				continue
+			elseif type(drop) == "string" then
+				table.insert(drops, d)
+			end
 			if d.Name == "WindowFrame" then
 				table.insert(frames, d)
 			elseif d.Name == "Sill" then
@@ -240,8 +371,58 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 
 	local windowKit = MeshKit.Pieces("Kit_Window")
 	if windowKit then
-		windows(frames, sills, panes, windowKit, turn, step)
+		-- the other surrounds Detail.Windows' styles name (the classical one if one isn't imported)
+		local styled: { [string]: { Piece } } = {}
+		for _, frame in frames do
+			local style = frame:GetAttribute("WindowKit")
+			if type(style) == "string" and styled[style] == nil then
+				local pieces = MeshKit.Pieces("Kit_" .. style)
+				if pieces then
+					styled[style] = pieces
+				elseif not table.find(missing, "Kit_" .. style) then
+					table.insert(missing, "Kit_" .. style)
+				end
+			end
+		end
+		windows(frames, sills, panes, windowKit, turn, step, styled)
 		done += #frames
+	end
+
+	-- the stand-ins (PartKit.Kit) and the trim their kits draw themselves (PartKit.KitDrop)
+	for _, part in standIns do
+		local name = part:GetAttribute("Kit") :: string
+		local pieces = kitPieces(name)
+		local spec = KitSpec["Kit_" .. name]
+		local placed = false
+		if pieces and spec and part.Parent then
+			if spec.Ring then
+				placed = ring(part, pieces, if spec.Corner then MeshKit.Pieces(spec.Corner) else nil, spec, turn)
+			else
+				placed = fit(part, pieces, spec, turn)
+			end
+		end
+		if placed then
+			if part.CanCollide then
+				hide(part)
+			else
+				part:Destroy()
+			end
+			done += 1
+			step()
+		end
+	end
+	for _, part in drops do
+		if kitPieces(part:GetAttribute("KitDrop") :: string) and part.Parent then
+			if part.CanCollide then
+				hide(part)
+			else
+				part:Destroy()
+			end
+		end
+	end
+	if #missing > 0 and windowKit then
+		table.sort(missing)
+		print(string.format("[CityKit] %d city kits aren't in this import yet (their parts stay; re-import Vehicles.fbx for them): %s", #missing, table.concat(missing, ", ")))
 	end
 
 	for _, model in trees do

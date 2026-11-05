@@ -12,6 +12,7 @@ local Sim = require("../tools/sim/Instance")
 local Vector3 = require("@lune/roblox").Vector3
 local CFrame = require("@lune/roblox").CFrame
 local Color3 = require("@lune/roblox").Color3
+local Enum = require("@lune/roblox").Enum
 
 local root = process.cwd
 if string.sub(root, -1) ~= "/" then
@@ -361,6 +362,190 @@ do
 		end
 	end
 	check(ok, "each window surround is fitted to its window")
+	street:Destroy()
+end
+
+-- The facade and street kits on their stand-ins (PartKit.Kit): a stucco midrise with its shopfront
+-- and roof, a house, a villa, a bungalow, a street light and a traffic signal
+do
+	local CityKit = server.Require(Models:WaitForChild("CityKit"))
+	local KitSpec = server.Require(Models:WaitForChild("KitSpec"))
+	local City = Shared:WaitForChild("City")
+	local Buildings = server.Require(City:WaitForChild("Buildings"))
+	local Neighborhoods = server.Require(City:WaitForChild("Neighborhoods"))
+	local Props = server.Require(City:WaitForChild("Props"))
+	local PartKit = server.Require(Shared:WaitForChild("PartKit"))
+	math.randomseed(11)
+	local rng: any = {
+		NextNumber = function(_, a: number?, b: number?): number
+			local lo, hi = a or 0, b or 1
+			return lo + math.random() * (hi - lo)
+		end,
+		NextInteger = function(_, a: number, b: number): number
+			return math.random(a, b)
+		end,
+	}
+	local street = Sim.New("Model")
+	street.Name = "City"
+	Buildings.Midrise(street, 0, 0, 60, 40, 4, Vector3.new(0, 0, -1), rng, nil, true, { "Cafe Sol" })
+	Buildings.House(street, Vector3.new(150, 0, 0), Vector3.new(0, 0, -1), 30, rng, 70)
+	Neighborhoods.Villa(street, Vector3.new(260, 0, 0), Vector3.new(0, 0, -1), rng, 70)
+	Neighborhoods.Bungalow(street, Vector3.new(360, 0, 0), Vector3.new(0, 0, -1), rng)
+	Buildings.Tower(street, 480, 0, 60, 60, 200, rng)
+	Buildings.DecoHotel(street, Vector3.new(600, 0, 0), Vector3.new(0, 0, -1), 60, 40, 3, rng, false)
+	Props.StreetLight(street, Vector3.new(0, 0, -60), Vector3.new(0, 0, -1))
+	Props.Signal(street, 1, "X", Vector3.new(40, 0, -60), Vector3.new(1, 0, 0), 14)
+	-- a plain awning 30 wide: ten 3-wide modules
+	local awnings = Sim.New("Model")
+	awnings.Name = "Awnings"
+	awnings.Parent = street
+	PartKit.Kit(PartKit.Box(awnings, "Awning", Vector3.new(30, 0.3, 6), CFrame.new(0, 10, -80), Color3.fromRGB(200, 40, 40), Enum.Material.Fabric), "AwningStripe")
+	local stand: { any } = {}
+	local drops, used = 0, {}
+	for _, d in street:GetDescendants() do
+		if d:IsA("BasePart") then
+			local kit = d:GetAttribute("Kit")
+			if type(kit) == "string" then
+				table.insert(stand, { Part = d, Kit = kit, CFrame = d.CFrame, Size = d.Size, Color = d.Color, Material = d.Material, Collide = d.CanCollide, Parent = d.Parent })
+				used["Kit_" .. kit] = true
+			elseif d:GetAttribute("KitDrop") then
+				drops += 1
+			end
+		end
+	end
+	local unused = {}
+	for name in KitSpec do
+		if not used[name] and name ~= "Kit_Window_Modern" then
+			table.insert(unused, name)
+		end
+	end
+	check(#unused == 0, "the test street has a stand-in for every kit" .. (if #unused > 0 then " (missing " .. table.concat(unused, ", ") .. ")" else ""))
+	local lamps = 0
+	for _, d in street:GetDescendants() do
+		if d.Name == "Red" or d.Name == "Yellow" or d.Name == "Green" or d.Name == "Globe" then
+			lamps += 1
+		end
+	end
+	local panes = 0
+	for _, d in street:GetDescendants() do
+		if d.Name == "Window" then
+			panes += 1
+		end
+	end
+	CityKit.Apply(street)
+	local left, kept = 0, 0
+	for _, s in stand do
+		if s.Part.Parent then
+			if s.Part.Transparency < 1 then
+				left += 1
+				print(string.format("[test]   %s stand-in (%s) still showing", s.Part.Name, s.Kit))
+			elseif s.Collide then
+				kept += 1
+			end
+		end
+	end
+	check(left == 0, string.format("every stand-in made way for its kit (%d stand-ins, %d kept as colliders)", #stand, kept))
+	local dropsLeft = 0
+	for _, d in street:GetDescendants() do
+		if d:IsA("BasePart") and d:GetAttribute("KitDrop") and d.Transparency < 1 then
+			dropsLeft += 1
+		end
+	end
+	check(drops > 0 and dropsLeft == 0, string.format("the trim the kits draw themselves is gone (%d parts)", drops))
+	local lampsAfter, panesAfter = 0, 0
+	for _, d in street:GetDescendants() do
+		if d.Name == "Red" or d.Name == "Yellow" or d.Name == "Green" or d.Name == "Globe" then
+			lampsAfter += 1
+		elseif d.Name == "Window" then
+			panesAfter += 1
+		end
+	end
+	check(lampsAfter == lamps and lamps == 4, "the signal's lamps and the street light's lens stay parts")
+	check(panesAfter == panes, "the window glass stays (it lights up at night)")
+	-- each stand-in's centre lies inside one of its kit's meshes, the mesh turned the stand-in's way
+	local function meshesIn(parent: any): { any }
+		local out = {}
+		for _, d in parent:GetChildren() do
+			if d:IsA("MeshPart") then
+				table.insert(out, d)
+			end
+		end
+		return out
+	end
+	local AXES = { ["+X"] = Vector3.new(1, 0, 0), ["-X"] = Vector3.new(-1, 0, 0), ["+Y"] = Vector3.new(0, 1, 0), ["-Z"] = Vector3.new(0, 0, -1) }
+	-- (the fake import may be turned half round, which every kit piece undoes about its own Y)
+	local flip = if MeshKit.ImportTurn() == 180 then -1 else 1
+	local placedOk, turnedOk, paintOk = true, true, true
+	local function over(parent: any, point: any): any
+		-- the mesh over a point, nearest it (an arm's mesh also reaches its head's centre)
+		local hit, best = nil, math.huge
+		for _, m in meshesIn(parent) do
+			local p = m.CFrame:PointToObjectSpace(point)
+			local half = m.Size / 2 + Vector3.new(0.1, 0.1, 0.1)
+			if math.abs(p.X) <= half.X and math.abs(p.Y) <= half.Y and math.abs(p.Z) <= half.Z and p.Magnitude < best then
+				hit, best = m, p.Magnitude
+			end
+		end
+		return hit
+	end
+	for _, s in stand do
+		local spec = KitSpec["Kit_" .. s.Kit]
+		if spec.Ring then
+			-- a ring (a cornice) runs round its box: a module out from the middle of each wall
+			local depth = spec.Reference.Z * s.Size.Y / spec.Reference.Y
+			local hx, hz = s.Size.X / 2 - depth / 2, s.Size.Z / 2 - depth / 2
+			for _, offset in { Vector3.new(0, 0, -hz), Vector3.new(0, 0, hz), Vector3.new(hx, 0, 0), Vector3.new(-hx, 0, 0) } do
+				if not over(s.Parent, s.CFrame * offset) then
+					placedOk = false
+					print(string.format("[test]   no %s module out from the wall at %s", s.Kit, tostring(offset)))
+				end
+			end
+			continue
+		end
+		local hit = over(s.Parent, s.CFrame.Position)
+		if not hit then
+			placedOk = false
+			print(string.format("[test]   no %s mesh over its stand-in %s", s.Kit, s.Part.Name))
+			continue
+		end
+		local up = AXES[s.Part:GetAttribute("KitUp") or "+Y"]
+		local out = AXES[s.Part:GetAttribute("KitOut") or "-Z"]
+		local wantUp, wantOut = s.CFrame:VectorToWorldSpace(up), s.CFrame:VectorToWorldSpace(out)
+		if hit.CFrame.UpVector:Dot(wantUp) < 0.99 or hit.CFrame.LookVector:Dot(wantOut * flip) < 0.99 then
+			turnedOk = false
+			print(string.format("[test]   %s kit turned wrong: up %s look %s, wanted %s %s", s.Kit, tostring(hit.CFrame.UpVector), tostring(hit.CFrame.LookVector), tostring(wantUp), tostring(wantOut)))
+		end
+		for _, m in meshesIn(s.Parent) do
+			if m.Name == "Kit_Paint" and (m.CFrame.Position - s.CFrame.Position).Magnitude < 0.01 + m.Size.Magnitude / 2 then
+				if m.Color ~= s.Color and m.Material ~= s.Material then
+					-- (a neighbouring stand-in's paint can sit here too; only flag one that matches neither)
+					local any = false
+					for _, other in stand do
+						if other.Parent == s.Parent and other.Color == m.Color and other.Material == m.Material then
+							any = true
+						end
+					end
+					if not any then
+						paintOk = false
+					end
+				end
+			end
+		end
+	end
+	check(placedOk, "each kit sits on its stand-in")
+	check(turnedOk, "each kit stands the way its stand-in does (posts on their X axis, side windows facing out)")
+	check(paintOk, "a kit's Paint takes its stand-in's colour and material")
+	-- the stucco midrise's windows got Miami's aluminium surround (its own slot), not the classical one
+	local alu = 0
+	for _, d in street:GetDescendants() do
+		if d:IsA("MeshPart") and d.Name == "Kit_Alu" then
+			alu += 1
+		end
+	end
+	check(alu > 0, "stucco windows wear the modern surround")
+	-- a 30-wide plain awning: ten modules
+	local awningPieces = #(MeshKit.Pieces("Kit_AwningStripe") or {})
+	check(#meshesIn(awnings) == 10 * awningPieces, string.format("a 30-stud awning is ten modules (%d meshes, %d a module)", #meshesIn(awnings), awningPieces))
 	street:Destroy()
 end
 

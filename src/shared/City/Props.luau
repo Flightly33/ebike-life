@@ -197,14 +197,15 @@ function Props.Signal(parent: Instance, nodeId: number, axis: string, base: Vect
 	local model = PartKit.Model(parent, "Signal")
 	model:SetAttribute("Node", nodeId)
 	model:SetAttribute("Axis", axis)
-	PartKit.Post(model, "Pole", 0.7, 17, base, Color3.fromRGB(70, 74, 78), METAL)
+	PartKit.Kit(PartKit.Post(model, "Pole", 0.7, 17, base, Color3.fromRGB(70, 74, 78), METAL), "LightPole", "+X")
 	-- arm reaching out over the near lanes
 	local right = Vector3.new(-facing.Z, 0, facing.X) -- to the right of someone looking along `facing`
 	local armEnd = base + Vector3.new(0, 16, 0) + right * overRoad
-	PartKit.Bar(model, "Arm", base + Vector3.new(0, 16, 0), armEnd, 0.5, 0.5, Color3.fromRGB(70, 74, 78), METAL, NO_COLLIDE)
+	PartKit.Kit(PartKit.Bar(model, "Arm", base + Vector3.new(0, 16, 0), armEnd, 0.5, 0.5, Color3.fromRGB(70, 74, 78), METAL, NO_COLLIDE), "LightArm")
 	local headPos = armEnd + Vector3.new(0, -2.2, 0)
 	local cf = CFrame.lookAt(headPos, headPos + facing)
-	PartKit.Box(model, "Head", Vector3.new(1.6, 4.4, 1.2), cf, Color3.fromRGB(230, 190, 30), SMOOTH, NO_COLLIDE)
+	-- (the kit's housing hoods the lamps, which stay parts: Visuals switches them)
+	PartKit.Kit(PartKit.Box(model, "Head", Vector3.new(1.6, 4.4, 1.2), cf, Color3.fromRGB(230, 190, 30), SMOOTH, NO_COLLIDE), "SignalHead")
 	for i, name in { "Red", "Yellow", "Green" } do
 		PartKit.Box(model, name, Vector3.new(1.0, 1.0, 0.2), cf * CFrame.new(0, 1.35 - (i - 1) * 1.35, -0.62), Color3.fromRGB(40, 40, 40), SMOOTH, DECOR)
 	end
@@ -246,11 +247,12 @@ end
 function Props.StreetLight(parent: Instance, base: Vector3, toward: Vector3)
 	local model = PartKit.Model(parent, "StreetLight")
 	local grey = Color3.fromRGB(120, 124, 128)
-	PartKit.Post(model, "Pole", 0.8, 26, base, grey, METAL)
-	PartKit.Post(model, "Base", 1.4, 1.2, base, grey, METAL, DECOR)
+	-- (each part stands in for its city kit mesh: Models/CityKit)
+	PartKit.Kit(PartKit.Post(model, "Pole", 0.8, 26, base, grey, METAL), "LightPole", "+X")
+	PartKit.Kit(PartKit.Post(model, "Base", 1.4, 1.2, base, grey, METAL, DECOR), "LightBase", "+X")
 	local tip = base + Vector3.new(0, 25.5, 0) + toward * 7
-	PartKit.Bar(model, "Arm", base + Vector3.new(0, 24.5, 0), tip, 0.4, 0.4, grey, METAL, NO_COLLIDE)
-	PartKit.Box(model, "Head", Vector3.new(1.8, 0.7, 3.6), CFrame.lookAt(tip, tip + toward), grey, METAL, DECOR)
+	PartKit.Kit(PartKit.Bar(model, "Arm", base + Vector3.new(0, 24.5, 0), tip, 0.4, 0.4, grey, METAL, NO_COLLIDE), "LightArm")
+	PartKit.Kit(PartKit.Box(model, "Head", Vector3.new(1.8, 0.7, 3.6), CFrame.lookAt(tip, tip + toward), grey, METAL, DECOR), "LightHead")
 	local lens = tip - Vector3.new(0, 0.42, 0)
 	PartKit.Box(model, "Globe", Vector3.new(1.3, 0.2, 2.6), CFrame.lookAt(lens, lens + toward), Color3.fromRGB(255, 232, 186), Enum.Material.Neon, DECOR)
 	return model

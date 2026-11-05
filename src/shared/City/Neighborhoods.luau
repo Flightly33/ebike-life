@@ -111,7 +111,8 @@ local function archedWindows(parent: Instance, face: CFrame, width: number, y: n
 		local at = face * CFrame.new(x, y, -0.2)
 		PartKit.Box(parent, "Window", Vector3.new(4, 6, 0.3), at, Color3.fromRGB(60, 72, 82), GLASS, DECOR)
 		PartKit.Cylinder(parent, "WindowArch", 4, 0.3, at * CFrame.new(0, 3, 0) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(60, 72, 82), GLASS, DECOR)
-		PartKit.Box(parent, "WindowFrame", Vector3.new(4.8, 0.5, 0.5), at * CFrame.new(0, -3.2, -0.1), frame, SMOOTH, DECOR)
+		-- (the sill under the arch: the stand-in for the kit's whole arched surround)
+		PartKit.Kit(PartKit.Box(parent, "WindowSill", Vector3.new(4.8, 0.5, 0.5), at * CFrame.new(0, -3.2, -0.1), frame, SMOOTH, DECOR), "Window_Arched")
 	end
 end
 
@@ -123,22 +124,22 @@ function Neighborhoods.Villa(parent: Instance, center: Vector3, front: Vector3, 
 	local w, d, h = math.min(rng:NextNumber(44, 56), lotWidth - 16), rng:NextNumber(30, 38), 22
 	local wall = pick(rng, MEDITERRANEAN)
 	local trim = Color3.fromRGB(250, 248, 240)
-	PartKit.Box(model, "Walls", Vector3.new(w, h, d), look * CFrame.new(0, h / 2, 0), wall, PLASTER)
+	PartKit.Wear(PartKit.FacadeFor(center, "RealStucco", 0.5), PartKit.Box(model, "Walls", Vector3.new(w, h, d), look * CFrame.new(0, h / 2, 0), wall, PLASTER))
 	hipRoof(model, look, w, d, h, TILE)
 	-- the loggia: arches across part of the front
 	local lw = w * 0.45
 	PartKit.Box(model, "Loggia", Vector3.new(lw, 10, 0.5), look * CFrame.new(-w * 0.18, 5, -d / 2 - 0.1), Color3.fromRGB(70, 66, 60), SMOOTH, DECOR)
 	for i = 0, 3 do
 		local x = -w * 0.18 - lw / 2 + i * lw / 3
-		PartKit.Box(model, "Column", Vector3.new(1.4, 9, 1.4), look * CFrame.new(x, 4.5, -d / 2 - 1.2), trim, Enum.Material.Marble)
+		PartKit.Kit(PartKit.Box(model, "Column", Vector3.new(1.4, 9, 1.4), look * CFrame.new(x, 4.5, -d / 2 - 1.2), trim, Enum.Material.Marble), "Column")
 	end
 	PartKit.Box(model, "LoggiaBeam", Vector3.new(lw + 2, 2, 2.4), look * CFrame.new(-w * 0.18, 10, -d / 2 - 1.2), wall, PLASTER)
 	archedWindows(model, CFrame.lookAt((look * CFrame.new(0, 0, -d / 2)).Position, (look * CFrame.new(0, 0, -d / 2 - 1)).Position), w, 15.5, 4, trim)
-	PartKit.Box(model, "Door", Vector3.new(4.5, 8, 0.4), look * CFrame.new(w * 0.25, 4, -d / 2 - 0.15), Color3.fromRGB(96, 60, 36), Enum.Material.Wood, DECOR)
+	PartKit.Kit(PartKit.Box(model, "Door", Vector3.new(4.5, 8, 0.4), look * CFrame.new(w * 0.25, 4, -d / 2 - 0.15), Color3.fromRGB(96, 60, 36), Enum.Material.Wood, DECOR), "HouseDoor")
 	PartKit.Cylinder(model, "DoorArch", 4.5, 0.4, look * CFrame.new(w * 0.25, 8, -d / 2 - 0.15) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(96, 60, 36), Enum.Material.Wood, DECOR)
 	-- wrought-iron balcony over the door
 	PartKit.Box(model, "Balcony", Vector3.new(8, 0.5, 3), look * CFrame.new(w * 0.25, 12.5, -d / 2 - 1.5), trim, SMOOTH, NO_COLLIDE)
-	PartKit.Box(model, "BalconyRail", Vector3.new(8, 2.4, 0.2), look * CFrame.new(w * 0.25, 13.9, -d / 2 - 2.9), Color3.fromRGB(30, 30, 32), METAL, DECOR)
+	PartKit.Kit(PartKit.Box(model, "BalconyRail", Vector3.new(8, 2.4, 0.2), look * CFrame.new(w * 0.25, 13.9, -d / 2 - 2.9), Color3.fromRGB(30, 30, 32), METAL, DECOR), "IronRail")
 	if rng:NextNumber() < 0.5 then
 		-- a stair tower with its own little roof
 		local tower = look * CFrame.new(-w / 2 + 6, 0, -d / 2 + 6)
@@ -205,13 +206,13 @@ function Neighborhoods.Bungalow(parent: Instance, center: Vector3, front: Vector
 	hipRoof(model, look * CFrame.new(0, 1.5, 0), w, d, h, pick(rng, { Color3.fromRGB(90, 92, 98), Color3.fromRGB(150, 70, 50), Color3.fromRGB(200, 200, 196) }))
 	PartKit.Box(model, "Porch", Vector3.new(w - 6, 1.5, 8), look * CFrame.new(0, 0.75, -d / 2 - 4), Color3.fromRGB(170, 140, 100), Enum.Material.WoodPlanks)
 	for _, x in { -w / 2 + 4, 0, w / 2 - 4 } do
-		PartKit.Box(model, "PorchPost", Vector3.new(0.8, 10, 0.8), look * CFrame.new(x, 6.5, -d / 2 - 7.4), Color3.fromRGB(250, 250, 248), SMOOTH, DECOR)
+		PartKit.Kit(PartKit.Box(model, "PorchPost", Vector3.new(0.8, 10, 0.8), look * CFrame.new(x, 6.5, -d / 2 - 7.4), Color3.fromRGB(250, 250, 248), SMOOTH, DECOR), "PorchPost")
 	end
 	for _, x in { -w * 0.3, w * 0.3 } do
 		PartKit.Box(model, "Window", Vector3.new(5, 5, 0.3), look * CFrame.new(x, 8, -d / 2 - 0.12), Color3.fromRGB(70, 96, 112), GLASS, DECOR)
-		PartKit.Box(model, "Shutter", Vector3.new(1.6, 5, 0.3), look * CFrame.new(x - 3.4, 8, -d / 2 - 0.2), Color3.fromRGB(60, 110, 90), SMOOTH, DECOR)
+		PartKit.Kit(PartKit.Box(model, "Shutter", Vector3.new(1.6, 5, 0.3), look * CFrame.new(x - 3.4, 8, -d / 2 - 0.2), Color3.fromRGB(60, 110, 90), SMOOTH, DECOR), "Shutter")
 	end
-	PartKit.Box(model, "Door", Vector3.new(4, 7.5, 0.3), look * CFrame.new(0, 5.25, -d / 2 - 0.12), Color3.fromRGB(150, 60, 50), Enum.Material.Wood, DECOR)
+	PartKit.Kit(PartKit.Box(model, "Door", Vector3.new(4, 7.5, 0.3), look * CFrame.new(0, 5.25, -d / 2 - 0.12), Color3.fromRGB(150, 60, 50), Enum.Material.Wood, DECOR), "HouseDoor")
 	return model
 end
 

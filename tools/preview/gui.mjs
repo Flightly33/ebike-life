@@ -151,7 +151,8 @@ document.fonts.ready.then(() => {
 });
 </script></body></html>`;
 
-const browser = await chromium.launch();
+// CHROMIUM: a browser binary to use instead of the one Playwright downloads
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
 const tab = await browser.newPage({ viewport: { width: 1200, height: 800 } });
 tab.on("pageerror", (e) => console.error("page error:", e.message));
 await tab.setContent(page);

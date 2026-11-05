@@ -152,6 +152,16 @@ local M: { [string]: { Entry } } = {
 		{ Name = "Car_Van__Wheel_RR__Metal", Group = "Wheel_RR", Slot = "Metal", Center = Vector3.new(0.9610, 0.3500, 1.6500), Size = Vector3.new(0.1020, 0.4690, 0.4690) },
 		{ Name = "Car_Van__Wheel_RR__Tire", Group = "Wheel_RR", Slot = "Tire", Center = Vector3.new(0.9000, 0.3500, 1.6500), Size = Vector3.new(0.2072, 0.7000, 0.7000) },
 	},
+	["Kit_ACUnit"] = {
+		{ Name = "Kit_ACUnit__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(-0.9250, 0.1800, -0.0000), Size = Vector3.new(5.1500, 3.1600, 3.3000) },
+		{ Name = "Kit_ACUnit__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(-0.0250, 0.1050, -0.0000), Size = Vector3.new(6.0500, 3.6100, 4.0000) },
+		{ Name = "Kit_ACUnit__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(-3.0500, -0.6000, -0.8300), Size = Vector3.new(0.6000, 0.2400, 0.7000) },
+		{ Name = "Kit_ACUnit__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.1200, -0.0000), Size = Vector3.new(6.0000, 3.1600, 4.5000) },
+	},
+	["Kit_AwningStripe"] = {
+		{ Name = "Kit_AwningStripe__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 0.0000, 3.0000), Size = Vector3.new(3.0000, 0.1400, 0.1400) },
+		{ Name = "Kit_AwningStripe__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, -0.3219, -0.1664), Size = Vector3.new(3.0000, 1.2738, 6.3328) },
+	},
 	["Kit_Bench"] = {
 		{ Name = "Kit_Bench__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 1.7787, -0.0000), Size = Vector3.new(5.6800, 3.7954, 1.9000) },
 		{ Name = "Kit_Bench__Main__Wood", Group = "Main", Slot = "Wood", Center = Vector3.new(0.0000, 2.3825, 0.1025), Size = Vector3.new(6.2000, 1.6150, 1.7250) },
@@ -165,13 +175,67 @@ local M: { [string]: { Entry } } = {
 		{ Name = "Kit_Bollard__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 1.3000, -0.0000), Size = Vector3.new(0.9749, 2.6000, 1.0000) },
 		{ Name = "Kit_Bollard__Main__Yellow", Group = "Main", Slot = "Yellow", Center = Vector3.new(0.0000, 1.9500, -0.0000), Size = Vector3.new(0.6922, 0.2000, 0.7100) },
 	},
+	["Kit_Bulkhead"] = {
+		{ Name = "Kit_Bulkhead__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, -0.0850, -0.0400), Size = Vector3.new(4.5000, 2.0300, 0.8800) },
+		{ Name = "Kit_Bulkhead__Main__Stone", Group = "Main", Slot = "Stone", Center = Vector3.new(0.0000, 1.0000, -0.0800), Size = Vector3.new(4.5200, 0.2000, 0.9600) },
+	},
+	["Kit_Column"] = {
+		{ Name = "Kit_Column__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(1.5600, 9.0000, 1.5600) },
+	},
+	["Kit_Cornice"] = {
+		{ Name = "Kit_Cornice__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, -0.3000, -0.3500), Size = Vector3.new(6.0000, 2.0000, 0.7000) },
+	},
+	["Kit_Cornice_Corner"] = {
+		{ Name = "Kit_Cornice_Corner__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.3500, -0.3000, -0.3500), Size = Vector3.new(0.7000, 2.0000, 0.7000) },
+	},
+	["Kit_DecoEyebrow"] = {
+		{ Name = "Kit_DecoEyebrow__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0050), Size = Vector3.new(40.0000, 0.6000, 3.2100) },
+	},
+	["Kit_Fascia"] = {
+		{ Name = "Kit_Fascia__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 1.0550, -0.6200), Size = Vector3.new(16.2400, 0.1500, 0.2283) },
+		{ Name = "Kit_Fascia__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0750, -0.2600), Size = Vector3.new(20.0000, 2.7900, 1.1200) },
+	},
+	["Kit_GarageDoor"] = {
+		{ Name = "Kit_GarageDoor__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, -3.9500, -0.0000), Size = Vector3.new(11.9000, 0.1000, 0.2400) },
+		{ Name = "Kit_GarageDoor__Main__Glass", Group = "Main", Slot = "Glass", Center = Vector3.new(0.0000, 3.0000, -0.0800), Size = Vector3.new(11.1000, 1.2000, 0.0400) },
+		{ Name = "Kit_GarageDoor__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, -3.3000, -0.1700), Size = Vector3.new(0.9000, 0.1800, 0.1200) },
+		{ Name = "Kit_GarageDoor__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0100), Size = Vector3.new(11.9000, 7.9200, 0.2800) },
+		{ Name = "Kit_GarageDoor__Main__White", Group = "Main", Slot = "White", Center = Vector3.new(0.0000, 0.3000, -0.0200), Size = Vector3.new(13.2000, 8.6000, 0.4000) },
+	},
+	["Kit_HouseDoor"] = {
+		{ Name = "Kit_HouseDoor__Main__Gold", Group = "Main", Slot = "Gold", Center = Vector3.new(0.0000, -1.6775, -0.1175), Size = Vector3.new(3.1000, 3.9950, 0.2850) },
+		{ Name = "Kit_HouseDoor__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, -0.2500, 0.0750), Size = Vector3.new(3.4000, 7.0000, 0.2300) },
+		{ Name = "Kit_HouseDoor__Main__White", Group = "Main", Slot = "White", Center = Vector3.new(0.0000, 0.1300, -0.1100), Size = Vector3.new(4.9000, 7.7600, 0.6200) },
+	},
 	["Kit_Hydrant"] = {
 		{ Name = "Kit_Hydrant__Main__Blue", Group = "Main", Slot = "Blue", Center = Vector3.new(0.0000, 1.2266, -0.2500), Size = Vector3.new(1.4400, 0.5932, 0.9000) },
 		{ Name = "Kit_Hydrant__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, 0.1850, -0.0000), Size = Vector3.new(1.1693, 0.0700, 1.0326) },
 		{ Name = "Kit_Hydrant__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 1.2400, -0.0000), Size = Vector3.new(1.3000, 2.4800, 1.2400) },
 	},
+	["Kit_IronRail"] = {
+		{ Name = "Kit_IronRail__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(4.0000, 2.4000, 0.1800) },
+	},
 	["Kit_Lamp"] = {
 		{ Name = "Kit_Lamp__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 7.8950, -0.0000), Size = Vector3.new(2.2400, 15.7900, 2.2400) },
+	},
+	["Kit_LightArm"] = {
+		{ Name = "Kit_LightArm__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(0.5400, 0.5400, 7.0711) },
+	},
+	["Kit_LightBase"] = {
+		{ Name = "Kit_LightBase__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(1.4000, 1.2000, 1.4000) },
+	},
+	["Kit_LightHead"] = {
+		{ Name = "Kit_LightHead__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 0.0775, -0.0000), Size = Vector3.new(1.5000, 0.8050, 2.8000) },
+		{ Name = "Kit_LightHead__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0650, -0.0000), Size = Vector3.new(1.8000, 0.6900, 3.6000) },
+	},
+	["Kit_LightPole"] = {
+		{ Name = "Kit_LightPole__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, -12.6800, -0.0000), Size = Vector3.new(1.1332, 0.2400, 1.1600) },
+		{ Name = "Kit_LightPole__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(1.3000, 26.0000, 1.3000) },
+	},
+	["Kit_LobbyColumn"] = {
+		{ Name = "Kit_LobbyColumn__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, -6.8700, -0.0000), Size = Vector3.new(1.3600, 0.0600, 1.3600) },
+		{ Name = "Kit_LobbyColumn__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, 0.1000, -0.0000), Size = Vector3.new(1.3200, 14.0000, 1.3200) },
+		{ Name = "Kit_LobbyColumn__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(1.8000, 16.0000, 1.8000) },
 	},
 	["Kit_Meter"] = {
 		{ Name = "Kit_Meter__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 3.7500, -0.3300), Size = Vector3.new(0.1200, 0.2000, 0.0200) },
@@ -190,6 +254,42 @@ local M: { [string]: { Entry } } = {
 		{ Name = "Kit_Palm_Royal__Main__Crownshaft", Group = "Main", Slot = "Crownshaft", Center = Vector3.new(0.0273, 13.1307, -0.0000), Size = Vector3.new(0.4582, 2.2615, 0.4700) },
 		{ Name = "Kit_Palm_Royal__Main__PalmFrond", Group = "Main", Slot = "PalmFrond", Center = Vector3.new(0.1263, 13.1567, 0.3884), Size = Vector3.new(8.9264, 4.9054, 8.3969) },
 	},
+	["Kit_PorchPost"] = {
+		{ Name = "Kit_PorchPost__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(2.7200, 9.0000, 0.8600) },
+	},
+	["Kit_ShopDoor"] = {
+		{ Name = "Kit_ShopDoor__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(4.2000, 7.6000, 0.3500) },
+		{ Name = "Kit_ShopDoor__Main__Glass", Group = "Main", Slot = "Glass", Center = Vector3.new(0.0000, 0.3000, -0.0000), Size = Vector3.new(3.5600, 6.0400, 0.0600) },
+		{ Name = "Kit_ShopDoor__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, -1.1750, -0.0100), Size = Vector3.new(3.3200, 4.9500, 0.8600) },
+	},
+	["Kit_ShopDoorFrame"] = {
+		{ Name = "Kit_ShopDoorFrame__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(1.0000, 3.5500, 0.3000), Size = Vector3.new(1.1000, 0.2600, 0.2200) },
+		{ Name = "Kit_ShopDoorFrame__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0700), Size = Vector3.new(4.8000, 8.0000, 0.4400) },
+	},
+	["Kit_ShopMullion"] = {
+		{ Name = "Kit_ShopMullion__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 0.0000, -0.0900), Size = Vector3.new(0.4200, 8.3000, 0.0600) },
+		{ Name = "Kit_ShopMullion__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(0.4500, 8.7000, 0.5000) },
+	},
+	["Kit_ShopTransom"] = {
+		{ Name = "Kit_ShopTransom__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 0.0000, -0.0900), Size = Vector3.new(10.0000, 0.4200, 0.0600) },
+		{ Name = "Kit_ShopTransom__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, 0.0100), Size = Vector3.new(10.0000, 0.4200, 0.4600) },
+	},
+	["Kit_Shutter"] = {
+		{ Name = "Kit_Shutter__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(1.6000, 5.0000, 0.3000) },
+	},
+	["Kit_SignalHead"] = {
+		{ Name = "Kit_SignalHead__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, 0.0000, -0.4350), Size = Vector3.new(2.6000, 5.4000, 2.1300) },
+		{ Name = "Kit_SignalHead__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 2.2750, 0.0500), Size = Vector3.new(0.2283, 0.3500, 0.2400) },
+		{ Name = "Kit_SignalHead__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(1.4800, 4.1800, 1.1000) },
+		{ Name = "Kit_SignalHead__Main__Yellow", Group = "Main", Slot = "Yellow", Center = Vector3.new(0.0000, 0.0000, 0.5650), Size = Vector3.new(2.6000, 5.4000, 0.0200) },
+	},
+	["Kit_StringCourse"] = {
+		{ Name = "Kit_StringCourse__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(20.0000, 0.6000, 0.5000) },
+	},
+	["Kit_TowerMullion"] = {
+		{ Name = "Kit_TowerMullion__Main__Alu", Group = "Main", Slot = "Alu", Center = Vector3.new(0.0000, 0.0000, -0.2000), Size = Vector3.new(0.5200, 100.0000, 0.0600) },
+		{ Name = "Kit_TowerMullion__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.1500), Size = Vector3.new(0.4200, 100.0000, 0.9000) },
+	},
 	["Kit_Tree_Oak"] = {
 		{ Name = "Kit_Tree_Oak__Main__OakBark", Group = "Main", Slot = "OakBark", Center = Vector3.new(-0.0235, 3.2528, 0.0071), Size = Vector3.new(9.0591, 6.6612, 9.1783) },
 		{ Name = "Kit_Tree_Oak__Main__OakLeaves", Group = "Main", Slot = "OakLeaves", Center = Vector3.new(-0.0210, 5.3049, 0.1582), Size = Vector3.new(13.0796, 5.5376, 13.4624) },
@@ -205,6 +305,16 @@ local M: { [string]: { Entry } } = {
 	["Kit_Window"] = {
 		{ Name = "Kit_Window__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.1400), Size = Vector3.new(5.7000, 7.2000, 0.3800) },
 		{ Name = "Kit_Window__Main__Stone", Group = "Main", Slot = "Stone", Center = Vector3.new(0.0000, -0.0150, -0.3350), Size = Vector3.new(6.8000, 8.9100, 0.7700) },
+	},
+	["Kit_Window_Arched"] = {
+		{ Name = "Kit_Window_Arched__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 4.0500, -0.1100), Size = Vector3.new(5.4000, 9.7000, 0.8200) },
+	},
+	["Kit_Window_House"] = {
+		{ Name = "Kit_Window_House__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, -0.0100, -0.2700), Size = Vector3.new(6.0000, 5.7200, 0.7800) },
+	},
+	["Kit_Window_Modern"] = {
+		{ Name = "Kit_Window_Modern__Main__Alu", Group = "Main", Slot = "Alu", Center = Vector3.new(0.0000, -0.0750, 0.0300), Size = Vector3.new(5.1000, 6.7500, 0.1400) },
+		{ Name = "Kit_Window_Modern__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.1000, -0.8500), Size = Vector3.new(7.0000, 8.3800, 1.9000) },
 	},
 	["cub_sm"] = {
 		{ Name = "cub_sm__ChainBot__Dark", Group = "ChainBot", Slot = "Dark", Center = Vector3.new(-0.0876, 0.2584, 0.2406), Size = Vector3.new(0.0154, 0.1423, 0.6667) },
