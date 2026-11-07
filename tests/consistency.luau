@@ -307,4 +307,80 @@ if failures > 0 then
 	print(string.format("%d consistency check(s) failed", failures))
 	process.exit(1)
 end
+-- Activities: every race course builds along connected roads, every mission's places exist and
+-- the missions open in a chain from the first; dailies and events are well formed
+do
+	local Races = Loader.Require("ReplicatedStorage.Shared.Races")
+	local Missions = Loader.Require("ReplicatedStorage.Shared.Missions")
+	local Dailies = Loader.Require("ReplicatedStorage.Shared.Dailies")
+	local Events = Loader.Require("ReplicatedStorage.Shared.Events")
+	for _, course in Races.Courses do
+		local built = Races.Build(course)
+		local ok = #built.Points >= 2 and built.Length > 400 and built.Gold < built.Silver and built.Silver < built.Bronze and built.Pay > 0
+		for _, place in course.Via do
+			ok = ok and (Layout.Places :: any)[place] ~= nil
+		end
+		check(ok, string.format("race %s: %d checkpoints over %.0f studs, gold %ds", course.Id, #built.Points, built.Length, built.Gold))
+	end
+	local ids, open = {}, {}
+	local missionsOk = true
+	for _, m in Missions.List do
+		ids[m.Id] = true
+		if m.Requires and not ids[m.Requires] then
+			missionsOk = false
+			print("[test]   " .. m.Id .. " needs a mission that comes after it: " .. tostring(m.Requires))
+		end
+		local objective = Missions.Objective(m)
+		for _, step in objective.Steps do
+			if step.Kind == "Reach" and typeof(step.At) ~= "Vector3" then
+				missionsOk = false
+				print("[test]   " .. m.Id .. ": a place that doesn't exist")
+			end
+		end
+		if Missions.Status(m, open, 100) == "Ready" then
+			open[m.Id] = true
+		end
+	end
+	check(missionsOk, string.format("%d missions: places exist, each needs an earlier one", #Missions.List))
+	-- doing every mission in order (at a high level) leaves none locked
+	local done = {}
+	for _ = 1, #Missions.List do
+		for _, m in Missions.List do
+			if Missions.Status(m, done, 100) == "Ready" then
+				done[m.Id] = true
+			end
+		end
+	end
+	local all = true
+	for _, m in Missions.List do
+		all = all and done[m.Id] == true
+	end
+	check(all, "every mission can be reached from the first")
+	local seen = {}
+	local dailyOk = true
+	for _, c in Dailies.Daily do
+		dailyOk = dailyOk and not seen[c.Id] and string.sub(c.Id, 1, 2) == "d_" and c.Goal > 0 and c.Reward > 0
+		seen[c.Id] = true
+	end
+	for _, c in Dailies.Weekly do
+		dailyOk = dailyOk and not seen[c.Id] and Dailies.IsWeekly(c.Id) and c.Goal > 0 and c.Reward > 0
+		seen[c.Id] = true
+	end
+	local picks = Dailies.ForDay(20000)
+	check(dailyOk and #picks == Dailies.PER_DAY and picks[1].Id ~= picks[2].Id and #Dailies.ForWeek(2900) == Dailies.PER_WEEK, "daily and weekly challenges: unique ids, picked without repeats")
+	local eventsSeen, running = {}, 0
+	for t = 0, Events.SLOT * #Events.List * 2 - 1, 60 do
+		local event = Events.At(t)
+		if event then
+			eventsSeen[event.Id] = true
+			running += 1
+		end
+	end
+	local every = true
+	for _, e in Events.List do
+		every = every and eventsSeen[e.Id] == true
+	end
+	check(every and math.abs(running / (Events.SLOT * #Events.List * 2 / 60) - Events.ACTIVE / Events.SLOT) < 0.02, "every event comes round, each running half its slot")
+end
+
 print("consistency checks passed")

@@ -2,8 +2,8 @@
 	MeshKit: puts the Blender meshes (blender/build_vehicles.py) on bikes and cars when they've
 	been imported into the place, and leaves the part-built models alone when they haven't.
 
-	Import: Studio, File > Import 3D, blender/out/Vehicles.fbx, then name the imported model
-	"VehicleMeshes" and put it in ReplicatedStorage. It holds one model per vehicle (bike id, or
+	Import: Studio, File > Import 3D, blender/out/Vehicles.fbx, CityKit.fbx and Textures.fbx, each
+	dragged into one model named "VehicleMeshes" in ReplicatedStorage. It holds one model per vehicle (bike id, or
 	Car_<Kind>) with MeshParts named "<vehicle>__<Group>__<Slot>" (found by name anywhere inside). MeshManifest says where each one sits in
 	the vehicle (metres) and which joint group it rides on; the slot gives its colour and material
 	(Frame / Accent / Rims / Paint are the paintable ones).
@@ -112,7 +112,7 @@ local function meshIndex(): { [string]: MeshPart }
 			reported = true
 			print(string.format("[MeshKit] VehicleMeshes found: %d MeshParts", count))
 			if count == 0 then
-				warn("[MeshKit] VehicleMeshes has no MeshParts in it. Re-import Vehicles.fbx with File > Import 3D.")
+				warn("[MeshKit] VehicleMeshes has no MeshParts in it. Re-import Vehicles.fbx, CityKit.fbx and Textures.fbx with File > Import 3D.")
 			end
 		end
 	elseif not reported and ok then

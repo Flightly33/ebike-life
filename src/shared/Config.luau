@@ -288,6 +288,7 @@ Config.Graphics = {
 		Pedestrians = 36, -- people walking the pavements near the camera, on every block (Client/Ambient)
 		ShopRooms = 3, -- walk-in shops fitted out in full detail at once, the nearest first (Client/ShopFit)
 		ShopRange = 170, -- studs from the camera a shop is fitted out
+		FineDetail = true, -- the city kit's finest pieces (cornices, rails, shutters...: Models/CityKit)
 	},
 	Performance = {
 		Shadows = false,
@@ -300,6 +301,7 @@ Config.Graphics = {
 		Pedestrians = 14,
 		ShopRooms = 1,
 		ShopRange = 110,
+		FineDetail = false,
 	},
 }
 

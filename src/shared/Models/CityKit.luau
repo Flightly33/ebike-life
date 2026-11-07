@@ -1,5 +1,5 @@
 --[[
-	CityKit: puts the Blender city kit (blender/citykit.py, "Kit_*" in Vehicles.fbx) on the city in
+	CityKit: puts the Blender city kit (blender/citykit.py, "Kit_*" in CityKit.fbx) on the city in
 	place of its part-built placeholders, when the kit has been imported (MeshKit); without it the
 	parts stay. Run once by CityService on the server, a few hundred pieces a frame.
 
@@ -30,6 +30,8 @@
 	                 Detail.Windows frames can name their surround (the "WindowKit" attribute:
 	                 Window_Modern for stucco), falling back to the classical one.
 ]]
+
+local CollectionService = game:GetService("CollectionService")
 
 local MeshKit = require(script.Parent.MeshKit)
 local KitSpec = require(script.Parent.KitSpec)
@@ -146,7 +148,18 @@ end
 
 -- Fit a kit to its stand-in: stretched to the part's box, or (a tiled kit) laid along it as many
 -- modules as fit at the module's own proportions. Returns false if the part's box can't take it.
-local function fit(part: BasePart, pieces: { Piece }, spec: KitSpec.Spec, turn: number): boolean
+-- Kits that only add detail over what's already there (no hole when they're hidden): tagged
+-- "KitFine" so Performance mode can hide them on that device (Client/Graphics)
+CityKit.FINE = { Cornice = true, StringCourse = true, IronRail = true, Shutter = true, DecoEyebrow = true, TowerMullion = true, ACUnit = true, LightBase = true } :: { [string]: boolean }
+CityKit.FINE_TAG = "KitFine"
+
+local function tagFine(parts: { MeshPart })
+	for _, p in parts do
+		CollectionService:AddTag(p, CityKit.FINE_TAG)
+	end
+end
+
+local function fit(part: BasePart, pieces: { Piece }, spec: KitSpec.Spec, turn: number, fine: boolean?): boolean
 	local frame, size = kitFrame(part)
 	local ref = spec.Reference
 	if size.X <= 0 or size.Y <= 0 or size.Z <= 0 then
@@ -162,7 +175,10 @@ local function fit(part: BasePart, pieces: { Piece }, spec: KitSpec.Spec, turn: 
 	local parent = part.Parent :: Instance
 	for i = 1, n do
 		local x = -size.X / 2 + (i - 0.5) * size.X / n
-		place(pieces, parent, frame * CFrame.new(x, 0, 0), Vector3.zero, scale, part.Color, turn, part.Material, part.CastShadow)
+		local placed = place(pieces, parent, frame * CFrame.new(x, 0, 0), Vector3.zero, scale, part.Color, turn, part.Material, part.CastShadow)
+		if fine then
+			tagFine(placed)
+		end
 	end
 	return true
 end
@@ -170,7 +186,7 @@ end
 -- A ring kit (a cornice) round its stand-in's box, the box being the ring's outside: each wall lies
 -- the kit's projection (scaled) inside it; modules tile along the four walls at their proportions
 -- and the corner kit fills each corner. Returns false if the box can't take it.
-local function ring(part: BasePart, pieces: { Piece }, corner: { Piece }?, spec: KitSpec.Spec, turn: number): boolean
+local function ring(part: BasePart, pieces: { Piece }, corner: { Piece }?, spec: KitSpec.Spec, turn: number, fine: boolean?): boolean
 	local size, ref = part.Size, spec.Reference
 	local k = size.Y / ref.Y
 	local proj = ref.Z * k
@@ -191,14 +207,20 @@ local function ring(part: BasePart, pieces: { Piece }, corner: { Piece }?, spec:
 		local n = math.max(1, math.round(length / (ref.X * k)))
 		local scale = Vector3.new(length / n / ref.X, k, k)
 		for i = 1, n do
-			place(pieces, parent, cf * frame * CFrame.new(-length / 2 + (i - 0.5) * length / n, 0, 0), Vector3.zero, scale, part.Color, turn, part.Material, part.CastShadow)
+			local placed = place(pieces, parent, cf * frame * CFrame.new(-length / 2 + (i - 0.5) * length / n, 0, 0), Vector3.zero, scale, part.Color, turn, part.Material, part.CastShadow)
+			if fine then
+				tagFine(placed)
+			end
 		end
 	end
 	if corner then
 		-- (the corner kit sits outside the walls' corner: its -Z out of one wall, its +X out of the next)
 		local corners = { CFrame.new(a, 0, -b), CFrame.new(a, 0, b) * CFrame.Angles(0, -math.pi / 2, 0), CFrame.new(-a, 0, b) * CFrame.Angles(0, math.pi, 0), CFrame.new(-a, 0, -b) * CFrame.Angles(0, math.pi / 2, 0) }
 		for _, c in corners do
-			place(corner, parent, cf * c, Vector3.zero, Vector3.new(k, k, k), part.Color, turn, part.Material, part.CastShadow)
+			local placed = place(corner, parent, cf * c, Vector3.zero, Vector3.new(k, k, k), part.Color, turn, part.Material, part.CastShadow)
+			if fine then
+				tagFine(placed)
+			end
 		end
 	end
 	return true
@@ -396,9 +418,9 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 		local placed = false
 		if pieces and spec and part.Parent then
 			if spec.Ring then
-				placed = ring(part, pieces, if spec.Corner then MeshKit.Pieces(spec.Corner) else nil, spec, turn)
+				placed = ring(part, pieces, if spec.Corner then MeshKit.Pieces(spec.Corner) else nil, spec, turn, CityKit.FINE[name])
 			else
-				placed = fit(part, pieces, spec, turn)
+				placed = fit(part, pieces, spec, turn, CityKit.FINE[name])
 			end
 		end
 		if placed then
@@ -422,7 +444,7 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 	end
 	if #missing > 0 and windowKit then
 		table.sort(missing)
-		print(string.format("[CityKit] %d city kits aren't in this import yet (their parts stay; re-import Vehicles.fbx for them): %s", #missing, table.concat(missing, ", ")))
+		print(string.format("[CityKit] %d city kits aren't in this import yet (their parts stay; re-import CityKit.fbx for them): %s", #missing, table.concat(missing, ", ")))
 	end
 
 	for _, model in trees do

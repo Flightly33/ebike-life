@@ -26,6 +26,24 @@ export type Stats = {
 	Flips: number,
 	MaxStars: number,
 	Earned: number,
+	TopSpeed: number, -- km/h the server saw
+	Deliveries: number,
+	Races: number, -- races finished
+	Wins: number, -- races won (first of two or more)
+	Missions: number, -- story missions done
+	Challenges: number, -- daily and weekly challenges claimed
+}
+
+-- Daily rewards and challenges (Shared/Dailies): the login streak, and progress on today's and this
+-- week's challenges (reset when the day or week changes)
+export type Daily = {
+	LastLogin: number, -- day number (UTC) of the last streak claim
+	Streak: number,
+	Day: number, -- the day `Progress` belongs to
+	Week: number, -- the week `WeekProgress` belongs to
+	Progress: { [string]: number },
+	WeekProgress: { [string]: number },
+	Claimed: { [string]: boolean }, -- challenge ids claimed this day or week
 }
 
 export type Settings = {
@@ -53,6 +71,9 @@ export type Data = {
 	Settings: Settings,
 	BoostUntil: number, -- os.time() a 2x cash boost runs until
 	Achievements: { [string]: boolean }, -- claimed achievement rewards (Shared/Achievements)
+	Missions: { [string]: boolean }, -- story missions done (Shared/Missions)
+	BestTimes: { [string]: number }, -- best time trial per course, seconds (Shared/Races)
+	Daily: Daily,
 }
 
 function Profile.Default(): Data
@@ -68,10 +89,13 @@ function Profile.Default(): Data
 		Paints = {},
 		Modes = Modes.Sanitize(nil),
 		Mode = "TOUR",
-		Stats = { BestWheelie = 0, LongestAir = 0, Distance = 0, Escapes = 0, Busts = 0, Flips = 0, MaxStars = 0, Earned = 0 },
+		Stats = { BestWheelie = 0, LongestAir = 0, Distance = 0, Escapes = 0, Busts = 0, Flips = 0, MaxStars = 0, Earned = 0, TopSpeed = 0, Deliveries = 0, Races = 0, Wins = 0, Missions = 0, Challenges = 0 },
 		Settings = { Units = "kmh", Music = 0.5, Sounds = 0.8, Hints = true, Fov = 90, Graphics = "" },
 		BoostUntil = 0,
 		Achievements = {},
+		Missions = {},
+		BestTimes = {},
+		Daily = { LastLogin = 0, Streak = 0, Day = 0, Week = 0, Progress = {}, WeekProgress = {}, Claimed = {} },
 	}
 end
 
@@ -159,6 +183,44 @@ function Profile.Sanitize(saved: any): Data
 		for id, claimed in saved.Achievements do
 			if type(id) == "string" and claimed == true then
 				data.Achievements[id] = true
+			end
+		end
+	end
+	if type(saved.Missions) == "table" then
+		for id, done in saved.Missions do
+			if type(id) == "string" and done == true then
+				data.Missions[id] = true
+			end
+		end
+	end
+	if type(saved.BestTimes) == "table" then
+		for id, seconds in saved.BestTimes do
+			local t = tonumber(seconds)
+			if type(id) == "string" and t and t > 1 and t < 36000 then
+				data.BestTimes[id] = t
+			end
+		end
+	end
+	if type(saved.Daily) == "table" then
+		local d, out = saved.Daily, data.Daily
+		out.LastLogin = math.floor(num(d.LastLogin, 0, 0))
+		out.Streak = math.floor(num(d.Streak, 0, 0, 10000))
+		out.Day = math.floor(num(d.Day, 0, 0))
+		out.Week = math.floor(num(d.Week, 0, 0))
+		for _, pair in { { d.Progress, out.Progress }, { d.WeekProgress, out.WeekProgress } } do
+			if type(pair[1]) == "table" then
+				for id, value in pair[1] do
+					if type(id) == "string" then
+						pair[2][id] = num(value, 0, 0)
+					end
+				end
+			end
+		end
+		if type(d.Claimed) == "table" then
+			for id, claimed in d.Claimed do
+				if type(id) == "string" and claimed == true then
+					out.Claimed[id] = true
+				end
 			end
 		end
 	end

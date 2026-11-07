@@ -1,6 +1,8 @@
 """
-Builds every Flightly bike and every car as meshes, split by moving part and paint slot, and
-exports blender/out/Vehicles.fbx plus src/shared/Models/MeshManifest.luau.
+Builds every Flightly bike and every car as meshes, split by moving part and paint slot, and the
+city kit and the realism pack's textures, and exports three files for Studio, blender/out/
+Vehicles.fbx (bikes and cars), CityKit.fbx (Kit_* meshes and trees) and Textures.fbx (the texture
+swatches), plus src/shared/Models/MeshManifest.luau and KitSpec.luau.
 
     /root/tools/blendenv/bin/python blender/build_vehicles.py [--render id,id,...] [--only id,id]
 
@@ -8,9 +10,10 @@ Run `lune run tools/lune/export_vehicles.luau` first: blender/vehicles.json hold
 the game uses (axles, head tube, bottom bracket, bars, saddle), so the meshes line up with the
 joints that steer, spin the wheels and turn the cranks.
 
-In Roblox Studio: File > Import 3D, pick Vehicles.fbx, and put the imported model in
-ReplicatedStorage, named VehicleMeshes (one child model per vehicle id). The game uses those
-MeshParts when they're there and falls back to its part-built models when they're not.
+In Roblox Studio: make a Model named VehicleMeshes in ReplicatedStorage, then File > Import 3D
+each of the three files and drag each imported model into VehicleMeshes. The game uses those
+MeshParts when they're there and falls back to its part-built models when they're not. Each file
+can be re-imported on its own when only that one changes.
 """
 
 import json
@@ -1356,8 +1359,34 @@ def main():
     write_manifest(manifest)
     if kits:
         facadekit.write_spec(os.path.join(ROOT, "src", "shared", "Models", "KitSpec.luau"))
-    bpy.ops.export_scene.fbx(filepath=os.path.join(HERE, "out", "Vehicles.fbx"), use_selection=False, object_types={"EMPTY", "MESH"}, apply_unit_scale=True, axis_forward="-Z", axis_up="Y", mesh_smooth_type="FACE", add_leaf_bones=False, bake_anim=False, path_mode="COPY", embed_textures=True)
-    print("wrote blender/out/Vehicles.fbx")
+    # three imports, each small enough for Studio's importer: the bikes and cars, the city kit
+    # (facade, street furniture, trees) and the realism pack's texture swatches. The owner imports
+    # all three into one VehicleMeshes model (MeshKit and SetupRealism search all of it).
+    groups = {"Vehicles": [], "CityKit": [], "Textures": []}
+    for ob in bpy.data.objects:
+        if ob.parent is None and ob.type == "EMPTY":
+            if ob.name == "Realism_Swatches":
+                groups["Textures"].append(ob)
+            elif ob.name.startswith("Kit_"):
+                groups["CityKit"].append(ob)
+            else:
+                groups["Vehicles"].append(ob)
+    for name, roots in groups.items():
+        if not roots:
+            continue
+        chosen = set()
+        for root in roots:
+            chosen.add(root.name)
+            for child in root.children_recursive:
+                chosen.add(child.name)
+        for ob in bpy.data.objects:
+            try:
+                ob.select_set(ob.name in chosen)
+            except RuntimeError:
+                pass  # (not in this view layer)
+        path = os.path.join(HERE, "out", name + ".fbx")
+        bpy.ops.export_scene.fbx(filepath=path, use_selection=True, object_types={"EMPTY", "MESH"}, apply_unit_scale=True, axis_forward="-Z", axis_up="Y", mesh_smooth_type="FACE", add_leaf_bones=False, bake_anim=False, path_mode="COPY", embed_textures=True)
+        print(f"wrote blender/out/{name}.fbx ({os.path.getsize(path) / 1e6:.1f} MB)")
     if kits:
         realism_pack.write_snippet(world_scale())
     ids = arg("--render")

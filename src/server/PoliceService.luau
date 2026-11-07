@@ -37,6 +37,7 @@ local Config = require(Shared.Config)
 local Heat = require(Shared.Heat)
 local Layout = require(Shared.City.Layout)
 local Remotes = require(Shared.Remotes)
+local Signal = require(Shared.Signal)
 local CarModel = require(Shared.Models.CarModel)
 
 local DataService = require(script.Parent.DataService)
@@ -46,6 +47,10 @@ local CarDriver = require(script.Parent.CarDriver)
 local Officer = require(script.Parent.Officer)
 
 local PoliceService = {}
+
+-- (player, stars) when a rider gets away, and when one is busted (missions, dailies)
+PoliceService.Escaped = Signal.new()
+PoliceService.Busted = Signal.new()
 
 local C = Config.Police
 -- the map grows with the world (Config.MAP_SCALE): distances across it were tuned at 1.25
@@ -422,6 +427,7 @@ local function onEvents(player: Player, w: Watch, events: { Heat.Event })
 			Remotes.Event("Police"):FireClient(player, "Escaped", { Stars = event.Stars, Reward = reward, Time = event.Time or 0 })
 			release(player)
 			w.MaxStarsThisChase = 0
+			PoliceService.Escaped:Fire(player, event.Stars)
 		end
 	end
 end
@@ -440,6 +446,7 @@ local function bust(player: Player, w: Watch, walkOut: boolean)
 	release(player)
 	BikeService.Despawn(player)
 	Remotes.Event("Police"):FireClient(player, "Busted", { Fine = fine, Stars = stars })
+	PoliceService.Busted:Fire(player, stars)
 	if walkOut then
 		local character = player.Character
 		if character then

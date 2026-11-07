@@ -19,6 +19,9 @@ local Theme = require(script.Parent.Theme)
 
 local Minimap = {}
 
+-- where the current objective is (UI/Objective sets it): a gold marker, held at the rim when far
+Minimap.Target = nil :: (() -> Vector3?)?
+
 local New = Theme.New
 local SCALE = 0.21 * 1.25 / Config.MAP_SCALE -- pixels per stud: the same stretch of map at any MAP_SCALE
 local SIZE = 150
@@ -165,6 +168,8 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 	end
 
 	local arrow = Theme.Label({ Text = "▲", Size = UDim2.fromOffset(18, 18), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), TextSize = 16, Color = Color3.fromRGB(255, 255, 255), Stroke = 2, ZIndex = 10, Parent = canvas })
+	local goal = Theme.Label({ Text = "◆", Size = UDim2.fromOffset(20, 20), AnchorPoint = Vector2.new(0.5, 0.5), TextSize = 20, Color = Color3.fromRGB(255, 200, 50), Stroke = 2, ZIndex = 9, Parent = map })
+	goal.Visible = false
 	local _ = arrow
 
 	local self: Minimap = {
@@ -182,6 +187,21 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 			map.Position = UDim2.fromOffset(-mx, -mz)
 			for _, label in icons do
 				label.Rotation = math.deg(angle)
+			end
+			-- the objective's marker, pinned to the rim when it's off the map
+			local targetOf = Minimap.Target
+			local target = if targetOf then targetOf() else nil
+			goal.Visible = target ~= nil
+			if target then
+				local tx, tz = toMap(target.X, target.Z)
+				local dx, dz = tx - mx, tz - mz
+				local reach = SIZE / 2 - 12
+				local length = math.sqrt(dx * dx + dz * dz)
+				if length > reach then
+					dx, dz = dx * reach / length, dz * reach / length
+				end
+				goal.Position = UDim2.fromOffset(px(mx + dx), px(mz + dz))
+				goal.Rotation = math.deg(angle)
 			end
 			-- dots
 			local count = 0

@@ -24,6 +24,10 @@
 		SetSetup(bikeId, values)          the mechanic's free setup (Shared/Setup), at Flighty Garage
 		ClaimAchievement(id)              pays an achievement's reward once its goal is met
 		Order(counter, itemId)            buy off a shop counter's menu (OrderService checks you're at it)
+		Activity(action, a, b)            missions, delivery jobs, races, dailies, leaderboards
+		                                  (ObjectiveService routes it: "Overview", "StartMission",
+		                                  "StartJob", "StartTrial", "JoinRace", "LeaveRace", "Cancel",
+		                                  "ClaimStreak", "ClaimChallenge")
 		GetProfile()                      the player's whole save
 		Admin(command, value)             admin commands (AdminService checks who may)
 
@@ -33,6 +37,8 @@
 		Payout(amount, reason)            "+$12 Air 1.2s" pops
 		Police(kind, data)                "Wanted", "Busted", "Escaped", "Spotted"
 		Charge(percent)                   a charging station topped your battery up
+		Objective(kind, data)             "Started", "Step", "Done", "Failed" (ObjectiveService)
+		Race(kind, data)                  race lobby and results: "Lobby", "Countdown", "Go", "Results"
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -57,9 +63,11 @@ local EVENTS = {
 	"Charge",
 	"Bail",
 	"GotUp",
+	"Objective",
+	"Race",
 }
 local UNRELIABLE = { "BikeState" }
-local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "SetLivery", "SetSetup", "OpenCrate", "BuyBoost", "Order", "ClaimAchievement", "GetProfile", "Admin" }
+local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "SetLivery", "SetSetup", "OpenCrate", "BuyBoost", "Order", "ClaimAchievement", "GetProfile", "Admin", "Activity" }
 
 local Remotes = {}
 

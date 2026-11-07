@@ -388,6 +388,21 @@ if bike then
 	world:Run(Config.Battery.ChargeSeconds + 1)
 	print(string.format("[test] battery %.2f -> %.2f", batteryBefore, BikeController.BatteryFraction()))
 	check(BikeController.BatteryFraction() > batteryBefore and BikeController.BatteryFraction() > 0.99, "charging station filled the battery")
+	-- a time trial on it: the start line, then every checkpoint on the bike
+	ok, message = invoke(ClientRemotes.Function("Activity"), "StartTrial", "downtown_dash")
+	check(ok == true and player:GetAttribute("ObjKind") == "Trial", "a time trial starts (" .. tostring(message) .. ")")
+	local hops = 0
+	while player:GetAttribute("ObjKind") == "Trial" and hops < 40 do
+		local target = player:GetAttribute("ObjTarget")
+		if typeof(target) ~= "Vector3" then
+			break
+		end
+		BikeService.Teleport(player, CFrame.new(target + Vector3.new(0, 2, 0)))
+		world:Run(0.5)
+		hops += 1
+	end
+	local best = ServerData.Get(player).BestTimes.downtown_dash
+	check(best ~= nil, string.format("the trial finished with a best time (%s s, %d hops)", tostring(best), hops))
 end
 
 --------------------------------------------------------------------------------
@@ -552,6 +567,91 @@ do
 		shot("menu_Order")
 		UI.Open("Order")
 	end
+end
+
+--------------------------------------------------------------------------------
+print("== missions, deliveries, races, dailies, events, leaderboards")
+do
+	local Activity = ClientRemotes.Function("Activity")
+	local EconomyService = server.Require(SSS.Server:WaitForChild("EconomyService"))
+	local DailyService = server.Require(SSS.Server:WaitForChild("DailyService"))
+	local LeaderboardService = server.Require(SSS.Server:WaitForChild("LeaderboardService"))
+	local Dailies = server.Require(Shared:WaitForChild("Dailies"))
+	local saved = ServerData.Get(player)
+	local function walkTo(target: any)
+		rig:PivotTo(CFrame.new(target + Vector3.new(0, 3, 0)))
+		world:Run(0.4)
+	end
+	local overview
+	ok, overview = invoke(Activity, "Overview")
+	check(ok == true and type(overview) == "table" and overview.Missions ~= nil and overview.Jobs ~= nil and overview.Races ~= nil and overview.Daily ~= nil and overview.Events ~= nil and overview.Boards ~= nil, "the phone's Play hub gets every section")
+	-- the first story mission: to the Plaza, a wheelie, back to Flighty Mechanics
+	local cash0 = player:GetAttribute("Cash")
+	ok, message = invoke(Activity, "StartMission", "m02_wynwood")
+	check(ok ~= true, "missions open in order (" .. tostring(message) .. ")")
+	ok, message = invoke(Activity, "StartMission", "m01_first_ride")
+	check(ok == true and player:GetAttribute("ObjKind") == "Mission", "the first mission starts (" .. tostring(message) .. ")")
+	check(typeof(player:GetAttribute("ObjTarget")) == "Vector3", "the tracker has somewhere to point")
+	walkTo(Layout.Places.Plaza)
+	check(player:GetAttribute("ObjStep") == 2, "reaching the Plaza moves the mission on")
+	EconomyService.Trick:Fire(player, "Wheelie", 1)
+	world:Run(0.2)
+	check(player:GetAttribute("ObjStep") == 2, "a 1 s wheelie isn't enough")
+	EconomyService.Trick:Fire(player, "Wheelie", 2.5)
+	world:Run(0.2)
+	check(player:GetAttribute("ObjStep") == 3, "a 2.5 s wheelie is")
+	walkTo(Layout.Places.Dealership)
+	check(saved.Missions.m01_first_ride == true and player:GetAttribute("ObjKind") == nil, "back at Flighty Mechanics: the mission's done and saved")
+	check(player:GetAttribute("Cash") - cash0 >= 400, "and paid")
+	shot("objective_done")
+	-- a delivery: to the counter, then the house, inside the time limit
+	ok, overview = invoke(Activity, "Overview")
+	local jobs = if ok and type(overview) == "table" then overview.Jobs or {} else {}
+	check(#jobs > 0, string.format("delivery jobs on offer (%d)", #jobs))
+	if #jobs > 0 then
+		local before, cash1 = saved.Stats.Deliveries, player:GetAttribute("Cash")
+		ok, message = invoke(Activity, "StartJob", 1)
+		check(ok == true and player:GetAttribute("ObjKind") == "Job", "took a delivery (" .. tostring(message) .. ")")
+		walkTo(player:GetAttribute("ObjTarget"))
+		check(player:GetAttribute("ObjStep") == 2 and (player:GetAttribute("ObjEnds") or 0) > 0, "picked up the order: the clock's running")
+		shot("objective_job")
+		walkTo(player:GetAttribute("ObjTarget"))
+		check(saved.Stats.Deliveries == before + 1, "delivered")
+		check(player:GetAttribute("Cash") - cash1 > jobs[1].Pay, "paid with a tip for the time to spare")
+	end
+	-- a race lobby: on your own it waits for someone to join
+	ok, message = invoke(Activity, "JoinRace", "downtown_dash")
+	check(ok == true and player:GetAttribute("RaceLobby") == "downtown_dash", "joined a race lobby (" .. tostring(message) .. ")")
+	ok = invoke(Activity, "LeaveRace")
+	check(ok == true and player:GetAttribute("RaceLobby") == nil, "and left it")
+	-- the daily streak and a challenge
+	ok, message = invoke(Activity, "ClaimStreak")
+	check(ok == true and saved.Daily.Streak == 1, "claimed the daily reward (" .. tostring(message) .. ")")
+	ok = invoke(Activity, "ClaimStreak")
+	check(ok ~= true, "once a day")
+	local base = os.time()
+	DailyService.Clock = function()
+		return base + 86400
+	end
+	ok, message = invoke(Activity, "ClaimStreak")
+	check(ok == true and saved.Daily.Streak == 2, "the next day grows the streak (" .. tostring(message) .. ")")
+	local challenge = Dailies.ForDay(Dailies.Day(base + 86400))[1]
+	ok = invoke(Activity, "ClaimChallenge", challenge.Id)
+	check(ok ~= true, "a challenge can't be claimed before it's done")
+	DailyService.Add(player, challenge.Stat, challenge.Goal)
+	ok, message = invoke(Activity, "ClaimChallenge", challenge.Id)
+	check(ok == true and saved.Daily.Claimed[challenge.Id] == true, "a finished challenge pays (" .. tostring(message) .. ")")
+	DailyService.Clock = os.time
+	-- the event timetable and the leaderboards (this server's riders without DataStores)
+	check(type(RS:GetAttribute("Event")) == "string", "the event timetable runs (now: '" .. tostring(RS:GetAttribute("Event")) .. "')")
+	LeaderboardService.Refresh()
+	ok, overview = invoke(Activity, "Overview")
+	local earned = if ok and type(overview) == "table" and overview.Boards then overview.Boards[1] else nil
+	check(earned ~= nil and earned.Top[1] ~= nil and earned.Top[1].Name == player.DisplayName, "the tester tops the earnings board")
+	UI.Open("Activities")
+	world:Run(0.6)
+	shot("menu_Activities")
+	UI.Open("Activities")
 end
 
 --------------------------------------------------------------------------------

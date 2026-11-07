@@ -18,6 +18,8 @@ local Economy = require(Shared.Economy)
 local Remotes = require(Shared.Remotes)
 local Layout = require(Shared.City.Layout)
 local Signal = require(Shared.Signal)
+local Events = require(Shared.Events)
+local Workspace = game:GetService("Workspace")
 
 local DataService = require(script.Parent.DataService)
 local BikeService = require(script.Parent.BikeService)
@@ -42,8 +44,13 @@ type Tracker = {
 
 local trackers: { [Player]: Tracker } = {}
 
--- (player, kind, amount): tricks the police care about ("Jump", "Flip", "Impact")
+-- (player, kind, amount): finished tricks ("Jump" s, "Flip" n, "AirTrick" n, "Loop", "Drift" s,
+-- "Wheelie" s, "Stoppie" s, "Impact"): the police, missions and dailies listen
 EconomyService.Trick = Signal.new()
+-- (player, amount, label): every trick payout, for trick-score objectives
+EconomyService.Scored = Signal.new()
+-- (player, amount): cash paid from anything (riding, tricks, rewards), for the daily "earn" goals
+EconomyService.Earned = Signal.new()
 
 -- Stars, set by PoliceService, and the cash boost, set by ShopService (avoids require cycles)
 EconomyService.StarsOf = function(_player: Player): number
@@ -110,16 +117,30 @@ local function addXp(player: Player, amount: number)
 	end
 end
 
--- A lump sum for a trick: grows with the combo, and with the chase/boost multiplier
+-- A lump sum for a trick: grows with the combo, the chase/boost multiplier and a Stunt Jam
 local function payTrick(player: Player, base: number, label: string)
 	if base <= 0 then
 		return
 	end
 	local t = tracker(player)
-	local amount = math.floor(base * (1 + t.Combo) * EconomyService.BoostOf(player))
+	local amount = math.floor(base * (1 + t.Combo) * EconomyService.BoostOf(player) * Events.Multiplier(Workspace:GetServerTimeNow(), "Trick"))
 	DataService.AddCash(player, amount)
 	Remotes.Event("Payout"):FireClient(player, amount, label)
 	addXp(player, amount * 0.5)
+	EconomyService.Scored:Fire(player, amount, label)
+	EconomyService.Earned:Fire(player, amount)
+end
+
+-- A reward from a mission, job, race or challenge: cash (with the shop boost), XP, a "+$" pop
+function EconomyService.Reward(player: Player, cash: number, xp: number, label: string)
+	local amount = math.floor(math.max(0, cash))
+	if amount > 0 then
+		DataService.AddCash(player, amount)
+		Remotes.Event("Payout"):FireClient(player, amount, label)
+		EconomyService.Earned:Fire(player, amount)
+	end
+	addXp(player, xp)
+	DataService.Changed(player)
 end
 
 local function bumpCombo(player: Player, amount: number)
@@ -196,6 +217,7 @@ local function onTrick(player: Player, kind: any, value: any, extra: any, text: 
 		if not failed then
 			payTrick(player, Economy.WheelieLump(seconds), string.format("Wheelie %.1fs", seconds))
 			bumpCombo(player, E.ComboWheelie * math.floor(seconds / 5))
+			EconomyService.Trick:Fire(player, "Wheelie", seconds)
 		end
 		if seconds > data.Stats.BestWheelie then
 			data.Stats.BestWheelie = math.floor(seconds * 10) / 10
@@ -250,6 +272,7 @@ local function onTrick(player: Player, kind: any, value: any, extra: any, text: 
 		if lump > 0 then
 			payTrick(player, lump, string.format("Stoppie %.1fs", seconds))
 			bumpCombo(player, E.ComboTrick)
+			EconomyService.Trick:Fire(player, "Stoppie", seconds)
 		end
 	elseif kind == "DriftEnd" then
 		-- trust the server's clock over the client's; one drift per 0.3 s
@@ -268,6 +291,7 @@ local function onTrick(player: Player, kind: any, value: any, extra: any, text: 
 	elseif kind == "Crash" then
 		t.Combo = 0
 		player:SetAttribute("Combo", 0)
+		EconomyService.Trick:Fire(player, "Crash", 1)
 	elseif kind == "Impact" then
 		if type(text) == "string" and (text == "Cop" or text == "Car") then
 			EconomyService.Trick:Fire(player, "Impact", v, text)
@@ -307,19 +331,26 @@ function EconomyService.Init()
 				local ride = BikeService.Get(player)
 				if ride and ride.Riding and DataService.Get(player) then
 					local kmh = BikeService.Kmh(ride)
-					local earned = Economy.BaseRate(kmh) * mult * dt + t.Unpaid
+					-- a Police Crackdown pays more while you're wanted
+					local serverTime = Workspace:GetServerTimeNow()
+					local wanted = if EconomyService.StarsOf(player) > 0 then Events.Multiplier(serverTime, "Wanted") else 1
+					local earned = Economy.BaseRate(kmh) * mult * wanted * dt + t.Unpaid
 					local whole = math.floor(earned)
 					t.Unpaid = earned - whole
 					if whole > 0 then
 						DataService.AddCash(player, whole)
 						t.Popups += whole
+						EconomyService.Earned:Fire(player, whole)
 					end
 					local meters = kmh / 3.6 * dt
 					local data = DataService.Get(player)
 					if data then
 						data.Stats.Distance += meters
+						if kmh > data.Stats.TopSpeed then
+							data.Stats.TopSpeed = math.floor(kmh)
+						end
 					end
-					addXp(player, meters / 1000 * E.XpPerKm)
+					addXp(player, meters / 1000 * E.XpPerKm * Events.Multiplier(serverTime, "Xp"))
 					if showPopup and t.Popups > 0 then
 						Remotes.Event("Payout"):FireClient(player, t.Popups, "")
 						t.Popups = 0

@@ -543,6 +543,9 @@ do
 		end
 	end
 	check(alu > 0, "stucco windows wear the modern surround")
+	-- the finest kits are tagged so Performance mode can hide them on phones
+	local tagged = world.Services.CollectionService:GetTagged(CityKit.FINE_TAG)
+	check(#tagged > 0, string.format("fine detail tagged for Performance mode (%d meshes)", #tagged))
 	-- a 30-wide plain awning: ten modules
 	local awningPieces = #(MeshKit.Pieces("Kit_AwningStripe") or {})
 	check(#meshesIn(awnings) == 10 * awningPieces, string.format("a 30-stud awning is ten modules (%d meshes, %d a module)", #meshesIn(awnings), awningPieces))

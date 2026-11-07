@@ -8,6 +8,7 @@
 	device (Performance on phones and tablets), and a prompt on join asks.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -69,6 +70,15 @@ local function depthOfField(on: boolean)
 	end
 end
 
+-- Performance hides the city kit's finest detail on this device (Models/CityKit tags it: cornices,
+-- string courses, rails, shutters, eyebrows, tower fins, rooftop AC units)
+local FINE_TAG = "KitFine"
+local function fineDetail(part: Instance, show: boolean)
+	if part:IsA("BasePart") then
+		part.LocalTransparencyModifier = if show then 0 else 1
+	end
+end
+
 function Graphics.Apply()
 	local mode = Graphics.Mode()
 	if applied == mode then
@@ -76,6 +86,9 @@ function Graphics.Apply()
 	end
 	applied = mode
 	local cfg = Config.Graphics[mode]
+	for _, part in CollectionService:GetTagged(FINE_TAG) do
+		fineDetail(part, cfg.FineDetail)
+	end
 	Lighting.GlobalShadows = cfg.Shadows
 	Lighting.EnvironmentSpecularScale = cfg.Specular
 	local rays = Lighting:FindFirstChildOfClass("SunRaysEffect")
@@ -93,6 +106,10 @@ end
 function Graphics.Init()
 	Graphics.Apply()
 	State.Changed:Connect(Graphics.Apply)
+	-- (streaming brings the city's parts in as you ride)
+	CollectionService:GetInstanceAddedSignal(FINE_TAG):Connect(function(part: Instance)
+		fineDetail(part, Graphics.Current().FineDetail)
+	end)
 	-- the clouds are made after this runs (Client/DayNight); catch them
 	local terrain = Workspace:FindFirstChildOfClass("Terrain")
 	if terrain then

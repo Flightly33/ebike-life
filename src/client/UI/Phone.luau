@@ -2,8 +2,8 @@
 	Phone: the in-game phone (` backquote, or the 📱 tile on the HUD): a handset with a wallpaper that
 	follows the time of day, a status bar (clock, signal, the bike's battery), a big lock-screen
 	clock with the weather, a grid of apps that open the menus (Map, My Rides, Dealer, Tuning,
-	Crates, Shop, Stats, Settings), a dock, and a red badge on Stats while an achievement waits to
-	be claimed. Built like a Panel so UI.Open shows and hides it.
+	Crates, Shop, Stats, Settings, and Play and Ranks for missions, jobs, races, dailies, events and
+	the leaderboards), a dock, and a red badge on Stats while an achievement waits to be claimed. Built like a Panel so UI.Open shows and hides it.
 ]]
 
 local Lighting = game:GetService("Lighting")
@@ -29,6 +29,7 @@ end
 
 type App = { Name: string, Icon: string, Top: Color3, Bottom: Color3, Opens: string }
 local APPS: { App } = {
+	{ Name = "Play", Icon = "🎯", Top = rgb(255, 120, 90), Bottom = rgb(220, 40, 70), Opens = "Activities" },
 	{ Name = "Map", Icon = "🗺", Top = rgb(90, 200, 120), Bottom = rgb(30, 130, 80), Opens = "Map" },
 	{ Name = "My Rides", Icon = "🏍", Top = rgb(255, 160, 60), Bottom = rgb(230, 90, 20), Opens = "MyRides" },
 	{ Name = "Dealer", Icon = "🛒", Top = rgb(90, 160, 255), Bottom = rgb(40, 80, 210), Opens = "Dealership" },
@@ -37,9 +38,10 @@ local APPS: { App } = {
 	{ Name = "Crates", Icon = "🎁", Top = rgb(220, 120, 255), Bottom = rgb(140, 50, 200), Opens = "Crates" },
 	{ Name = "Shop", Icon = "💵", Top = rgb(140, 240, 90), Bottom = rgb(50, 160, 40), Opens = "Shop" },
 	{ Name = "Stats", Icon = "🏆", Top = rgb(255, 220, 80), Bottom = rgb(230, 150, 20), Opens = "Stats" },
+	{ Name = "Ranks", Icon = "📊", Top = rgb(120, 200, 255), Bottom = rgb(60, 90, 220), Opens = "Ranks" },
 	{ Name = "Settings", Icon = "⚙️", Top = rgb(120, 130, 150), Bottom = rgb(60, 66, 80), Opens = "Menus" },
 }
-local DOCK = { 1, 2, 6, 7 }
+local DOCK = { 1, 2, 3, 7 }
 
 -- the wallpaper's colours through the day
 type Key = { Hour: number, Top: Color3, Bottom: Color3 }

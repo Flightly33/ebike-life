@@ -39,6 +39,9 @@ local TrickHud = require(script.TrickHud)
 local Tuning = require(script.Tuning)
 local Garage = require(script.Garage)
 local WantedHud = require(script.WantedHud)
+local Objective = require(script.Objective)
+local Activities = require(script.Activities)
+local Minimap = require(script.Minimap)
 
 local UI = {}
 
@@ -56,6 +59,11 @@ local function close()
 end
 
 function UI.Open(name: string)
+	-- the Ranks app is the Play hub on its leaderboards
+	if name == "Ranks" then
+		Activities.Show("Ranks")
+		name = "Activities"
+	end
 	-- tuning, parts and paint happen at Flighty Garage
 	if name == "Tuning" then
 		if Garage.Near() then
@@ -109,6 +117,8 @@ function UI.Init()
 
 	Hud.Init(gui, UI.Open)
 	Toasts.Init(gui, Hud.Minimap :: Frame)
+	Objective.Init(gui)
+	Minimap.Target = Objective.Target
 	TrickHud.Init(gui)
 	WantedHud.Init(gui)
 	OrderMenu.InitHud(gui)
@@ -129,6 +139,7 @@ function UI.Init()
 	panels.Order = OrderMenu.new(menus)
 	panels.Map = MapScreen.new(menus, close)
 	panels.Stats = StatsScreen.new(menus)
+	panels.Activities = Activities.new(menus)
 	panels.Phone = Phone.new(menus, UI.Open, close)
 	panels.Menus = MainMenu.new(menus, close)
 	panels.Admin = AdminPanel.new(menus, function()
@@ -148,6 +159,8 @@ function UI.Init()
 			UI.Open("Phone")
 		elseif not processed and input.KeyCode == Enum.KeyCode.J and not UserInputService:GetFocusedTextBox() then
 			UI.Open("Map")
+		elseif not processed and input.KeyCode == Enum.KeyCode.K and not UserInputService:GetFocusedTextBox() then
+			UI.Open("Activities")
 		elseif not processed and input.KeyCode == Enum.KeyCode.F2 and player:GetAttribute("Admin") == true then
 			UI.Open("Admin")
 		end
@@ -180,7 +193,12 @@ function UI.Init()
 		if type(kind) ~= "string" or type(text) ~= "string" then
 			return
 		end
-		Toasts.Message(kind, text)
+		if kind == "Event" then
+			-- a city event starting: a banner as well as the message
+			Toasts.Banner("EVENT!", text, Theme.Colors.Gold, 4)
+			Sound.Play("LevelUp")
+		end
+		Toasts.Message(if kind == "Event" then "Cash" else kind, text)
 		if kind == "Level" then
 			Sound.Play("LevelUp")
 		elseif kind == "Cash" then
@@ -246,6 +264,7 @@ function UI.Init()
 		Hud.Update(dt)
 		TrickHud.Update(dt)
 		WantedHud.Update()
+		Objective.Update()
 	end)
 
 	-- Welcome
