@@ -6,6 +6,10 @@
 	Cars start spread over every road in the map by its length (every grid, the turnpike, the
 	freeways and causeways, the country roads), and a car left far from every player is moved to a
 	road a few blocks from one (out of sight), so there's traffic wherever anyone rides.
+
+	Buses run lines (LINES): each loops a rectangle of downtown streets in the kerb lane and pulls
+	up for a few seconds at every shelter on its right (the BusStop models in the city's Furniture);
+	a bus far from everyone only moves to where its own line passes near someone.
 ]]
 
 local Players = game:GetService("Players")
@@ -23,6 +27,23 @@ local CarDriver = require(script.Parent.CarDriver)
 local TrafficService = {}
 
 type Car = { Driver: CarDriver.Driver, StillFor: number }
+
+-- Bus lines: loops through downtown grid crossings (x and z line numbers), each passing the
+-- shelters on one side of an avenue (Builder labels the shelters to match: Miami Ave's west side
+-- "1", Flagler St's south side "2", its north side "3")
+TrafficService.LINES = {
+	{ Name = "1", Corners = { { 4, 0 }, { 4, 7 }, { 3, 7 }, { 3, 0 } } },
+	{ Name = "2", Corners = { { 2, 4 }, { 7, 4 }, { 7, 3 }, { 2, 3 } } },
+	{ Name = "3", Corners = { { 7, 4 }, { 2, 4 }, { 2, 5 }, { 7, 5 } } },
+}
+
+-- the kinds that cruise at random (buses only run their lines)
+local KINDS: { CarModel.Kind } = {}
+for _, kind in CarModel.TrafficKinds do
+	if kind ~= "Bus" then
+		table.insert(KINDS, kind)
+	end
+end
 
 local cars: { Car } = {}
 local rng = Random.new(777)
@@ -79,7 +100,7 @@ local function place(driver: CarDriver.Driver, edge: Layout.Edge)
 end
 
 local function spawnCar(): Car
-	local kind = CarModel.TrafficKinds[rng:NextInteger(1, #CarModel.TrafficKinds)]
+	local kind = KINDS[rng:NextInteger(1, #KINDS)]
 	local color = CarModel.CivilianColors[rng:NextInteger(1, #CarModel.CivilianColors)]
 	-- (the bus and the courier's van keep their livery)
 	local fleet = kind == "Bus" or kind == "BoxVan"
@@ -90,11 +111,67 @@ local function spawnCar(): Car
 	model.Parent = vehicles
 	CarDriver.Claim(driver)
 	driver.TopSpeed = Config.Traffic.Speed + rng:NextNumber(-Config.Traffic.SpeedVariance, Config.Traffic.SpeedVariance)
-	if kind == "Bus" then
-		driver.TopSpeed *= 0.8 -- a bus takes its time
-	end
 	place(driver, edge)
 	return { Driver = driver, StillFor = 0 }
+end
+
+-- A line's nodes in order round its loop (each next to the one before; the last next to the first)
+function TrafficService.Route(corners: { { number } }): { number }
+	local nodes = {}
+	for _, c in corners do
+		table.insert(nodes, Layout.NearestNode(Vector3.new(Layout.Line(c[1]), Layout.ROAD_Y, Layout.Line(c[2]))))
+	end
+	local route = {}
+	for k = 1, #nodes do
+		local path = Layout.Path(nodes[k], nodes[k % #nodes + 1])
+		for i = 1, #path - 1 do
+			table.insert(route, path[i])
+		end
+	end
+	return route
+end
+
+-- The shelters buses pull up at (where each one stands)
+local function shelters(): { Vector3 }
+	local list = {}
+	local city = Workspace:FindFirstChild("City")
+	local furniture = city and city:FindFirstChild("Furniture")
+	if furniture then
+		for _, model in furniture:GetChildren() do
+			local roof = model.Name == "BusStop" and model:FindFirstChild("Roof")
+			if roof and roof:IsA("BasePart") then
+				table.insert(list, roof.CFrame.Position)
+			end
+		end
+	end
+	return list
+end
+
+local function spawnBus(route: { number }, stops: { Vector3 }): Car
+	local model = CarModel.Build("Bus")
+	model.Name = "Traffic"
+	local driver = CarDriver.new(model, "Bus", CFrame.new(Layout.Nodes[route[1]].Position), rng)
+	model.Parent = vehicles
+	CarDriver.Claim(driver)
+	driver.TopSpeed = Config.Traffic.Speed * 0.8 -- a bus takes its time
+	driver.Lane = 9 -- (the kerb lane, whatever the road)
+	driver.Route = route
+	driver.Stops = stops
+	CarDriver.PlaceOnRoute(driver, rng:NextInteger(1, #route), rng:NextNumber(0.1, 0.9))
+	return { Driver = driver, StillFor = 0 }
+end
+
+-- A place on a bus's line between NEAR_MIN and NEAR_MAX from `p` (nil if the line doesn't pass near)
+local function routeNear(route: { number }, p: Vector3): number?
+	local options = {}
+	for i, nodeId in route do
+		local at = Layout.Nodes[nodeId].Position
+		local d = Vector3.new(at.X - p.X, 0, at.Z - p.Z).Magnitude
+		if d > NEAR_MIN and d < NEAR_MAX then
+			table.insert(options, i)
+		end
+	end
+	return if #options > 0 then options[rng:NextInteger(1, #options)] else nil
 end
 
 -- Cars far from everyone go to a road near someone (a player picked in turn)
@@ -111,13 +188,33 @@ local function gather(people: { Vector3 })
 		end
 		if nearest > KEEP then
 			turn = turn % #people + 1
-			local edge = pickRoad(people[turn])
-			if edge then
-				place(driver, edge)
-				car.StillFor = 0
+			local route = driver.Route
+			if route then
+				local index = routeNear(route, people[turn])
+				if index then
+					CarDriver.PlaceOnRoute(driver, index, rng:NextNumber(0.1, 0.9))
+					car.StillFor = 0
+				end
+			else
+				local edge = pickRoad(people[turn])
+				if edge then
+					place(driver, edge)
+					car.StillFor = 0
+				end
 			end
 		end
 	end
+end
+
+-- The buses' drivers (for checks)
+function TrafficService.Buses(): { CarDriver.Driver }
+	local list = {}
+	for _, car in cars do
+		if car.Driver.Route then
+			table.insert(list, car.Driver)
+		end
+	end
+	return list
 end
 
 function TrafficService.Init()
@@ -135,7 +232,14 @@ function TrafficService.Init()
 			table.insert(roads, edge)
 		end
 	end
-	for _ = 1, Config.Traffic.CarCount do
+	local stops = shelters()
+	for _, line in TrafficService.LINES do
+		local route = TrafficService.Route(line.Corners)
+		if #route >= 3 then
+			table.insert(cars, spawnBus(route, stops))
+		end
+	end
+	for _ = #cars + 1, Config.Traffic.CarCount do
 		table.insert(cars, spawnCar())
 	end
 	local sinceCheck = 0
@@ -159,9 +263,14 @@ function TrafficService.Init()
 			end
 			if car.StillFor > 60 then
 				car.StillFor = 0
-				local edge = pickRoad(if #people > 0 then people[rng:NextInteger(1, #people)] else nil) or pickRoad()
-				if edge then
-					place(driver, edge)
+				local route = driver.Route
+				if route then
+					CarDriver.PlaceOnRoute(driver, rng:NextInteger(1, #route), 0.5)
+				else
+					local edge = pickRoad(if #people > 0 then people[rng:NextInteger(1, #people)] else nil) or pickRoad()
+					if edge then
+						place(driver, edge)
+					end
 				end
 			end
 		end

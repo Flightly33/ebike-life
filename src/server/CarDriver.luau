@@ -5,7 +5,8 @@
 	ground with raycasts and writes the result onto the car each frame (server-owned, unanchored, so
 	clients get smooth physics replication, with a force that cancels gravity between frames).
 
-	Cruise: random routes in the right-hand lane, stopping at red lights and behind other cars.
+	Cruise: random routes in the right-hand lane, stopping at red lights and behind other cars; a bus
+	        loops its line (`Route`) in the kerb lane and pulls up at the shelters on its right.
 	Chase:  straight at the target when it's close and in sight (off-road if need be), otherwise
 	        along the shortest road route to it, ignoring lights.
 ]]
@@ -67,6 +68,13 @@ export type Driver = {
 	Lift: number,
 	Moto: boolean,
 	Lean: number,
+	-- a bus (TrafficService): the nodes its line loops through and where it is on them, the shelters
+	-- it pulls up at, when it moves off again and the last one it served
+	Route: { number }?,
+	RouteIndex: number,
+	Stops: { Vector3 }?,
+	StopUntil: number,
+	LastStop: number,
 }
 
 CarDriver.All = {} :: { Driver }
@@ -141,6 +149,11 @@ function CarDriver.new(model: Model, kind: CarModel.Kind, start: CFrame, rng: Ra
 		Lift = 0,
 		Moto = false,
 		Lean = 0,
+		Route = nil,
+		RouteIndex = 1,
+		Stops = nil,
+		StopUntil = 0,
+		LastStop = 0,
 	}, CarDriver) :: any
 	table.insert(CarDriver.All, self)
 	return self
@@ -210,6 +223,17 @@ end
 -- The next node on a cruise: any road out but the one we came in on, and no doubling back (a
 -- freeway's ramps meet it at a node; a car off the ramp goes on along the deck, not back down)
 local function pickNext(self: Driver, at: number, cameFrom: number): number
+	local route = self.Route
+	if route then
+		-- a bus line: the node after `at` on it (RouteIndex points at `at` while it's on the line)
+		if route[self.RouteIndex] ~= at then
+			self.RouteIndex = table.find(route, at) or self.RouteIndex
+		end
+		if route[self.RouteIndex] == at then
+			self.RouteIndex = self.RouteIndex % #route + 1
+			return route[self.RouteIndex]
+		end
+	end
 	local node = Layout.Nodes[at]
 	local incoming = flatDir(Layout.Nodes[cameFrom].Position, node.Position)
 	local options, ahead = {}, {}
@@ -387,6 +411,34 @@ local function trafficAhead(self: Driver, others: { Vector3 }): number
 	return nearest
 end
 
+CarDriver.BUS_DWELL = 7 -- seconds a bus waits at a shelter
+
+-- A bus's speed for the next shelter on its right: slowing to pull up alongside it, then waiting
+-- (math.huge when there's none ahead)
+local function busStop(self: Driver, stops: { Vector3 }, dir: Vector3): number
+	local now = os.clock()
+	if now < self.StopUntil then
+		return 0
+	end
+	local right = Vector3.new(-dir.Z, 0, dir.X)
+	for i, stop in stops do
+		if i ~= self.LastStop then
+			local offset = Vector3.new(stop.X - self.Position.X, 0, stop.Z - self.Position.Z)
+			local ahead = offset:Dot(dir)
+			local side = offset:Dot(right)
+			if ahead > -3 * CAR and ahead < 40 * CAR and side > 0 and side < 26 * CAR then
+				if ahead < 1.5 * CAR and math.abs(self.Speed) < 0.6 then
+					self.StopUntil = now + CarDriver.BUS_DWELL
+					self.LastStop = i
+					return 0
+				end
+				return math.max(0, ahead / STUDS * 0.9)
+			end
+		end
+	end
+	return math.huge
+end
+
 local function ground(position: Vector3): (number?, Vector3)
 	local hit = Workspace:Raycast(position + Vector3.new(0, 8, 0), Vector3.new(0, -24, 0), queryParams)
 	if hit then
@@ -465,6 +517,10 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 		local gap = trafficAhead(self, people)
 		if gap < 40 * CAR then
 			targetSpeed = math.min(targetSpeed, math.max(0, (gap - 6 * CAR) / STUDS * 1.0))
+		end
+		local stops = self.Stops
+		if stops then
+			targetSpeed = math.min(targetSpeed, busStop(self, stops, dir))
 		end
 	end
 
@@ -574,6 +630,19 @@ function CarDriver.PlaceOnEdge(self: Driver, from: number, to: number, along: nu
 	while self.WaypointIndex < #self.Waypoints and (self.Waypoints[self.WaypointIndex] - at):Dot(ahead) < 0 do
 		self.WaypointIndex += 1
 	end
+end
+
+-- Put a bus on its line: on the road from its `index`th node to the next, `along` of the way down
+function CarDriver.PlaceOnRoute(self: Driver, index: number, along: number?)
+	local route = self.Route
+	if not route then
+		return
+	end
+	local from = route[index]
+	local nextIndex = index % #route + 1
+	self.RouteIndex = nextIndex
+	self.StopUntil = 0
+	CarDriver.PlaceOnEdge(self, from, route[nextIndex], along)
 end
 
 -- Jump to a road node (used when a chasing car is hopelessly stuck or far away)

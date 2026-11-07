@@ -83,6 +83,8 @@ local SHOPS = {
 	"Cafe Sol", "Farmacia", "Lavanderia", "Cuban Bakery", "Phone Fix", "Nail Spa", "Botanica",
 	"Taco Loco", "Surf Shop", "Gadget Hub", "Fruteria", "Noodle Bar", "Flower Shop", "Game Zone",
 	"Ink Tattoo", "Bike Parts", "Gelato", "Panaderia", "Sushi Go", "Hardware", "Barber", "Vape & Co",
+	-- a made-up coffee chain, so it turns up on most streets (a Cafe room: Menus.ThemeOf)
+	"Palma Coffee", "Palma Coffee",
 }
 local AWNINGS = {
 	Color3.fromRGB(200, 40, 40),
@@ -868,6 +870,8 @@ function Buildings.DecoHotel(parent: Instance, center: Vector3, front: Vector3, 
 		local band = PartKit.Box(model, "Window", Vector3.new(along - 16, 4.6, 0.4), look * CFrame.new(0, y + 5, -depth / 2 - 0.15), Color3.fromRGB(64, 92, 112), GLASS, DECOR)
 		band.Reflectance = 0.18
 		PartKit.Kit(PartKit.Box(model, "Eyebrow", Vector3.new(along + 1, 0.6, 3.2), look * CFrame.new(0, y + 8.2, -depth / 2 - 1.5), trim:Lerp(Color3.new(1, 1, 1), 0.4), SMOOTH, DECOR), "DecoEyebrow")
+		-- a neon tube along its front edge (Client/DayNight lights the tubes at night)
+		PartKit.Box(model, "NeonTube", Vector3.new(along + 1, 0.3, 0.3), look * CFrame.new(0, y + 8.2, -depth / 2 - 3.2), neon, SMOOTH, DECOR)
 		-- the mullions that break the ribbon into bays
 		for i = 1, 3 do
 			PartKit.Box(model, "Mullion", Vector3.new(0.6, 4.6, 0.5), look * CFrame.new(-along / 2 + 8 + i * (along - 16) / 4, y + 5, -depth / 2 - 0.3), wall, plaster, DECOR)
@@ -880,6 +884,9 @@ function Buildings.DecoHotel(parent: Instance, center: Vector3, front: Vector3, 
 	for k = 1, 3 do
 		PartKit.Box(model, "TowerBand", Vector3.new(tw + 0.4, 0.7, 8.4), look * CFrame.new(0, h + 2 + k * 3.5, -depth / 2 + 4), trim, SMOOTH, DECOR)
 	end
+	-- neon round the tower's top edges
+	PartKit.Box(model, "NeonTube", Vector3.new(tw + 0.2, 0.3, 0.3), look * CFrame.new(0, h + 14.1, -depth / 2 - 0.1), neon, SMOOTH, DECOR)
+	PartKit.Box(model, "NeonTube", Vector3.new(tw * 0.6 + 0.2, 0.3, 0.3), look * CFrame.new(0, h + 22.1, -depth / 2 + 0.9), neon, SMOOTH, DECOR)
 	local name = pick(rng, HOTELS)
 	local finH = h + 10
 	local fin = PartKit.Box(model, "FinSign", Vector3.new(1.2, finH * 0.7, 6), look * CFrame.new(-along / 2 + 10, finH * 0.35 + h * 0.35, -depth / 2 - 3), Color3.fromRGB(250, 250, 248), SMOOTH, DECOR)
@@ -890,6 +897,10 @@ function Buildings.DecoHotel(parent: Instance, center: Vector3, front: Vector3, 
 	for _, face in { Enum.NormalId.Left, Enum.NormalId.Right } do
 		PartKit.Sign(fin, face, table.concat(letters, "\n"), neon, nil, Enum.Font.GothamBlack, 8)
 	end
+	-- the fin's outer edge and top in neon
+	local finY = finH * 0.35 + h * 0.35
+	PartKit.Box(model, "NeonTube", Vector3.new(1.5, finH * 0.7, 0.3), look * CFrame.new(-along / 2 + 10, finY, -depth / 2 - 6.1), neon, SMOOTH, DECOR)
+	PartKit.Box(model, "NeonTube", Vector3.new(1.5, 0.3, 6.2), look * CFrame.new(-along / 2 + 10, finY + finH * 0.35 + 0.1, -depth / 2 - 3), neon, SMOOTH, DECOR)
 	local fascia = PartKit.Box(model, "HotelName", Vector3.new(along * 0.5, 2.6, 0.3), look * CFrame.new(0, 11.4, -depth / 2 - 7.1), Color3.fromRGB(250, 250, 248), SMOOTH, DECOR)
 	fascia.Transparency = 1
 	PartKit.Sign(fascia, Enum.NormalId.Front, name, neon, nil, Enum.Font.GothamBlack, 12)
@@ -1385,6 +1396,13 @@ function Buildings.Mural(parent: Instance, face: CFrame, width: number, height: 
 			local y = y0 + rng:NextNumber(size * 0.6, height - size * 0.6)
 			PartKit.Wedge(parent, "MuralTri", Vector3.new(0.1, size, size), face * CFrame.new(x, y, depth) * CFrame.Angles(0, math.pi / 2, 0) * CFrame.Angles(rng:NextNumber(0, math.pi * 2), 0, 0), c, SMOOTH, DECOR)
 		end
+	end
+	-- a neon frame round the top and sides (lit at night; its colour from where it is, so it takes
+	-- nothing from the random stream)
+	local glow = NEON[1 + math.floor(math.abs(face.Position.X * 7 + face.Position.Z * 13)) % #NEON]
+	PartKit.Box(parent, "NeonTube", Vector3.new(width + 0.7, 0.35, 0.35), face * CFrame.new(0, y0 + height + 0.35, -0.3), glow, SMOOTH, DECOR)
+	for _, sx in { -1, 1 } do
+		PartKit.Box(parent, "NeonTube", Vector3.new(0.35, height, 0.35), face * CFrame.new(sx * (width / 2 + 0.2), y0 + height / 2, -0.3), glow, SMOOTH, DECOR)
 	end
 	if width > 24 and rng:NextNumber() < 0.7 then
 		local tag = PartKit.Box(parent, "MuralTag", Vector3.new(math.min(width * 0.6, 40), math.min(height * 0.35, 10), 0.1), face * CFrame.new(0, y0 + height * 0.5, -0.4), bg, SMOOTH, DECOR)

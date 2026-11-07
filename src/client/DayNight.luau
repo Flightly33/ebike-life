@@ -6,6 +6,7 @@
 	  - at dusk the street lamps glow, and the nearest ones (the graphics mode's LampLights within
 	    Config.DayNight.LampRange) cast real light;
 	  - a stable share of windows light up warm (each window always the same way);
+	  - the neon tubes on Ocean Drive's deco hotels and round Wynwood's murals glow;
 	  - bike and car headlights cast light (your bike's always, the nearest cars');
 	  - the event stage's lights in Bayfront Park chase through colours while a city event runs
 	    (Shared/Events), and on a Race Day the Race Plaza's start lights count down to a start.
@@ -36,6 +37,7 @@ type Saved = { Material: Enum.Material, Color: Color3, Transparency: number }
 
 local lamps: { [BasePart]: Saved } = {}
 local windows: { [BasePart]: Saved } = {}
+local neons: { [BasePart]: Saved } = {}
 local lampLights: { [BasePart]: PointLight } = {}
 local beams: { [BasePart]: SpotLight } = {}
 local stage: { [BasePart]: Saved } = {} -- the event stage's lights and the race plaza's start lights
@@ -59,6 +61,13 @@ local function dressLamp(part: BasePart, on: boolean)
 	else
 		part.Material = Enum.Material.SmoothPlastic
 		part.Color = saved.Color
+	end
+end
+
+local function dressNeon(part: BasePart, on: boolean)
+	local saved = neons[part]
+	if saved then
+		part.Material = if on then Enum.Material.Neon else saved.Material
 	end
 end
 
@@ -92,6 +101,9 @@ local function track(d: Instance)
 		if nightOn then
 			dressWindow(d, true)
 		end
+	elseif name == "NeonTube" then
+		neons[d] = { Material = d.Material, Color = d.Color, Transparency = d.Transparency }
+		dressNeon(d, nightOn)
 	elseif name == "EventLight" or name == "StartLight" then
 		stage[d] = { Material = d.Material, Color = d.Color, Transparency = d.Transparency }
 	end
@@ -101,6 +113,7 @@ local function untrack(d: Instance)
 	if d:IsA("BasePart") then
 		lamps[d] = nil
 		windows[d] = nil
+		neons[d] = nil
 		stage[d] = nil
 		local light = lampLights[d]
 		if light then
@@ -182,6 +195,9 @@ local function setNight(on: boolean)
 	nightOn = on
 	for part in lamps do
 		dressLamp(part, on)
+	end
+	for part in neons do
+		dressNeon(part, on)
 	end
 	table.clear(pending)
 	for part in windows do

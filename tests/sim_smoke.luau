@@ -81,6 +81,8 @@ for _, car in vehicles and vehicles:GetChildren() or {} do
 end
 check(cops == Config.Police.PatrolCount, string.format("%d patrol cars out (%d)", Config.Police.PatrolCount, cops))
 check(traffic == Config.Traffic.CarCount, string.format("%d traffic cars out (%d)", Config.Traffic.CarCount, traffic))
+local TrafficService = server.Require(SSS.Server:WaitForChild("TrafficService"))
+check(#TrafficService.Buses() == #TrafficService.LINES, string.format("a bus on each of the %d lines (%d)", #TrafficService.LINES, #TrafficService.Buses()))
 
 -- Player, character and client
 local player = world:AddPlayer("Tester", 1, true)
@@ -994,6 +996,22 @@ world:Run(0.2)
 check(player:GetAttribute("Admin") == true, "typing ender=cool in chat gives admin")
 ok, message = invoke(AdminRemote, "nonsense")
 check(ok ~= true, "unknown admin commands are refused")
+
+do
+	-- by now the buses have been round their lines, pulling up at the shelters on the way
+	local served, onLine = 0, 0
+	for _, bus in TrafficService.Buses() do
+		if bus.LastStop > 0 then
+			served += 1
+		end
+		local route = bus.Route
+		if route and table.find(route, bus.ToNode) then
+			onLine += 1
+		end
+	end
+	check(served > 0, string.format("buses pull up at the shelters on their lines (%d of %d have)", served, #TrafficService.Buses()))
+	check(onLine == #TrafficService.Buses(), string.format("and keep to their lines (%d of %d)", onLine, #TrafficService.Buses()))
+end
 
 world:Run(2)
 

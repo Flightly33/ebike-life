@@ -338,7 +338,11 @@ local function furniture(city: Instance, rng: Random)
 				local face = CFrame.lookAt(p, p + side.road)
 				local r = rng:NextNumber()
 				if avenue and k == math.floor(slots / 2) then
-					Detail.BusStop(folder, CFrame.lookAt(p - side.road * 2.5, p - side.road * 2.5 + side.road), tostring(rng:NextInteger(2, 48)))
+					-- labelled with the bus line that serves it (TrafficService.LINES); the draw is kept so
+					-- the random stream, and everything built after, stays the same
+					local _ = rng:NextInteger(2, 48)
+					local line = if side.road.X ~= 0 then "1" elseif side.road.Z > 0 then "3" else "2"
+					Detail.BusStop(folder, CFrame.lookAt(p - side.road * 2.5, p - side.road * 2.5 + side.road), line)
 				elseif r < 0.3 then
 					Props.Bench(folder, face * CFrame.new(0, 0, 3))
 					Detail.Bin(folder, (face * CFrame.new(5, 0, 3)).Position)

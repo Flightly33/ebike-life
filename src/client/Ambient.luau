@@ -6,7 +6,8 @@
 	  - boats cruise the bay and the ocean on long loops, bobbing, a wake behind them;
 	  - gulls wheel over South Beach;
 	  - people (the standard avatar's size) walk the pavements of every block near the camera (more
-	    in Ultra);
+	    in Ultra), round the corners or across to the next block, waiting at the kerb for the
+	    lights; some sit on the benches and at the bus shelters;
 	  - ambience: city hum in the built-up areas, waves by the beaches and the bay, birds over the
 	    open land by day and crickets at night, blended by where the camera is.
 ]]
@@ -258,11 +259,23 @@ local RESPAWN_RANGE = 520 * Config.MAP_SCALE / 1.25 -- the map grows with the wo
 type Walker = {
 	Parts: { BasePart }, -- torso, head, left leg, right leg, left arm, right arm
 	Details: { { Part: BasePart, On: number, Offset: CFrame } }, -- hair, face, shoes, sleeves... riding on a part
+	State: string, -- "Walk" a block's side, "Wait" at the kerb, "Cross" the road, "Sit", or "Gone"
 	From: Vector3,
 	To: Vector3,
 	T: number,
 	Length: number,
 	Phase: number,
+	Posed: boolean, -- (standing and sitting people are posed once)
+	Block: Layout.Block?, -- the block whose side they're on, the corner they're heading for and which
+	Corner: number, -- way round (+1 clockwise)
+	Sense: number,
+	Next: Layout.Block?, -- crossing to: that block, at that corner
+	Entry: number,
+	Light: number?, -- the crossing's lights and the axis of the road being crossed; when to give up
+	Axis: string,
+	Until: number,
+	Seat: BasePart?, -- sitting: where, and on which place along it
+	Place: number,
 }
 local walkers: { Walker } = {}
 local walkRng = Random.new()
@@ -320,13 +333,151 @@ local function buildWalker(): Walker
 	elseif extra == 4 then -- shopping bag in the right hand
 		add(6, "Bag", Vector3.new(0.35, 0.9, 0.8), Vector3.new(0, -1.6, 0), Color3.fromRGB(230, 220, 200), Enum.Material.Fabric)
 	end
-	return { Parts = parts, Details = details, From = Vector3.zero, To = Vector3.zero, T = 0, Length = 0, Phase = walkRng:NextNumber(0, math.pi * 2) }
+	return {
+		Parts = parts,
+		Details = details,
+		State = "Gone",
+		From = Vector3.zero,
+		To = Vector3.zero,
+		T = 0,
+		Length = 0,
+		Phase = walkRng:NextNumber(0, math.pi * 2),
+		Posed = false,
+		Block = nil,
+		Corner = 0,
+		Sense = 1,
+		Next = nil,
+		Entry = 0,
+		Light = nil,
+		Axis = "X",
+		Until = 0,
+		Seat = nil,
+		Place = 1,
+	}
 end
 
 local walkBlocks: { Layout.Block } = {}
+local blockAt: { [string]: Layout.Block } = {}
+local INSET = 8 * K -- the walking line, in from the block's edge (on the pavement)
+local SIT_SHARE = 0.25 -- of the people near the camera, sitting on benches and at bus shelters
+local WAIT_MAX = 25 -- seconds anyone waits for the green man before crossing anyway
+-- a block's walking corners: 0 north-west, 1 north-east, 2 south-east, 3 south-west (north is -Z)
+local MIRROR_X: { [number]: number } = { [0] = 1, [1] = 0, [2] = 3, [3] = 2 }
+local MIRROR_Z: { [number]: number } = { [0] = 3, [1] = 2, [2] = 1, [3] = 0 }
 
--- A stretch of pavement on a busy block near the camera (nil if there's none in range)
-local function pickStretch(): (Vector3?, Vector3?)
+local function corner(block: Layout.Block, i: number): Vector3
+	local x = if i == 1 or i == 2 then block.MaxX - INSET else block.MinX + INSET
+	local z = if i >= 2 then block.MaxZ - INSET else block.MinZ + INSET
+	return Vector3.new(x, Layout.CURB_Y, z)
+end
+
+local function keyOf(grid: string, bx: number, bz: number): string
+	return grid .. ":" .. bx .. ":" .. bz
+end
+
+-- The crossing's traffic lights (the grid node at that corner of the block), cached
+local lightNodes: { [string]: number } = {}
+local function lightAt(block: Layout.Block, i: number): number?
+	local key = keyOf(block.Grid, block.Bx, block.Bz) .. ":" .. i
+	local cached = lightNodes[key]
+	if cached == nil then
+		local x = if i == 1 or i == 2 then block.MaxX else block.MinX
+		local z = if i >= 2 then block.MaxZ else block.MinZ
+		local nodeId = Layout.NearestNode(Vector3.new(x, Layout.ROAD_Y, z))
+		cached = if Layout.HasLights(Layout.Nodes[nodeId]) then nodeId else 0
+		lightNodes[key] = cached
+	end
+	return if cached ~= 0 then cached else nil
+end
+
+local function setLeg(walker: Walker, from: Vector3, to: Vector3, state: string)
+	walker.State = state
+	walker.From, walker.To = from, to
+	walker.Length = (to - from).Magnitude
+	walker.T = 0
+	walker.Posed = false
+end
+
+-- Walk a side of `block` from corner `i` to the next one round it (`sense` +1 clockwise, -1 not)
+local function walkSide(walker: Walker, block: Layout.Block, i: number, sense: number)
+	local j = (i + sense) % 4
+	walker.Block = block
+	walker.Corner = j
+	walker.Sense = sense
+	setLeg(walker, corner(block, i), corner(block, j), "Walk")
+end
+
+-- Seats near the camera: park benches and bus shelters in the city's Furniture (rescanned now and
+-- then: they stream in and out), with who's sitting on which place along each
+local seats: { BasePart } = {}
+local sitting: { [BasePart]: { [number]: boolean } } = {}
+local seatClock = 0
+
+local function scanSeats()
+	table.clear(seats)
+	local city = Workspace:FindFirstChild("City")
+	local furniture = city and city:FindFirstChild("Furniture")
+	if not furniture then
+		return
+	end
+	for _, model in furniture:GetChildren() do
+		local name = model.Name
+		local part = if name == "Bench" then model:FindFirstChild("Seat") elseif name == "BusStop" then model:FindFirstChild("Bench") else nil
+		if part and part:IsA("BasePart") and (part.Position - focus).Magnitude < RESPAWN_RANGE * 0.6 then
+			table.insert(seats, part)
+		end
+	end
+end
+
+local function places(seat: BasePart): number
+	return math.max(1, math.floor(seat.Size.X / (4.4 * P / 1.26)))
+end
+
+local function leaveSeat(walker: Walker)
+	local seat = walker.Seat
+	if seat then
+		local taken = sitting[seat]
+		if taken then
+			taken[walker.Place] = nil
+			if next(taken) == nil then
+				sitting[seat] = nil
+			end
+		end
+	end
+	walker.Seat = nil
+end
+
+-- Sit `walker` on a free place near the camera; false if there's none
+local function sitDown(walker: Walker): boolean
+	if #seats == 0 then
+		return false
+	end
+	for _ = 1, 6 do
+		local seat = seats[walkRng:NextInteger(1, #seats)]
+		if seat.Parent then
+			local taken = sitting[seat] or {}
+			local place = walkRng:NextInteger(1, places(seat))
+			if not taken[place] then
+				taken[place] = true
+				sitting[seat] = taken
+				walker.Seat = seat
+				walker.Place = place
+				walker.State = "Sit"
+				walker.Length = 1
+				walker.Posed = false
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Somewhere near the camera: a seat now and then, otherwise partway along a block's side
+local function respawn(walker: Walker)
+	leaveSeat(walker)
+	if walkRng:NextNumber() < SIT_SHARE and sitDown(walker) then
+		return
+	end
 	local near: { Layout.Block } = {}
 	for _, block in walkBlocks do
 		local cx, cz = (block.MinX + block.MaxX) / 2, (block.MinZ + block.MaxZ) / 2
@@ -335,78 +486,110 @@ local function pickStretch(): (Vector3?, Vector3?)
 		end
 	end
 	if #near == 0 then
-		return nil, nil
-	end
-	local block = near[walkRng:NextInteger(1, #near)]
-	local inset = 8 * K
-	local y = Layout.CURB_Y
-	local x0, x1 = block.MinX + inset, block.MaxX - inset
-	local z0, z1 = block.MinZ + inset, block.MaxZ - inset
-	local side = walkRng:NextInteger(1, 4)
-	local a, b
-	if side == 1 then
-		a, b = Vector3.new(x0, y, z0), Vector3.new(x1, y, z0)
-	elseif side == 2 then
-		a, b = Vector3.new(x1, y, z0), Vector3.new(x1, y, z1)
-	elseif side == 3 then
-		a, b = Vector3.new(x1, y, z1), Vector3.new(x0, y, z1)
-	else
-		a, b = Vector3.new(x0, y, z1), Vector3.new(x0, y, z0)
-	end
-	if walkRng:NextNumber() < 0.5 then
-		a, b = b, a
-	end
-	return a, b
-end
-
-local function startWalk(walker: Walker, scatter: boolean)
-	local a, b = pickStretch()
-	if not a or not b then
+		walker.State = "Gone"
 		walker.Length = 0
+		walker.Posed = false
+		walker.Until = os.clock() + 1 -- (look again in a second)
 		return
 	end
-	walker.From, walker.To = a, b
-	walker.Length = (b - a).Magnitude
-	walker.T = if scatter then walkRng:NextNumber(0, walker.Length) else 0
+	walkSide(walker, near[walkRng:NextInteger(1, #near)], walkRng:NextInteger(0, 3), if walkRng:NextNumber() < 0.5 then 1 else -1)
+	walker.T = walkRng:NextNumber(0, walker.Length)
+end
+
+-- At the end of a side: round the corner, or wait at the kerb to cross to the next block on
+local function atCorner(walker: Walker)
+	local block = walker.Block :: Layout.Block
+	local j = walker.Corner
+	local dir = walker.To - walker.From
+	local alongX = math.abs(dir.X) > math.abs(dir.Z)
+	local dx = if alongX then (if dir.X > 0 then 1 else -1) else 0
+	local dz = if alongX then 0 else (if dir.Z > 0 then 1 else -1)
+	local nextBlock = blockAt[keyOf(block.Grid, block.Bx + dx, block.Bz + dz)]
+	if nextBlock and walkRng:NextNumber() < 0.55 then
+		local entry = if alongX then MIRROR_X[j] else MIRROR_Z[j]
+		walker.Next = nextBlock
+		walker.Entry = entry
+		walker.Light = lightAt(block, j)
+		-- (cars on the road being crossed run across the walk: it waits for their red)
+		walker.Axis = if alongX then "Z" else "X"
+		walker.Until = os.clock() + (if walker.Light then WAIT_MAX else walkRng:NextNumber(1.5, 4))
+		setLeg(walker, corner(block, j), corner(nextBlock, entry), "Wait")
+	else
+		walkSide(walker, block, j, walker.Sense)
+	end
+end
+
+local function hide(walker: Walker)
+	for _, part in walker.Parts do
+		part.CFrame = CFrame.new(0, -500, 0)
+	end
+	for _, detail in walker.Details do
+		detail.Part.CFrame = CFrame.new(0, -500, 0)
+	end
 end
 
 local function poseWalker(walker: Walker, now: number)
-	local parts = walker.Parts
-	if walker.Length <= 0 then
-		for _, part in parts do
-			part.CFrame = CFrame.new(0, -500, 0)
-		end
-		for _, detail in walker.Details do
-			detail.Part.CFrame = CFrame.new(0, -500, 0)
+	local state = walker.State
+	if state == "Gone" or walker.Length <= 0 then
+		if not walker.Posed then
+			hide(walker)
+			walker.Posed = true
 		end
 		return
 	end
-	local dir = (walker.To - walker.From).Unit
-	local p = walker.From + dir * walker.T
-	local root = CFrame.lookAt(p, p + dir)
-	local swing = math.sin(now * 7 + walker.Phase) * math.rad(26)
+	-- standing and sitting people are posed once
+	if (state == "Wait" or state == "Sit") and walker.Posed then
+		return
+	end
+	local parts = walker.Parts
+	local root: CFrame
+	local legSwing, armSwing = 0, 0
+	local legs, arms = 0, 0 -- extra forward angle of the legs and arms (sitting)
+	if state == "Sit" then
+		local seat = walker.Seat :: BasePart
+		local n = places(seat)
+		local x = (walker.Place - (n + 1) / 2) * seat.Size.X / n
+		-- the hips on the seat (a little back on it), facing out the front of it (its -Z)
+		root = seat.CFrame * CFrame.new(x, seat.Size.Y / 2 + 0.45 * P - 2.1 * P, 0.3 * P)
+		legs, arms = math.pi / 2, math.rad(35)
+	else
+		local dir = (walker.To - walker.From).Unit
+		local p = if state == "Wait" then walker.From else walker.From + dir * walker.T
+		root = CFrame.lookAt(p, p + dir)
+		if state ~= "Wait" then
+			legSwing = math.sin(now * 7 + walker.Phase) * math.rad(26)
+			armSwing = legSwing * 0.8
+		end
+	end
 	local hip = root * CFrame.new(0, 2.1 * P, 0)
 	parts[1].CFrame = root * CFrame.new(0, 3.05 * P, 0)
 	parts[2].CFrame = root * CFrame.new(0, 4.6 * P, 0)
-	parts[3].CFrame = hip * CFrame.new(-0.5 * P, 0, 0) * CFrame.Angles(swing, 0, 0) * CFrame.new(0, -1.05 * P, 0)
-	parts[4].CFrame = hip * CFrame.new(0.5 * P, 0, 0) * CFrame.Angles(-swing, 0, 0) * CFrame.new(0, -1.05 * P, 0)
+	parts[3].CFrame = hip * CFrame.new(-0.5 * P, 0, 0) * CFrame.Angles(legs + legSwing, 0, 0) * CFrame.new(0, -1.05 * P, 0)
+	parts[4].CFrame = hip * CFrame.new(0.5 * P, 0, 0) * CFrame.Angles(legs - legSwing, 0, 0) * CFrame.new(0, -1.05 * P, 0)
 	local shoulder = root * CFrame.new(0, 3.9 * P, 0)
-	parts[5].CFrame = shoulder * CFrame.new(-1.43 * P, 0, 0) * CFrame.Angles(-swing * 0.8, 0, 0) * CFrame.new(0, -0.9 * P, 0)
-	parts[6].CFrame = shoulder * CFrame.new(1.43 * P, 0, 0) * CFrame.Angles(swing * 0.8, 0, 0) * CFrame.new(0, -0.9 * P, 0)
+	parts[5].CFrame = shoulder * CFrame.new(-1.43 * P, 0, 0) * CFrame.Angles(arms - armSwing, 0, 0) * CFrame.new(0, -0.9 * P, 0)
+	parts[6].CFrame = shoulder * CFrame.new(1.43 * P, 0, 0) * CFrame.Angles(arms + armSwing, 0, 0) * CFrame.new(0, -0.9 * P, 0)
 	for _, detail in walker.Details do
 		detail.Part.CFrame = parts[detail.On].CFrame * detail.Offset
 	end
+	walker.Posed = true
 end
 
 local function updateWalkers(dt: number, now: number)
 	local want = Graphics.Current().Pedestrians
+	seatClock -= dt
+	if seatClock <= 0 then
+		seatClock = 4
+		scanSeats()
+	end
 	while #walkers < want do
 		local walker = buildWalker()
-		startWalk(walker, true)
+		respawn(walker)
 		table.insert(walkers, walker)
 	end
 	while #walkers > want do
 		local walker = table.remove(walkers) :: Walker
+		leaveSeat(walker)
 		for _, part in walker.Parts do
 			part:Destroy()
 		end
@@ -414,11 +597,39 @@ local function updateWalkers(dt: number, now: number)
 			detail.Part:Destroy()
 		end
 	end
+	local clock = os.clock()
 	for _, walker in walkers do
-		walker.T += WALK_SPEED * dt
-		local far = walker.Length > 0 and ((walker.From + walker.To) / 2 - focus).Magnitude > RESPAWN_RANGE
-		if walker.Length <= 0 or walker.T >= walker.Length or far then
-			startWalk(walker, far or walker.Length <= 0)
+		local state = walker.State
+		local at = if state == "Sit" and walker.Seat then (walker.Seat :: BasePart).Position else walker.From + (walker.To - walker.From) * (if walker.Length > 0 then walker.T / walker.Length else 0)
+		local far = (at - focus).Magnitude > RESPAWN_RANGE
+		if state == "Gone" then
+			if clock >= walker.Until then
+				respawn(walker)
+			end
+		elseif far or (state == "Sit" and not (walker.Seat and (walker.Seat :: BasePart).Parent)) then
+			respawn(walker)
+		elseif state == "Walk" or state == "Cross" then
+			walker.T += WALK_SPEED * dt
+			if walker.T >= walker.Length then
+				if state == "Walk" then
+					atCorner(walker)
+				else
+					-- over: straight on along the next block's side, to its corner matching the one
+					-- the crossing started from (crossing west off a north-west corner, the next block's
+					-- north-east corner to its north-west one)
+					local entry = walker.Entry
+					walkSide(walker, walker.Next :: Layout.Block, entry, if (entry + 1) % 4 == walker.Corner then 1 else -1)
+				end
+			end
+		elseif state == "Wait" then
+			local go = clock >= walker.Until
+			local light = walker.Light
+			if light and not go then
+				go = Layout.LightState(light, walker.Axis, now, Config.Lights.Cycle, Config.Lights.Yellow, Config.Lights.AllRed) == "Red"
+			end
+			if go then
+				setLeg(walker, walker.From, walker.To, "Cross")
+			end
 		end
 		poseWalker(walker, now)
 	end
@@ -485,6 +696,7 @@ function Ambient.Init()
 	-- every block's pavements (homes and parks too, not just the busy districts)
 	for _, block in Layout.Blocks do
 		table.insert(walkBlocks, block)
+		blockAt[keyOf(block.Grid, block.Bx, block.Bz)] = block
 	end
 	for i, loop in BOAT_LOOPS do
 		local model = buildBoat(HULLS[(i - 1) % #HULLS + 1])

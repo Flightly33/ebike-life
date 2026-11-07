@@ -170,7 +170,7 @@ Menus.Themes = {
 
 -- Shop names to themes (first keyword found in the lower-cased name wins)
 local KEYWORDS: { { string } } = {
-	{ "cafe", "Cafe" }, { "bakery", "Cafe" }, { "panader", "Cafe" }, { "ventanita", "Cafe" }, { "dulcer", "Cafe" }, { "gelato", "Cafe" },
+	{ "cafe", "Cafe" }, { "coffee", "Cafe" }, { "bakery", "Cafe" }, { "panader", "Cafe" }, { "ventanita", "Cafe" }, { "dulcer", "Cafe" }, { "gelato", "Cafe" },
 	{ "fruter", "Market" }, { "bodega", "Market" }, { "farmacia", "Market" }, { "lavand", "Market" },
 	{ "taco", "Eatery" }, { "noodle", "Eatery" }, { "sushi", "Eatery" }, { "sabor", "Eatery" },
 	{ "surf", "Gear" }, { "bike", "Gear" }, { "hardware", "Gear" }, { "gadget", "Gear" }, { "phone", "Gear" }, { "game", "Gear" },
