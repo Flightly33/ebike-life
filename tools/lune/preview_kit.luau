@@ -68,10 +68,10 @@ local street = Sim.New("Model")
 street.Name = "City"
 -- a road along x at z = 0 with pavements, the buildings on its north side facing it (+Z)
 local S = Vector3.new(0, 0, 1)
-PartKit.Box(street, "Road", Vector3.new(700, 0.4, 44), CFrame.new(200, -0.2, 0), Color3.fromRGB(62, 64, 68), Enum.Material.Asphalt)
-PartKit.Box(street, "Pavement", Vector3.new(700, 0.8, 16), CFrame.new(200, 0.0, -30), Color3.fromRGB(196, 192, 184), Enum.Material.Pavement)
-PartKit.Box(street, "Pavement", Vector3.new(700, 0.8, 16), CFrame.new(200, 0.0, 30), Color3.fromRGB(196, 192, 184), Enum.Material.Pavement)
-PartKit.Box(street, "Lot", Vector3.new(700, 0.4, 200), CFrame.new(200, -0.2, -138), Color3.fromRGB(120, 150, 80), Enum.Material.Grass)
+PartKit.Box(street, "Road", Vector3.new(1000, 0.4, 44), CFrame.new(350, -0.2, 0), Color3.fromRGB(62, 64, 68), Enum.Material.Asphalt)
+PartKit.Box(street, "Pavement", Vector3.new(1000, 0.8, 16), CFrame.new(350, 0.0, -30), Color3.fromRGB(196, 192, 184), Enum.Material.Pavement)
+PartKit.Box(street, "Pavement", Vector3.new(1000, 0.8, 16), CFrame.new(350, 0.0, 30), Color3.fromRGB(196, 192, 184), Enum.Material.Pavement)
+PartKit.Box(street, "Lot", Vector3.new(1000, 0.4, 200), CFrame.new(350, -0.2, -138), Color3.fromRGB(120, 150, 80), Enum.Material.Grass)
 -- a stucco and a brick midrise with their shopfronts, then a house, a villa and a bungalow
 Buildings.Midrise(street, 0, -58, 60, 40, 4, S, rng, { Vector3.new(-1, 0, 0) }, true, { "Cafe Sol" })
 Buildings.Midrise(street, 64, -58, 56, 40, 5, S, rng, { Vector3.new(1, 0, 0) }, false, { "Panaderia" })
@@ -84,6 +84,13 @@ for x = -20, 380, 60 do
 	Props.StreetLight(street, Vector3.new(x, 0.4, -24), S)
 end
 Props.Signal(street, 1, "X", Vector3.new(120, 0.4, -24), Vector3.new(-1, 0, 0), 16)
+-- the second round of kits: a warehouse's roll-up doors, a condo's glass rails, a bus shelter and a
+-- gas station's canopy
+local Detail = server.Require(City:WaitForChild("Detail"))
+Buildings.Warehouse(street, 560, -70, 80, 50, 26, S, rng)
+Buildings.CondoTower(street, 680, -95, 50, 50, 120, 0, rng)
+Detail.BusStop(street, CFrame.lookAt(Vector3.new(625, 0.4, -27), Vector3.new(625, 0.4, -26)), "1")
+Buildings.GasStation(street, 740, 860, -110, -24, S, rng)
 
 local placed = if bare then 0 else CityKit.Apply(street)
 print(string.format("kit placed on %d stand-ins", placed))

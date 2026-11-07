@@ -50,6 +50,7 @@ MeshKit.Slots = {
 	NeonCyan = { Color = Color3.fromRGB(120, 230, 255), Material = NEON, Shadow = false },
 	NeonGreen = { Color = Color3.fromRGB(80, 255, 110), Material = NEON, Shadow = false },
 	Glass = { Color = Color3.fromRGB(28, 36, 46), Material = Enum.Material.Glass, Transparency = 0.3, Reflectance = 0.18, Shadow = false },
+	ClearGlass = { Color = Color3.fromRGB(190, 214, 224), Material = Enum.Material.Glass, Transparency = 0.72, Reflectance = 0.1, Shadow = false },
 	Chrome = { Color = Color3.fromRGB(215, 218, 224), Material = METAL, Reflectance = 0.25 },
 	Interior = { Color = Color3.fromRGB(48, 46, 46), Material = Enum.Material.Fabric },
 	White = { Color = Color3.fromRGB(242, 242, 242), Material = SM },

@@ -220,15 +220,18 @@ end
 function Detail.BusStop(parent: Instance, cf: CFrame, routeName: string)
 	local model = PartKit.Model(parent, "BusStop")
 	local frame = Color3.fromRGB(40, 44, 50)
-	PartKit.Box(model, "Roof", Vector3.new(14, 0.5, 6), cf * CFrame.new(0, 9, 1), frame, METAL)
+	-- (the roof stands in for the shelter kit, which draws the posts, glass and bench itself)
+	PartKit.Kit(PartKit.Box(model, "Roof", Vector3.new(14, 0.5, 6), cf * CFrame.new(0, 9, 1), frame, METAL), "BusShelter")
 	for _, x in { -6.6, 6.6 } do
-		PartKit.Box(model, "Post", Vector3.new(0.4, 9, 0.4), cf * CFrame.new(x, 4.5, 3.6), frame, METAL)
+		PartKit.KitDrop(PartKit.Box(model, "Post", Vector3.new(0.4, 9, 0.4), cf * CFrame.new(x, 4.5, 3.6), frame, METAL), "BusShelter")
 		local side = PartKit.Box(model, "SideGlass", Vector3.new(0.2, 6, 4.6), cf * CFrame.new(x, 4.5, 1.5), Color3.fromRGB(170, 200, 215), GLASS, DECOR)
 		side.Transparency = 0.55
+		PartKit.KitDrop(side, "BusShelter")
 	end
 	local back = PartKit.Box(model, "BackGlass", Vector3.new(13, 6, 0.2), cf * CFrame.new(0, 4.5, 3.8), Color3.fromRGB(170, 200, 215), GLASS)
 	back.Transparency = 0.55
-	PartKit.Box(model, "Bench", Vector3.new(10, 0.4, 1.6), cf * CFrame.new(0, 1.8, 2.8), Color3.fromRGB(150, 110, 70), Enum.Material.Wood)
+	PartKit.KitDrop(back, "BusShelter")
+	PartKit.KitDrop(PartKit.Box(model, "Bench", Vector3.new(10, 0.4, 1.6), cf * CFrame.new(0, 1.8, 2.8), Color3.fromRGB(150, 110, 70), Enum.Material.Wood), "BusShelter")
 	-- the lit ad panel (Client/Billboards draws the ad; this sign is what shows from afar)
 	local ad = PartKit.Box(model, "AdPanel", Vector3.new(4.5, 6.5, 0.6), cf * CFrame.new(-4, 4.5, 4.2), Color3.fromRGB(250, 250, 250), Enum.Material.Neon, DECOR)
 	PartKit.Sign(ad, Enum.NormalId.Front, "RIDE FLIGHTLY ⚡", Color3.fromRGB(255, 120, 20), Color3.fromRGB(20, 22, 26), Enum.Font.FredokaOne, 14)

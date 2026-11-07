@@ -385,7 +385,8 @@ do
 end
 
 -- The facade and street kits on their stand-ins (PartKit.Kit): a stucco midrise with its shopfront
--- and roof, a house, a villa, a bungalow, a street light and a traffic signal
+-- and roof, a house, a villa, a bungalow, a street light and a traffic signal; a warehouse (roll-up
+-- doors), a condo tower (glass balcony rails), a gas station (its canopy) and a bus shelter
 do
 	local CityKit = server.Require(Models:WaitForChild("CityKit"))
 	local KitSpec = server.Require(Models:WaitForChild("KitSpec"))
@@ -393,6 +394,7 @@ do
 	local Buildings = server.Require(City:WaitForChild("Buildings"))
 	local Neighborhoods = server.Require(City:WaitForChild("Neighborhoods"))
 	local Props = server.Require(City:WaitForChild("Props"))
+	local Detail = server.Require(City:WaitForChild("Detail"))
 	local PartKit = server.Require(Shared:WaitForChild("PartKit"))
 	math.randomseed(11)
 	local rng: any = {
@@ -414,6 +416,10 @@ do
 	Buildings.DecoHotel(street, Vector3.new(600, 0, 0), Vector3.new(0, 0, -1), 60, 40, 3, rng, false)
 	Props.StreetLight(street, Vector3.new(0, 0, -60), Vector3.new(0, 0, -1))
 	Props.Signal(street, 1, "X", Vector3.new(40, 0, -60), Vector3.new(1, 0, 0), 14)
+	Buildings.Warehouse(street, 750, 0, 80, 50, 26, Vector3.new(0, 0, -1), rng)
+	Buildings.CondoTower(street, 900, 0, 50, 50, 90, 0, rng)
+	Buildings.GasStation(street, 1000, 1110, -40, 40, Vector3.new(0, 0, -1), rng)
+	Detail.BusStop(street, CFrame.lookAt(Vector3.new(90, 0, -60), Vector3.new(90, 0, -61)), "1")
 	-- a plain awning 30 wide: ten 3-wide modules
 	local awnings = Sim.New("Model")
 	awnings.Name = "Awnings"

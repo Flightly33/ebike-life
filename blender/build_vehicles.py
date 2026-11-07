@@ -66,10 +66,12 @@ SLOT_COLORS = {
     "NeonCyan": (0.45, 0.9, 1.0),
     "NeonGreen": (0.3, 1.0, 0.4),
     "Glass": (0.10, 0.13, 0.17),
+    "ClearGlass": (0.75, 0.84, 0.88),
     "Chrome": (0.85, 0.86, 0.88),
     "Interior": (0.18, 0.17, 0.17),
     "White": (0.95, 0.95, 0.95),
     "Orange": (1.0, 0.45, 0.05),
+    "Blue": (0.12, 0.31, 0.78),
     "Alu": (0.78, 0.8, 0.82),
 }
 
@@ -1215,7 +1217,7 @@ def setup_materials(colors_by_vehicle):
         if slot.startswith("Neon"):
             bsdf.inputs["Emission Color"].default_value = (*col, 1)
             bsdf.inputs["Emission Strength"].default_value = 3.0
-        if slot == "Glass":
+        if slot in ("Glass", "ClearGlass"):
             bsdf.inputs["Alpha"].default_value = 0.55
             bsdf.inputs["Roughness"].default_value = 0.05
         mats[key] = m

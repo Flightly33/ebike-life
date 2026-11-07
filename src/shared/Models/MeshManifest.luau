@@ -212,6 +212,15 @@ local M: { [string]: { Entry } } = {
 		{ Name = "Kit_Bulkhead__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, -0.0850, -0.0400), Size = Vector3.new(4.5000, 2.0300, 0.8800) },
 		{ Name = "Kit_Bulkhead__Main__Stone", Group = "Main", Slot = "Stone", Center = Vector3.new(0.0000, 1.0000, -0.0800), Size = Vector3.new(4.5200, 0.2000, 0.9600) },
 	},
+	["Kit_BusShelter"] = {
+		{ Name = "Kit_BusShelter__Main__Alu", Group = "Main", Slot = "Alu", Center = Vector3.new(0.0000, -0.1200, 3.2500), Size = Vector3.new(14.4000, 0.3200, 0.3200) },
+		{ Name = "Kit_BusShelter__Main__Blue", Group = "Main", Slot = "Blue", Center = Vector3.new(4.4000, -2.8500, 2.6800), Size = Vector3.new(2.4000, 0.3000, 0.0400) },
+		{ Name = "Kit_BusShelter__Main__ClearGlass", Group = "Main", Slot = "ClearGlass", Center = Vector3.new(0.0000, -4.5000, 0.5750), Size = Vector3.new(13.3000, 5.8000, 4.5500) },
+		{ Name = "Kit_BusShelter__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, -4.3250, -0.2050), Size = Vector3.new(14.4000, 9.3500, 6.1900) },
+		{ Name = "Kit_BusShelter__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0500, -0.0000), Size = Vector3.new(14.4000, 0.3000, 6.4000) },
+		{ Name = "Kit_BusShelter__Main__White", Group = "Main", Slot = "White", Center = Vector3.new(4.4000, -4.3000, 2.7200), Size = Vector3.new(2.4000, 3.2000, 0.0600) },
+		{ Name = "Kit_BusShelter__Main__Wood", Group = "Main", Slot = "Wood", Center = Vector3.new(0.0000, -7.2000, 1.7800), Size = Vector3.new(10.0000, 0.1400, 1.4400) },
+	},
 	["Kit_Column"] = {
 		{ Name = "Kit_Column__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(1.5600, 9.0000, 1.5600) },
 	},
@@ -234,6 +243,16 @@ local M: { [string]: { Entry } } = {
 		{ Name = "Kit_GarageDoor__Main__Metal", Group = "Main", Slot = "Metal", Center = Vector3.new(0.0000, -3.3000, -0.1700), Size = Vector3.new(0.9000, 0.1800, 0.1200) },
 		{ Name = "Kit_GarageDoor__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0100), Size = Vector3.new(11.9000, 7.9200, 0.2800) },
 		{ Name = "Kit_GarageDoor__Main__White", Group = "Main", Slot = "White", Center = Vector3.new(0.0000, 0.3000, -0.0200), Size = Vector3.new(13.2000, 8.6000, 0.4000) },
+	},
+	["Kit_GasCanopy"] = {
+		{ Name = "Kit_GasCanopy__Main__Alu", Group = "Main", Slot = "Alu", Center = Vector3.new(0.0000, 0.0350, -0.0000), Size = Vector3.new(70.3000, 2.7300, 42.3000) },
+		{ Name = "Kit_GasCanopy__Main__NeonWhite", Group = "Main", Slot = "NeonWhite", Center = Vector3.new(0.0000, -1.3200, -0.0000), Size = Vector3.new(57.4000, 0.0600, 22.6800) },
+		{ Name = "Kit_GasCanopy__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.1500, -0.0000), Size = Vector3.new(70.0000, 2.3000, 42.0000) },
+		{ Name = "Kit_GasCanopy__Main__White", Group = "Main", Slot = "White", Center = Vector3.new(0.0000, -1.2000, -0.0000), Size = Vector3.new(69.4000, 0.1200, 41.4000) },
+	},
+	["Kit_GlassRail"] = {
+		{ Name = "Kit_GlassRail__Main__Alu", Group = "Main", Slot = "Alu", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(60.0000, 3.6000, 60.0000) },
+		{ Name = "Kit_GlassRail__Main__ClearGlass", Group = "Main", Slot = "ClearGlass", Center = Vector3.new(0.0000, -0.0500, -0.0000), Size = Vector3.new(59.9400, 3.0000, 60.0000) },
 	},
 	["Kit_HouseDoor"] = {
 		{ Name = "Kit_HouseDoor__Main__Gold", Group = "Main", Slot = "Gold", Center = Vector3.new(0.0000, -1.6775, -0.1175), Size = Vector3.new(3.1000, 3.9950, 0.2850) },
@@ -289,6 +308,12 @@ local M: { [string]: { Entry } } = {
 	},
 	["Kit_PorchPost"] = {
 		{ Name = "Kit_PorchPost__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(2.7200, 9.0000, 0.8600) },
+	},
+	["Kit_RollUpDoor"] = {
+		{ Name = "Kit_RollUpDoor__Main__Alu", Group = "Main", Slot = "Alu", Center = Vector3.new(0.0000, -5.8850, -0.1850), Size = Vector3.new(13.2000, 1.1700, 0.3900) },
+		{ Name = "Kit_RollUpDoor__Main__Black", Group = "Main", Slot = "Black", Center = Vector3.new(0.0000, -6.4700, -0.0800), Size = Vector3.new(13.2000, 0.0600, 0.1800) },
+		{ Name = "Kit_RollUpDoor__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 0.7500, -0.4500), Size = Vector3.new(14.3000, 14.5000, 1.1000) },
+		{ Name = "Kit_RollUpDoor__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0400), Size = Vector3.new(13.2000, 13.0000, 0.1400) },
 	},
 	["Kit_ShopDoor"] = {
 		{ Name = "Kit_ShopDoor__Main__Dark", Group = "Main", Slot = "Dark", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(4.2000, 7.6000, 0.3500) },

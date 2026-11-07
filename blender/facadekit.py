@@ -4,7 +4,8 @@ part-built stand-in the builders mark with PartKit.Kit: shopfront mullions, tran
 bulkheads, doors, door frames and awnings; Miami's aluminium windows under concrete eyebrows;
 house windows, shutters, doors and garage doors; porch posts and Tuscan columns; arched villa
 windows; wrought-iron balcony rails; rooftop AC units; street light poles, bases, arms and heads;
-traffic signal heads.
+traffic signal heads; and (round 2) roll-up doors, condo balconies' glass rails, bus shelters and
+gas station canopies.
 
 Each kit is modelled round its stand-in's centre in design studs (1 stud = 0.28 m): Blender x along
 the wall, +y out of it (toward the street, Roblox -Z), z up. kit() records the stand-in's box
@@ -606,6 +607,91 @@ def signal_head():
     put("Dark", K.cyl(Vector((0, -0.05, 2.1)), Vector((0, -0.05, 2.45)), 0.12, 0.12, 10))
 
 
+# ---------------------------------------------------------------------------------- round 2
+
+
+def roll_up_door():
+    """A roll-up loading door: the slatted steel curtain (a ridge at every slat joint), the guide
+    channels either side, the coil hood over the opening, a bottom bar with its rubber seal and a
+    lift handle. (Warehouses, the courier depot, the race plaza's pit garages.)"""
+    put = kit("Kit_RollUpDoor", (14, 13, 0.6), uv=4.0, paint=(0.78, 0.79, 0.8))
+    W, H = 14.0, 13.0
+    put("Paint", box(0, 0.0, 0, W - 0.8, 0.06, H))
+    slats = 24
+    for k in range(1, slats):
+        z = -H / 2 + k * H / slats
+        put("Paint", box(0, 0.06, z, W - 0.8, 0.1, 0.14))
+    for sx in (-1, 1):
+        put("Dark", box(sx * (W / 2 - 0.25), 0.12, 0, 0.5, 0.36, H))
+    put("Dark", box(0, 0.45, H / 2 + 0.75, W + 0.3, 1.1, 1.5, 0.25))
+    put("Alu", box(0, 0.12, -H / 2 + 0.2, W - 0.8, 0.26, 0.34))
+    put("Black", box(0, 0.08, -H / 2 + 0.03, W - 0.8, 0.18, 0.06))
+    put("Alu", box(0, 0.32, -H / 2 + 1.1, 1.4, 0.12, 0.2))
+
+
+def glass_rail():
+    """A condo floor's balcony rail all the way round (one mesh per floor, stretched to it, to keep
+    the towers' instance count down): frameless glass on an aluminium shoe under a handrail, posts
+    at the corners. Its stand-in is the floor's rail box (the ring's outside)."""
+    put = kit("Kit_GlassRail", (60, 3.6, 60), uv=7.0, paint=(0.75, 0.84, 0.88))
+    R, H = 30.0, 3.6
+    for a, b, sx, sy in ((0, R - 0.18, 2 * R, 0.1), (0, -(R - 0.18), 2 * R, 0.1), (R - 0.18, 0, 0.1, 2 * R), (-(R - 0.18), 0, 0.1, 2 * R)):
+        put("ClearGlass", box(a, b, -0.05, sx - 0.4, sy, H - 0.6))
+    for a, b, sx, sy in ((0, R - 0.15, 2 * R, 0.3), (0, -(R - 0.15), 2 * R, 0.3), (R - 0.15, 0, 0.3, 2 * R), (-(R - 0.15), 0, 0.3, 2 * R)):
+        put("Alu", box(a, b, H / 2 - 0.11, sx, sy, 0.22))
+        put("Alu", box(a, b, -H / 2 + 0.12, sx, sy, 0.24))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            put("Alu", box(sx * (R - 0.15), sy * (R - 0.15), 0, 0.3, 0.3, H))
+
+
+def bus_shelter():
+    """A bus shelter, fitted to its roof (the shelter hangs below it to the pavement, 9 studs down):
+    the canopy with its fascia and gutter, round steel posts, framed glass at the back and sides, a
+    slatted bench on brackets, the route map. Detail.BusStop's posts, glass and bench are its drops;
+    the ad panel and the stop's sign stay parts."""
+    put = kit("Kit_BusShelter", (14, 0.5, 6), uv=4.0, paint=(0.16, 0.17, 0.2))
+    G = -9.0  # the pavement, from the roof's middle
+    put("Paint", box(0, 0, 0.05, 14.4, 6.4, 0.3, 0.08))
+    put("Dark", box(0, 3.15, -0.05, 14.4, 0.3, 0.8, 0.05))
+    put("Alu", box(0, -3.25, -0.12, 14.4, 0.32, 0.32))
+    for x, y in ((-6.6, -2.6), (6.6, -2.6), (-6.6, 1.8), (6.6, 1.8)):
+        put("Dark", K.cyl(Vector((x, y, G)), Vector((x, y, -0.15)), 0.2, 0.2, 10))
+    # the glass: the back wall and the two side screens, each in a frame
+    put("ClearGlass", box(0, -2.8, -4.5, 12.8, 0.1, 5.8))
+    for z in (-1.5, -7.5):
+        put("Dark", box(0, -2.8, z, 13.2, 0.18, 0.2))
+    for sx in (-1, 1):
+        put("ClearGlass", box(sx * 6.6, -0.5, -4.5, 0.1, 4.4, 5.8))
+        for z in (-1.5, -7.5):
+            put("Dark", box(sx * 6.6, -0.5, z, 0.18, 4.6, 0.2))
+    # the bench: four slats on two brackets
+    for k in range(4):
+        put("Wood", box(0, -2.35 + k * 0.38, -7.2, 10, 0.3, 0.14, 0.03))
+    for sx in (-1, 1):
+        put("Dark", box(sx * 4, -1.8, -8.1, 0.25, 1.4, 1.8))
+    put("White", box(4.4, -2.72, -4.3, 2.4, 0.06, 3.2))
+    put("Blue", box(4.4, -2.68, -2.85, 2.4, 0.04, 0.3))
+
+
+def gas_canopy():
+    """A gas station's canopy over the pumps: the deck with a rounded edge and an aluminium cap,
+    the soffit underneath with recessed LED panels over the islands. The brand band round its edge
+    stays a part (its colour is the brand's)."""
+    put = kit("Kit_GasCanopy", (70, 2.6, 42), uv=7.0, paint=(0.98, 0.98, 0.97))
+    W, D, H = 70.0, 42.0, 2.6
+    put("Paint", box(0, 0, 0.15, W, D, H - 0.3, 0.25, seg=2))
+    put("White", box(0, 0, -H / 2 + 0.1, W - 0.6, D - 0.6, 0.12))
+    for a, b, sx, sy in ((0, D / 2, W + 0.2, 0.3), (0, -D / 2, W + 0.2, 0.3), (W / 2, 0, 0.3, D + 0.2), (-W / 2, 0, 0.3, D + 0.2)):
+        put("Alu", box(a, b, H / 2 - 0.05, sx, sy, 0.3))
+    for i in range(4):
+        for j in range(2):
+            x = -W * 0.36 + i * W * 0.24
+            y = -D * 0.22 + j * D * 0.44
+            put("NeonWhite", box(x, y, -H / 2 - 0.02, 7, 4.2, 0.06))
+            put("Alu", box(x, y, -H / 2 - 0.01, 7.6, 4.8, 0.04))
+
+
 def build_all():
     shop_mullion()
     shop_transom()
@@ -635,6 +721,10 @@ def build_all():
     light_arm()
     light_head()
     signal_head()
+    roll_up_door()
+    glass_rail()
+    bus_shelter()
+    gas_canopy()
     return SPECS
 
 

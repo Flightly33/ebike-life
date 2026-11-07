@@ -300,9 +300,9 @@ function Buildings.Warehouse(parent: Instance, cx: number, cz: number, w: number
 	for i = 1, doors do
 		local x = -faceWidth / 2 + (i - 0.5) * faceWidth / doors
 		local at = face * CFrame.new(x, 0, 0)
-		PartKit.Box(model, "LoadingDoor", Vector3.new(16, 16, 0.5), at * CFrame.new(0, 8, -0.4), Color3.fromRGB(90, 96, 104), Enum.Material.CorrodedMetal, DECOR)
+		PartKit.Kit(PartKit.Box(model, "LoadingDoor", Vector3.new(16, 16, 0.5), at * CFrame.new(0, 8, -0.4), Color3.fromRGB(90, 96, 104), Enum.Material.CorrodedMetal, DECOR), "RollUpDoor")
 		for k = 1, 7 do
-			PartKit.Box(model, "DoorSlat", Vector3.new(16, 0.25, 0.6), at * CFrame.new(0, k * 2, -0.45), Color3.fromRGB(70, 76, 84), METAL, DECOR)
+			PartKit.KitDrop(PartKit.Box(model, "DoorSlat", Vector3.new(16, 0.25, 0.6), at * CFrame.new(0, k * 2, -0.45), Color3.fromRGB(70, 76, 84), METAL, DECOR), "RollUpDoor")
 		end
 		PartKit.Box(model, "DoorStripe", Vector3.new(16.6, 1, 0.7), at * CFrame.new(0, 16.6, -0.4), Color3.fromRGB(240, 190, 30), SMOOTH, DECOR)
 		-- dock: a raised concrete apron with rubber bumpers
@@ -653,6 +653,8 @@ function Buildings.CondoTower(parent: Instance, cx: number, cz: number, w: numbe
 		PartKit.Box(model, "Balcony", Vector3.new(fw + balcony * 2, 1.3, fd + balcony * 2), CFrame.new(cx, y + 0.65, cz), white, CONCRETE, DECOR)
 		local rail = PartKit.Box(model, "Railing", Vector3.new(fw + balcony * 2 - 0.4, 3.6, fd + balcony * 2 - 0.4), CFrame.new(cx, y + 1.3 + 1.8, cz), Color3.fromRGB(190, 214, 224), GLASS, DECOR)
 		rail.Transparency = 0.72
+		-- (one kit mesh for the whole floor's rail: handrail, shoe and corner posts round the glass)
+		PartKit.Kit(rail, "GlassRail")
 	end
 	local top = baseY + floors * floorH
 	local tw, td = if setback < floors then w * 0.72 else w, if setback < floors then d * 0.72 else d
@@ -1148,9 +1150,12 @@ function Buildings.GasStation(parent: Instance, x0: number, x1: number, z0: numb
 	PartKit.Box(model, "Forecourt", Vector3.new(W - 2, 0.2, D - 2), look * CFrame.new(0, 0.1, 0), Color3.fromRGB(176, 176, 172), CONCRETE)
 	local canopy = look * CFrame.new(-W * 0.12, 0.2, -D * 0.12)
 	local cw, cd = math.min(70, W * 0.55), math.min(42, D * 0.5)
-	PartKit.Box(model, "Canopy", Vector3.new(cw, 2.6, cd), canopy * CFrame.new(0, 19, 0), Color3.fromRGB(250, 250, 248), SMOOTH)
-	local fascia = PartKit.Box(model, "CanopyBand", Vector3.new(cw + 0.4, 1.6, cd + 0.4), canopy * CFrame.new(0, 18.4, 0), brand, SMOOTH, DECOR)
-	local _ = fascia
+	PartKit.Kit(PartKit.Box(model, "Canopy", Vector3.new(cw, 2.6, cd), canopy * CFrame.new(0, 19, 0), Color3.fromRGB(250, 250, 248), SMOOTH), "GasCanopy")
+	-- the brand's band round the canopy's edge (four strips, so the lit soffit shows from below)
+	for _, sz in { -1, 1 } do
+		PartKit.Box(model, "CanopyBand", Vector3.new(cw + 0.6, 1.6, 0.3), canopy * CFrame.new(0, 18.4, sz * (cd / 2 + 0.15)), brand, SMOOTH, DECOR)
+		PartKit.Box(model, "CanopyBand", Vector3.new(0.3, 1.6, cd + 0.6), canopy * CFrame.new(sz * (cw / 2 + 0.15), 18.4, 0), brand, SMOOTH, DECOR)
+	end
 	local logo = PartKit.Box(model, "CanopyLogo", Vector3.new(cw * 0.5, 1.4, 0.2), canopy * CFrame.new(0, 18.6, -cd / 2 - 0.4), brand, SMOOTH, DECOR)
 	logo.Transparency = 1
 	PartKit.Sign(logo, Enum.NormalId.Front, "☀ SUNFUEL", Color3.fromRGB(255, 255, 255), nil, Enum.Font.GothamBlack, 10)

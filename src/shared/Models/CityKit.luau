@@ -21,11 +21,12 @@
 	  Stand-ins      any part the builders marked with PartKit.Kit (a "Kit" attribute): shopfront
 	                 mullions, transoms, fascias, bulkheads, doors and awnings, house windows,
 	                 shutters, doors, garage doors, porch posts and columns, rooftop AC units,
-	                 street light poles, arms and heads, traffic signal heads. The kit
+	                 street light poles, arms and heads, traffic signal heads, roll-up doors, condo
+	                 balconies' glass rails, bus shelters and gas canopies. The kit
 	                 (blender/facadekit.py) is fitted to the part's box (KitSpec says the box it was
 	                 modelled on; tiled kits repeat along the part, each module in proportion); its
 	                 Paint takes the part's colour and material. A part that collides stays as an
-	                 invisible collider, the rest go. Parts marked PartKit.KitDrop (trim a kit draws
+	                 invisible collider (so does one carrying a sign's text), the rest go. Parts marked PartKit.KitDrop (trim a kit draws
 	                 itself: an AC unit's fan, a garage door's panel lines) go when that kit is there.
 	                 Detail.Windows frames can name their surround (the "WindowKit" attribute:
 	                 Window_Modern for stucco), falling back to the classical one.
@@ -97,6 +98,8 @@ local function place(pieces: { Piece }, parent: Instance, origin: CFrame, centre
 		elseif slot then
 			part.Color = slot.Color
 			part.Material = slot.Material
+			part.Transparency = slot.Transparency or 0
+			part.Reflectance = slot.Reflectance or 0
 		end
 		part.Parent = parent
 		table.insert(out, part)
@@ -129,6 +132,16 @@ end
 local function hide(part: BasePart)
 	part.Transparency = 1
 	part.CastShadow = false
+end
+
+-- A stand-in (or a kit's drop) the kit has replaced: kept as an invisible collider if it collides,
+-- or if it carries a sign (its text stays on the hidden part), otherwise gone
+local function retire(part: BasePart)
+	if part.CanCollide or part:FindFirstChildWhichIsA("SurfaceGui") then
+		hide(part)
+	else
+		part:Destroy()
+	end
 end
 
 -- A stand-in's kit frame: its CFrame turned so the kit's +Y is the part's `KitUp` axis and the kit's
@@ -424,22 +437,14 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 			end
 		end
 		if placed then
-			if part.CanCollide then
-				hide(part)
-			else
-				part:Destroy()
-			end
+			retire(part)
 			done += 1
 			step()
 		end
 	end
 	for _, part in drops do
 		if kitPieces(part:GetAttribute("KitDrop") :: string) and part.Parent then
-			if part.CanCollide then
-				hide(part)
-			else
-				part:Destroy()
-			end
+			retire(part)
 		end
 	end
 	if #missing > 0 and windowKit then
