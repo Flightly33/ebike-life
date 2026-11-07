@@ -1135,15 +1135,21 @@ function Landmarks.BayPark(parent: Instance, block: LayoutModule.Block, rng: Ran
 	for _, x in { -22, 22 } do
 		PartKit.Box(model, "Speaker", Vector3.new(5, 12, 5), stage * CFrame.new(x, 10, -12), Color3.fromRGB(26, 26, 30), SMOOTH)
 	end
-	-- the event stage (Phase 4): an LED screen at the back (Client/Billboards cycles ads on it) and
-	-- coloured lights along the shell that come on while a city event runs (Client/EventLights)
-	local screen = PartKit.Box(model, "AdFace", Vector3.new(32, 14, 0.6), stage * CFrame.new(0, 13, 11), Color3.fromRGB(20, 20, 24), SMOOTH, NO_COLLIDE)
+	-- the event stage (Phase 4): an LED screen on a lighting truss in front of the shell (Client/
+	-- Billboards cycles ads on it) and lights along the truss that chase through colours while a city
+	-- event runs (Client/DayNight)
+	local TRUSS = Color3.fromRGB(150, 152, 158)
+	for _, x in { -18, 18 } do
+		PartKit.Box(model, "TrussTower", Vector3.new(1.4, 16, 1.4), stage * CFrame.new(x, 4.1 + 8, 5.6), TRUSS, Enum.Material.Metal)
+	end
+	PartKit.Box(model, "TrussBeam", Vector3.new(37.4, 1.4, 1.4), stage * CFrame.new(0, 20.8, 5.6), TRUSS, Enum.Material.Metal, NO_COLLIDE)
+	local screen = PartKit.Box(model, "AdFace", Vector3.new(32, 12, 0.6), stage * CFrame.new(0, 13, 5), Color3.fromRGB(20, 20, 24), SMOOTH, NO_COLLIDE)
 	screen:SetAttribute("AdKind", "Screen")
 	screen:SetAttribute("AdSeed", rng:NextInteger(1, 1e6))
-	PartKit.Box(model, "StageScreenFrame", Vector3.new(33, 15, 0.4), stage * CFrame.new(0, 13, 11.6), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, DECOR)
+	PartKit.Box(model, "StageScreenFrame", Vector3.new(33, 13, 0.4), stage * CFrame.new(0, 13, 5.5), Color3.fromRGB(40, 40, 46), Enum.Material.Metal, DECOR)
 	for k = -3, 3 do
 		-- (dark until Client/DayNight lights them; Index orders the colour chase)
-		local lamp = PartKit.Ball(model, "EventLight", 2, (stage * CFrame.new(k * 7, 29, 2)).Position, Color3.fromRGB(64, 64, 70), SMOOTH, DECOR)
+		local lamp = PartKit.Ball(model, "EventLight", 1.8, (stage * CFrame.new(k * 5, 20, 4.4)).Position, Color3.fromRGB(64, 64, 70), SMOOTH, DECOR)
 		lamp:SetAttribute("Index", k + 4)
 	end
 	-- a grassy mound in the south-west quarter (rideable both ways)
@@ -1181,10 +1187,13 @@ function Landmarks.BayPark(parent: Instance, block: LayoutModule.Block, rng: Ran
 end
 
 --------------------------------------------------------------------------------
--- The Flighty Courier depot (Phase 4): Marco's delivery hub. The warehouse on the north side with
--- its loading bays (roll-up doors: kit stand-ins), box vans and cargo bikes in the yard, the
--- dispatch desk (DepotDock: a delivery pick-up, JobService) and, on the street side, the Flighty
--- Bike Gear store (its gear rack's GearPrompt opens the Gear shop) and the Courier Cafe.
+-- The Flighty Courier depot (Phase 4): Marco's delivery hub. A corrugated warehouse along the north
+-- side with five loading bays (roll-up doors: kit stand-ins) and a box van backed onto one; the
+-- fleet in the yard (vans in painted bays, cargo bikes on a charging rail, a forklift); the dispatch
+-- kiosk (its DepotDock is a delivery pick-up, JobService; Marco stands behind its counter,
+-- Server/Regulars; Layout.Places.Depot is in front of it: keep the three together); and on the
+-- street side the Flighty Bike Gear store (its rack's GearPrompt opens the Gear shop) and the
+-- Courier Cafe, walk-in rooms like the city's shops.
 --------------------------------------------------------------------------------
 function Landmarks.Depot(parent: Instance, block: LayoutModule.Block, rng: Random)
 	local model = PartKit.Model(parent, "CourierDepot")
@@ -1196,79 +1205,210 @@ function Landmarks.Depot(parent: Instance, block: LayoutModule.Block, rng: Rando
 	local fy = Y + 0.3
 	local YELLOW = Color3.fromRGB(245, 196, 30)
 	local INK = Color3.fromRGB(24, 24, 28)
+	local PAINT = Color3.fromRGB(232, 232, 226)
+	local STEEL = Color3.fromRGB(70, 72, 78)
 	local METAL = Enum.Material.Metal
+	-- a line painted on the yard
+	local function paint(a: Vector3, b: Vector3, width: number, color: Color3)
+		local mid = Vector3.new((a.X + b.X) / 2, fy + 0.03, (a.Z + b.Z) / 2)
+		local dir = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+		PartKit.Box(model, "YardLine", Vector3.new(width, 0.06, dir.Magnitude), CFrame.lookAt(mid, mid + dir), color, SMOOTH, DECOR)
+	end
 
-	-- the warehouse, its loading bays facing the yard to the south
-	local ww, wd, wh = W * 0.7, 40, 24
+	-- the warehouse: corrugated steel over a concrete plinth, a yellow band, the loading bays facing
+	-- the yard (south)
+	local ww, wd, wh = math.floor(W * 0.72), 64, 28
 	local wz = z0 + 6 + wd / 2
-	PartKit.Box(model, "Warehouse", Vector3.new(ww, wh, wd), CFrame.new(cx, fy + wh / 2, wz), Color3.fromRGB(226, 224, 218), CONCRETE)
-	PartKit.Box(model, "WarehouseRoof", Vector3.new(ww + 2, 1.2, wd + 2), CFrame.new(cx, fy + wh + 0.6, wz), Color3.fromRGB(150, 152, 156), METAL)
-	PartKit.Box(model, "WarehouseBand", Vector3.new(ww + 0.4, 3, wd + 0.4), CFrame.new(cx, fy + wh - 2.5, wz), YELLOW, SMOOTH, DECOR)
 	local front = wz + wd / 2
-	local sign = PartKit.Box(model, "DepotSign", Vector3.new(ww * 0.5, 5, 0.4), CFrame.new(cx, fy + wh - 7.5, front + 0.3), INK, SMOOTH, DECOR)
+	PartKit.Wear("RealCorrugated", PartKit.Box(model, "Warehouse", Vector3.new(ww, wh, wd), CFrame.new(cx, fy + wh / 2, wz), Color3.fromRGB(214, 216, 212), METAL))
+	PartKit.Box(model, "WarehouseRoof", Vector3.new(ww + 2, 1.4, wd + 2), CFrame.new(cx, fy + wh + 0.7, wz), Color3.fromRGB(120, 124, 128), Enum.Material.DiamondPlate)
+	PartKit.Box(model, "WarehouseBand", Vector3.new(ww + 0.4, 3, wd + 0.4), CFrame.new(cx, fy + wh - 2, wz), YELLOW, SMOOTH, DECOR)
+	PartKit.Box(model, "Plinth", Vector3.new(ww + 0.4, 4, wd + 0.4), CFrame.new(cx, fy + 2, wz), Color3.fromRGB(150, 150, 146), CONCRETE, DECOR)
+	Detail.Roof(model, cx, wz, ww, wd, fy + wh + 1.4, rng)
+	local sign = PartKit.Box(model, "DepotSign", Vector3.new(ww * 0.42, 6, 0.5), CFrame.new(cx, fy + wh - 8, front + 0.35), INK, SMOOTH, DECOR)
 	PartKit.Sign(sign, Enum.NormalId.Back, "FLIGHTY COURIER", YELLOW, nil, Enum.Font.GothamBlack, 10)
-	local bays = 4
+	local bays = 5
+	local bayW = ww / bays
 	for i = 1, bays do
-		local x = cx - ww / 2 + ww * (i - 0.5) / bays
+		local x = cx - ww / 2 + bayW * (i - 0.5)
 		local door = PartKit.Box(model, "RollUpDoor", Vector3.new(14, 13, 0.6), CFrame.new(x, fy + 4 + 6.5, front + 0.2), Color3.fromRGB(200, 202, 206), METAL)
 		PartKit.Kit(door, "RollUpDoor", nil, "+Z")
 		for k = 1, 6 do
 			-- the door's slats (the kit draws its own)
 			PartKit.KitDrop(PartKit.Box(model, "DoorSlat", Vector3.new(14, 0.25, 0.2), CFrame.new(x, fy + 4 + k * 1.9, front + 0.6), Color3.fromRGB(168, 170, 174), METAL, DECOR), "RollUpDoor")
 		end
-		PartKit.Box(model, "Dock", Vector3.new(16, 4, 6), CFrame.new(x, fy + 2, front + 3), Color3.fromRGB(180, 178, 172), CONCRETE)
+		-- the steel frame round the opening, a dock light over it, the dock with its bumpers
 		for _, side in { -1, 1 } do
-			PartKit.Box(model, "DockBumper", Vector3.new(1.4, 2, 0.8), CFrame.new(x + side * 6, fy + 2.5, front + 6.3), INK, SMOOTH)
+			PartKit.Box(model, "DoorJamb", Vector3.new(0.8, 14, 0.8), CFrame.new(x + side * 7.4, fy + 11, front + 0.4), YELLOW, METAL, DECOR)
+			PartKit.Box(model, "DockBumper", Vector3.new(1.4, 2, 0.8), CFrame.new(x + side * 6, fy + 2.5, front + 6.3), INK, Enum.Material.Rubber)
 		end
+		PartKit.Box(model, "DoorHead", Vector3.new(15.6, 1, 0.8), CFrame.new(x, fy + 17.5, front + 0.4), YELLOW, METAL, DECOR)
+		PartKit.Box(model, "DockLight", Vector3.new(1.6, 0.8, 1.2), CFrame.new(x, fy + 19.5, front + 0.9), Color3.fromRGB(255, 240, 200), Enum.Material.Neon, DECOR)
+		PartKit.Box(model, "Dock", Vector3.new(16, 4, 6), CFrame.new(x, fy + 2, front + 3), Color3.fromRGB(180, 178, 172), CONCRETE)
+		PartKit.Box(model, "DockEdge", Vector3.new(16, 0.3, 0.6), CFrame.new(x, fy + 4.05, front + 5.8), YELLOW, SMOOTH, DECOR)
 		-- parcels waiting on the dock
 		for k = 1, rng:NextInteger(2, 4) do
 			local size = Vector3.new(rng:NextNumber(1.6, 2.6), rng:NextNumber(1.2, 2.2), rng:NextNumber(1.6, 2.6))
-			PartKit.Box(model, "Parcel", size, CFrame.new(x - 5 + k * 2.4, fy + 4 + size.Y / 2, front + 3 + rng:NextNumber(-1.5, 1.5)) * CFrame.Angles(0, rng:NextNumber(-0.3, 0.3), 0), Color3.fromRGB(196, 160, 112), Enum.Material.Cardboard, DECOR)
+			PartKit.Box(model, "Parcel", size, CFrame.new(x - 6 + k * 2.6, fy + 4 + size.Y / 2, front + 3 + rng:NextNumber(-1.2, 1.2)) * CFrame.Angles(0, rng:NextNumber(-0.3, 0.3), 0), Color3.fromRGB(196, 160, 112), Enum.Material.Cardboard, DECOR)
 		end
 	end
-	-- the fleet: two box vans and a row of cargo bikes
-	for i = 1, 2 do
-		local van = CarModel.Build("BoxVan", { Static = true })
-		PartKit.Scale(van, 1 / Config.WORLD_SCALE)
-		PartKit.PlaceStatic(van, CFrame.new(x0 + 20, fy, front + 26 + (i - 1) * 20) * CFrame.Angles(0, math.rad(-90), 0))
-		van.Name = "DepotVan"
-		van.Parent = model
+	Detail.Pallets(model, Vector3.new(cx - ww / 2 - 30, fy, front + 6), rng)
+	Detail.Pallets(model, Vector3.new(cx + ww / 2 + 8, fy, front + 6), rng)
+
+	-- the fleet: a box van backed onto the second bay, more in the painted bays down the west side
+	local vanLength = 6.4 / 0.28 -- (the BoxVan's length in design units)
+	local function van(cf: CFrame)
+		local v = CarModel.Build("BoxVan", { Static = true })
+		PartKit.Scale(v, 1 / Config.WORLD_SCALE)
+		PartKit.PlaceStatic(v, cf)
+		v.Name = "DepotVan"
+		v.Parent = model
 	end
+	van(CFrame.new(cx - ww / 2 + bayW * 1.5, fy, front + 6 + vanLength / 2 + 0.6) * CFrame.Angles(0, math.pi, 0))
+	local bayX0, bayX1 = x0 + 6, x0 + 6 + vanLength + 7
+	for k = 0, 4 do
+		local z = front + 26 + k * 14
+		paint(Vector3.new(bayX0, 0, z), Vector3.new(bayX1, 0, z), 0.5, PAINT)
+		if k == 0 or k == 1 or k == 3 then
+			-- (nose out, toward the yard)
+			van(CFrame.new((bayX0 + bayX1) / 2 + 1, fy, z + 7) * CFrame.Angles(0, math.rad(-90), 0))
+		end
+	end
+	paint(Vector3.new(bayX1, 0, front + 26), Vector3.new(bayX1, 0, front + 82), 0.5, YELLOW)
+	-- the cargo bikes nosed in to their charging rail on the east side
 	local hauler = Bikes.Get("hauler_c")
-	if hauler then
-		for i = 1, 3 do
+	local railX = x1 - 16
+	local railZ = front + 30
+	PartKit.Box(model, "ChargeRail", Vector3.new(1.2, 2.2, 26), CFrame.new(railX, fy + 1.1, railZ), STEEL, METAL)
+	for i = 0, 4 do
+		local z = railZ - 10 + i * 5
+		PartKit.Box(model, "ChargeHead", Vector3.new(1.4, 1.2, 1.2), CFrame.new(railX, fy + 2.8, z), Color3.fromRGB(240, 242, 245), SMOOTH, DECOR)
+		PartKit.Box(model, "ChargeLed", Vector3.new(1.5, 0.3, 0.6), CFrame.new(railX, fy + 3.1, z), Color3.fromRGB(40, 210, 110), Enum.Material.Neon, DECOR)
+		if hauler and i < 4 then
 			local bike = BikeModel.Build(hauler, nil, { Static = true })
 			PartKit.Scale(bike, 1 / Config.WORLD_SCALE)
-			PartKit.PlaceStatic(bike, CFrame.new(x1 - 24 - (i - 1) * 7, fy, front + 20) * CFrame.Angles(0, math.rad(180), 0))
+			PartKit.PlaceStatic(bike, CFrame.new(railX - 4.5, fy, z) * CFrame.Angles(0, math.rad(-90), 0))
 			bike.Name = "DepotBike"
 			bike.Parent = model
 		end
 	end
-	-- the dispatch desk: a delivery pick-up (riders come up to its south side; Marco stands behind
-	-- it, Server/Regulars, and Layout.Places.Depot is in front of it: keep the three together)
-	local deskAt = Vector3.new(cx + W * 0.2, fy, z0 + 88)
-	PartKit.Box(model, "DispatchDesk", Vector3.new(12, 4, 3), CFrame.new(deskAt + Vector3.new(0, 2, 0)), YELLOW, SMOOTH)
-	PartKit.Box(model, "DispatchTop", Vector3.new(12.4, 0.4, 3.4), CFrame.new(deskAt + Vector3.new(0, 4.2, 0)), INK, SMOOTH)
-	local deskSign = PartKit.Box(model, "DispatchSign", Vector3.new(10, 2.4, 0.3), CFrame.new(deskAt + Vector3.new(0, 7.2, -1)), INK, SMOOTH, DECOR)
-	PartKit.Sign(deskSign, Enum.NormalId.Back, "DISPATCH", YELLOW, nil, Enum.Font.GothamBlack, 12)
-	for _, side in { -1, 1 } do
-		PartKit.Box(model, "DispatchPost", Vector3.new(0.4, 6, 0.4), CFrame.new(deskAt + Vector3.new(side * 4.6, 4.4, -1)), INK, METAL, DECOR)
+	-- a forklift by the east bays, a pallet on its forks
+	do
+		local lift = CFrame.new(cx + ww / 2 - bayW * 0.8, fy, front + 20) * CFrame.Angles(0, math.rad(165), 0)
+		local body = Color3.fromRGB(250, 180, 20)
+		PartKit.Box(model, "ForkliftBody", Vector3.new(4.3, 3, 7), lift * CFrame.new(0, 2.6, 1), body, SMOOTH)
+		PartKit.Box(model, "ForkliftWeight", Vector3.new(4.3, 3.4, 2), lift * CFrame.new(0, 2.8, 5.2), INK, METAL, DECOR)
+		PartKit.Box(model, "ForkliftSeat", Vector3.new(2, 0.8, 2), lift * CFrame.new(0, 4.5, 2), INK, SMOOTH, DECOR)
+		PartKit.Box(model, "ForkliftGuard", Vector3.new(4.3, 0.3, 4.6), lift * CFrame.new(0, 8, 1), INK, METAL, DECOR)
+		for _, s in { -1, 1 } do
+			for _, z in { -1.1, 3.1 } do
+				PartKit.Box(model, "ForkliftPost", Vector3.new(0.3, 3.8, 0.3), lift * CFrame.new(s * 2, 6, z), INK, METAL, DECOR)
+			end
+			PartKit.Box(model, "ForkliftMast", Vector3.new(0.5, 10, 0.5), lift * CFrame.new(s * 1.4, 5.1, -2.9), STEEL, METAL, DECOR)
+			PartKit.Box(model, "ForkliftFork", Vector3.new(0.4, 0.3, 4.6), lift * CFrame.new(s * 1, 0.6, -5.3), STEEL, METAL, DECOR)
+			for _, z in { -1.8, 3.8 } do
+				PartKit.Cylinder(model, "ForkliftWheel", 2.2, 0.8, lift * CFrame.new(s * 2.3, 1.1, z), Color3.fromRGB(26, 26, 28), Enum.Material.Rubber, DECOR)
+			end
+		end
+		PartKit.Box(model, "Pallet", Vector3.new(4.3, 0.6, 4.3), lift * CFrame.new(0, 1.05, -5.3), Color3.fromRGB(176, 134, 86), Enum.Material.WoodPlanks, DECOR)
+		PartKit.Box(model, "Crates", Vector3.new(3.8, 3, 3.8), lift * CFrame.new(0, 2.85, -5.3), Color3.fromRGB(196, 160, 112), Enum.Material.Cardboard, DECOR)
 	end
-	-- (counter height, facing south like an OrderCounter's customers' side: its -Z)
+	-- the lane in from the south street to the docks: dashes and two arrows
+	for k = 0, 9 do
+		local z = front + 24 + k * 14
+		paint(Vector3.new(cx - 20, 0, z), Vector3.new(cx - 20, 0, z + 7), 0.6, PAINT)
+	end
+	Detail.Arrow(model, Vector3.new(cx - 32, fy + 0.03, front + 60), Vector3.new(0, 0, -1), 0, PAINT)
+	Detail.Arrow(model, Vector3.new(cx - 8, fy + 0.03, front + 100), Vector3.new(0, 0, 1), 0, PAINT)
+
+	-- the dispatch kiosk: a booth with a counter window on its south side under a canopy
+	local deskAt = Vector3.new(cx + W * 0.2, fy, z0 + Layout.DEPOT_DESK_Z)
+	local kiosk = CFrame.new(deskAt)
+	local kw, kd, kh = 14, 9, 8.5
+	PartKit.Box(model, "KioskBack", Vector3.new(kw, kh, 0.8), kiosk * CFrame.new(0, kh / 2, -kd + 0.4), YELLOW, SMOOTH)
+	for _, side in { -1, 1 } do
+		PartKit.Box(model, "KioskSide", Vector3.new(0.8, kh, kd), kiosk * CFrame.new(side * (kw / 2 - 0.4), kh / 2, -kd / 2), YELLOW, SMOOTH)
+	end
+	PartKit.Box(model, "KioskCounter", Vector3.new(kw, 2.6, 0.8), kiosk * CFrame.new(0, 1.3, -0.4), INK, SMOOTH)
+	PartKit.Box(model, "KioskTop", Vector3.new(kw + 0.4, 0.3, 2), kiosk * CFrame.new(0, 2.75, 0.1), Color3.fromRGB(200, 200, 196), Enum.Material.Marble, DECOR)
+	PartKit.Box(model, "KioskHeader", Vector3.new(kw, 1.6, 0.8), kiosk * CFrame.new(0, kh - 0.8, -0.4), YELLOW, SMOOTH)
+	PartKit.Box(model, "KioskRoof", Vector3.new(kw + 1, 0.6, kd + 1), kiosk * CFrame.new(0, kh + 0.3, -kd / 2), INK, SMOOTH)
+	PartKit.Box(model, "KioskLining", Vector3.new(kw - 1.7, kh - 0.4, 0.1), kiosk * CFrame.new(0, kh / 2, -kd + 0.85), Color3.fromRGB(232, 232, 228), SMOOTH, DECOR)
+	local board = PartKit.Box(model, "JobBoard", Vector3.new(8, 3, 0.2), kiosk * CFrame.new(0, 5.2, -kd + 1), Color3.fromRGB(18, 22, 26), SMOOTH, DECOR)
+	PartKit.Sign(board, Enum.NormalId.Back, "JOBS TODAY\n📦 📦 📦", YELLOW, nil, Enum.Font.GothamBold, 14)
+	for k = 0, 2 do
+		PartKit.Box(model, "KioskParcel", Vector3.new(1.6, 1.2, 1.4), kiosk * CFrame.new(-4.5 + k * 1.8, 3.5, -1.4), Color3.fromRGB(196, 160, 112), Enum.Material.Cardboard, DECOR)
+	end
+	PartKit.Box(model, "Canopy", Vector3.new(kw + 8, 0.5, 9), kiosk * CFrame.new(0, kh + 1.6, 4), YELLOW, METAL)
+	for _, side in { -1, 1 } do
+		PartKit.Box(model, "CanopyPost", Vector3.new(0.5, kh + 1.4, 0.5), kiosk * CFrame.new(side * (kw / 2 + 3.4), (kh + 1.4) / 2, 8), STEEL, METAL)
+	end
+	local dispatch = PartKit.Box(model, "DispatchSign", Vector3.new(kw + 8, 2.2, 0.4), kiosk * CFrame.new(0, kh + 2.9, 8.3), INK, SMOOTH, DECOR)
+	PartKit.Sign(dispatch, Enum.NormalId.Back, "📦 DISPATCH", YELLOW, nil, Enum.Font.GothamBlack, 12)
+	-- (counter height, its -Z the customers' side, like an OrderCounter's)
 	local dock = PartKit.Box(model, "DepotDock", Vector3.new(10, 0.3, 2), CFrame.new(deskAt + Vector3.new(0, 1.3, 0)) * CFrame.Angles(0, math.pi, 0), INK, SMOOTH, DECOR)
 	dock:SetAttribute("ShopName", "the Flighty Courier depot")
 	dock.Transparency = 1
 
-	-- the street side: the bike gear store and the cafe, facing the street to the south
-	local sw = math.min(44, W * 0.36)
+	-- the sorting canopy: an open shed with two conveyors and roll cages of parcels
+	do
+		local sc = Vector3.new(cx - 70, fy, z0 + 190)
+		local scw, scd, sch = 70, 36, 14
+		PartKit.Box(model, "SortRoof", Vector3.new(scw, 0.8, scd), CFrame.new(sc + Vector3.new(0, sch, 0)), Color3.fromRGB(200, 202, 204), METAL)
+		PartKit.Box(model, "SortFascia", Vector3.new(scw + 0.4, 1.6, scd + 0.4), CFrame.new(sc + Vector3.new(0, sch - 0.6, 0)), YELLOW, SMOOTH, DECOR)
+		for _, px in { -1, 0, 1 } do
+			for _, pz in { -1, 1 } do
+				PartKit.Box(model, "SortPost", Vector3.new(0.8, sch, 0.8), CFrame.new(sc + Vector3.new(px * (scw / 2 - 1), sch / 2, pz * (scd / 2 - 1))), STEEL, METAL)
+			end
+		end
+		for _, bz in { -6, 6 } do
+			PartKit.Box(model, "Conveyor", Vector3.new(50, 2.2, 3), CFrame.new(sc + Vector3.new(0, 1.1, bz)), Color3.fromRGB(150, 152, 156), METAL)
+			PartKit.Box(model, "ConveyorBelt", Vector3.new(50, 0.2, 2.4), CFrame.new(sc + Vector3.new(0, 2.3, bz)), Color3.fromRGB(30, 30, 32), Enum.Material.Rubber, DECOR)
+			for k = 1, 5 do
+				local size = Vector3.new(rng:NextNumber(1.4, 2.2), rng:NextNumber(1, 1.8), rng:NextNumber(1.4, 2.2))
+				PartKit.Box(model, "Parcel", size, CFrame.new(sc + Vector3.new(-22 + k * 8 + rng:NextNumber(-2, 2), 2.4 + size.Y / 2, bz)) * CFrame.Angles(0, rng:NextNumber(-0.4, 0.4), 0), Color3.fromRGB(196, 160, 112), Enum.Material.Cardboard, DECOR)
+			end
+		end
+		for k = 0, 2 do
+			local at = sc + Vector3.new(-20 + k * 14, 0, 14)
+			PartKit.Box(model, "CageBase", Vector3.new(3.4, 0.4, 3.4), CFrame.new(at + Vector3.new(0, 0.5, 0)), STEEL, METAL)
+			for _, c in { Vector3.new(-1.6, 0, -1.6), Vector3.new(1.6, 0, -1.6), Vector3.new(-1.6, 0, 1.6), Vector3.new(1.6, 0, 1.6) } do
+				PartKit.Box(model, "CagePost", Vector3.new(0.2, 5, 0.2), CFrame.new(at + c + Vector3.new(0, 3.2, 0)), Color3.fromRGB(170, 172, 176), METAL, DECOR)
+			end
+			PartKit.Box(model, "CageParcels", Vector3.new(3, rng:NextNumber(1.6, 3.6), 3), CFrame.new(at + Vector3.new(0, 2.4, 0)), Color3.fromRGB(190, 154, 106), Enum.Material.Cardboard, DECOR)
+		end
+	end
+	-- the courier test track: a cone slalom between painted start and finish lines
+	do
+		local t0 = Vector3.new(cx + 60, fy, z0 + 185)
+		paint(t0 + Vector3.new(-12, 0, 0), t0 + Vector3.new(12, 0, 0), 1, PAINT)
+		paint(t0 + Vector3.new(-12, 0, 84), t0 + Vector3.new(12, 0, 84), 1, PAINT)
+		for k = 1, 9 do
+			local at = t0 + Vector3.new(if k % 2 == 0 then 5 else -5, 0, k * 8.4)
+			PartKit.Post(model, "Cone", 1.3, 2, at, Color3.fromRGB(255, 110, 20), SMOOTH, DECOR)
+			PartKit.Post(model, "ConeBand", 1.1, 0.4, at + Vector3.new(0, 1.1, 0), Color3.fromRGB(245, 245, 245), SMOOTH, DECOR)
+		end
+		local testSign = PartKit.Box(model, "TestTrackSign", Vector3.new(14, 3, 0.4), CFrame.new(t0 + Vector3.new(0, 7, -3)), INK, SMOOTH, DECOR)
+		PartKit.Sign(testSign, Enum.NormalId.Back, "COURIER TEST TRACK", YELLOW, nil, Enum.Font.GothamBlack, 12)
+		for _, dx in { -6.6, 6.6 } do
+			PartKit.Box(model, "TestSignPost", Vector3.new(0.4, 5.5, 0.4), CFrame.new(t0 + Vector3.new(dx, 2.75, -3)), STEEL, METAL, DECOR)
+		end
+	end
+	-- yard lights (Globe lenses: lit at night)
+	for _, spot in { { x0 + 50, 1 }, { cx + 20, 1 }, { x1 - 40, -1 } } do
+		Props.StreetLight(model, Vector3.new(spot[1], fy, front + 70), Vector3.new(spot[2], 0, 0))
+	end
+
+	-- the street side: the bike gear store and the cafe, facing the south street
+	local sw, sd, sh = math.min(48, W * 0.36), 28, 12
 	local shops = {
 		{ Name = "Flighty Bike Gear", Accent = FLIGHTY_ORANGE, X = cx - W * 0.22 },
 		{ Name = "Courier Cafe", Accent = Color3.fromRGB(150, 92, 52), X = cx + W * 0.22 },
 	}
 	for _, shop in shops do
-		local center = Vector3.new(shop.X, fy, z1 - 6 - 14)
+		local center = Vector3.new(shop.X, fy, z1 - 6 - sd / 2)
 		local base = CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
-		Interior.Build(model, base, sw, 28, 12, {
+		Interior.Build(model, base, sw, sd, sh, {
 			Kind = "Shop",
 			Name = shop.Name,
 			Accent = shop.Accent,
@@ -1278,31 +1418,50 @@ function Landmarks.Depot(parent: Instance, block: LayoutModule.Block, rng: Rando
 			Sides = true,
 			Rng = rng,
 		})
-		local band = PartKit.Box(model, "ShopBand", Vector3.new(sw + 0.4, 2.6, 28.4), base * CFrame.new(0, 13.3, 0), shop.Accent, SMOOTH, DECOR)
-		local shopSign = PartKit.Box(model, "ShopSign", Vector3.new(sw * 0.8, 2.2, 0.3), base * CFrame.new(0, 13.3, -14.4), shop.Accent, SMOOTH, DECOR)
-		PartKit.Sign(shopSign, Enum.NormalId.Front, string.upper(shop.Name), Color3.fromRGB(255, 255, 255), nil, Enum.Font.GothamBlack, 12)
-		local _ = band
+		-- the roof, the fascia with the shop's name over the glazed front, an awning over the door
+		PartKit.Box(model, "ShopRoof", Vector3.new(sw + 1, 0.8, sd + 1), base * CFrame.new(0, sh + 0.4, 0), Color3.fromRGB(150, 152, 156), METAL)
+		local fascia = PartKit.Box(model, "ShopFascia", Vector3.new(sw + 1, 3, 0.6), base * CFrame.new(0, sh + 1.2, -sd / 2 - 0.5), shop.Accent, SMOOTH, DECOR)
+		PartKit.Sign(fascia, Enum.NormalId.Front, string.upper(shop.Name), Color3.fromRGB(255, 255, 255), nil, Enum.Font.GothamBlack, 12)
+		PartKit.Box(model, "Awning", Vector3.new(10, 0.3, 5), base * CFrame.new(0, 9.6, -sd / 2 - 2.5) * CFrame.Angles(math.rad(-12), 0, 0), shop.Accent, Enum.Material.Fabric, DECOR)
 		if shop.Name == "Flighty Bike Gear" then
 			-- the gear rack along the left wall: helmets on the shelves, the Gear shop's prompt
-			local rack = PartKit.Box(model, "GearRack", Vector3.new(2, 8, 12), base * CFrame.new(-sw / 2 + 2.5, 4, 2), Color3.fromRGB(60, 62, 68), METAL)
+			local rack = PartKit.Box(model, "GearRack", Vector3.new(2, 7, 12), base * CFrame.new(-sw / 2 + 2.5, 3.5, 2), Color3.fromRGB(60, 62, 68), METAL)
+			local colors = { FLIGHTY_ORANGE, Color3.fromRGB(240, 240, 242), Color3.fromRGB(30, 110, 230), INK }
 			for k = 0, 3 do
-				PartKit.Ball(model, "RackHelmet", 1.8, (base * CFrame.new(-sw / 2 + 3.2, 6.6, -3 + k * 3.2)).Position, ({ FLIGHTY_ORANGE, Color3.fromRGB(240, 240, 242), Color3.fromRGB(30, 110, 230), INK })[k + 1], SMOOTH, DECOR)
+				PartKit.Ball(model, "RackHelmet", 1.8, (base * CFrame.new(-sw / 2 + 3.4, 5.4, -2.5 + k * 3)).Position, colors[k + 1], SMOOTH, DECOR)
 			end
 			prompt(rack, "GearPrompt", "Browse", "Rider gear")
+		else
+			-- tables out front under umbrellas
+			for _, dx in { -15, 15 } do
+				local at = Vector3.new(shop.X + dx, fy, z1 - 2.6)
+				PartKit.Post(model, "CafeTable", 3, 2.6, at, Color3.fromRGB(240, 240, 236), METAL)
+				PartKit.Post(model, "UmbrellaPole", 0.3, 6, at + Vector3.new(0, 2.6, 0), STEEL, METAL, DECOR)
+				PartKit.Cylinder(model, "Umbrella", 6, 0.4, CFrame.new(at + Vector3.new(0, 8.4, 0)) * CFrame.Angles(0, 0, math.pi / 2), shop.Accent, Enum.Material.Fabric, DECOR)
+			end
 		end
 	end
-	-- tables outside the cafe
-	for k = -1, 1 do
-		local at = Vector3.new(cx + W * 0.22 + k * 12, fy, z1 - 3)
-		PartKit.Post(model, "CafeTable", 3, 3.2, at, Color3.fromRGB(240, 240, 236), METAL)
+	-- trees either side of the way in, and the depot's sign by the street
+	for _, dx in { -32, 32 } do
+		PartKit.Box(model, "Planter", Vector3.new(8, 2, 8), CFrame.new(cx + dx, fy + 1, z1 - 12), Color3.fromRGB(170, 166, 158), CONCRETE)
+		Props.Tree(model, Vector3.new(cx + dx, fy + 2, z1 - 12), rng, 0.7)
 	end
+	local totem = PartKit.Box(model, "DepotTotem", Vector3.new(10, 24, 3), CFrame.new(x1 - 16, fy + 12, z1 - 18), INK, SMOOTH)
+	PartKit.Sign(totem, Enum.NormalId.Back, "FLIGHTY\nCOURIER\n\nDEPOT", YELLOW, nil, Enum.Font.GothamBlack, 8)
+	PartKit.Sign(totem, Enum.NormalId.Front, "FLIGHTY\nCOURIER\n\nDEPOT", YELLOW, nil, Enum.Font.GothamBlack, 8)
+	local cap = PartKit.Box(model, "TotemCap", Vector3.new(10.4, 5, 3.4), CFrame.new(x1 - 16, fy + 26.5, z1 - 18), YELLOW, SMOOTH)
+	PartKit.Sign(cap, Enum.NormalId.Back, "📦", INK, nil, Enum.Font.GothamBlack, 10)
+	PartKit.Sign(cap, Enum.NormalId.Front, "📦", INK, nil, Enum.Font.GothamBlack, 10)
 	return model
 end
 
 --------------------------------------------------------------------------------
--- The race plaza (Phase 4): a wide asphalt square with a start gantry over a painted grid, a
--- grandstand, pit garages with roll-up doors, an LED screen, and the race desk (RacePrompt opens
--- Play > Races).
+-- The Race Plaza (Phase 4): a painted oval round the block (kerbs on the bends, a chequered line
+-- under the start gantry and the grid behind it: Layout.Places.RaceHub, where the Grid courses
+-- start), a grandstand along the main straight with trackside boards, pit garages and the pit lane
+-- on the far side, light towers (lit at night), an LED screen (Client/Billboards), and in the
+-- infield the race desk (RacePrompt opens Play > Races), a timing tower and the podium. All paint
+-- and kerbs, nothing to catch a wheel: riders cross it on the way to anywhere.
 --------------------------------------------------------------------------------
 function Landmarks.RaceHub(parent: Instance, block: LayoutModule.Block, rng: Random)
 	local model = PartKit.Model(parent, "RacePlaza")
@@ -1313,72 +1472,152 @@ function Landmarks.RaceHub(parent: Instance, block: LayoutModule.Block, rng: Ran
 	track:SetAttribute("Surface", "Road")
 	local fy = Y + 0.3
 	local WHITE = Color3.fromRGB(240, 240, 238)
+	local BLACK = Color3.fromRGB(20, 20, 22)
 	local STEEL = Color3.fromRGB(44, 46, 52)
 	local RED = Color3.fromRGB(230, 40, 40)
+	local GOLD = Color3.fromRGB(240, 196, 40)
 	local METAL = Enum.Material.Metal
-	-- the start line and the grid: two columns of boxes behind it, staggered
-	local gz = cz - D * 0.12
-	PartKit.Box(model, "StartLine", Vector3.new(80, 0.06, 3), CFrame.new(cx, fy + 0.03, gz), WHITE, SMOOTH, DECOR)
-	for row = 0, 3 do
-		for _, col in { -1, 1 } do
-			local bx, bz = cx + col * 12, gz + 10 + row * 16 + (if col > 0 then 8 else 0)
-			for _, piece in { { Vector3.new(10, 0.06, 0.6), Vector3.new(0, 0, -4) }, { Vector3.new(0.6, 0.06, 8), Vector3.new(-5, 0, 0) }, { Vector3.new(0.6, 0.06, 8), Vector3.new(5, 0, 0) } } do
-				PartKit.Box(model, "GridBox", piece[1], CFrame.new(Vector3.new(bx, fy + 0.03, bz) + piece[2]), WHITE, SMOOTH, DECOR)
-			end
+	local function paint(a: Vector3, b: Vector3, width: number, color: Color3, name: string?)
+		local mid = Vector3.new((a.X + b.X) / 2, fy + 0.03, (a.Z + b.Z) / 2)
+		local dir = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+		PartKit.Box(model, name or "TrackLine", Vector3.new(width, 0.06, dir.Magnitude), CFrame.lookAt(mid, mid + dir), color, SMOOTH, DECOR)
+	end
+
+	-- the oval: the main straight (x = mx, ridden north from the grid), the back straight east of it,
+	-- a bend of radius R (to the centre line) at each end
+	local TW, R = 30, 45
+	local mx = cx + Layout.RACE_TRACK_X
+	local bx = mx + 2 * R
+	local zN, zS = z0 + R + TW / 2 + 10, z1 - R - TW / 2 - 10
+	for _, x in { mx - TW / 2, mx + TW / 2, bx - TW / 2, bx + TW / 2 } do
+		paint(Vector3.new(x, 0, zN), Vector3.new(x, 0, zS), 0.8, WHITE)
+	end
+	local SEG = 12
+	for _, bend in { { zN, -1 }, { zS, 1 } } do
+		local bz, s = bend[1], bend[2]
+		local function at(r: number, a: number): Vector3
+			return Vector3.new(mx + R - math.cos(a) * r, 0, bz + s * math.sin(a) * r)
+		end
+		for i = 0, SEG - 1 do
+			local a0, a1 = math.pi * i / SEG, math.pi * (i + 1) / SEG
+			paint(at(R + TW / 2, a0), at(R + TW / 2, a1), 0.8, WHITE)
+			-- kerbs round the inside, red and white
+			paint(at(R - TW / 2 - 1, a0), at(R - TW / 2 - 1, a1), 2, if i % 2 == 0 then RED else WHITE, "Kerb")
 		end
 	end
-	-- the gantry over the line: two towers and a beam with five red start lights and the sign
-	for _, side in { -1, 1 } do
-		PartKit.Box(model, "GantryTower", Vector3.new(3, 26, 3), CFrame.new(cx + side * 38, fy + 13, gz), STEEL, METAL)
-		PartKit.Box(model, "GantryFoot", Vector3.new(5, 1, 5), CFrame.new(cx + side * 38, fy + 0.5, gz), Color3.fromRGB(200, 200, 196), CONCRETE)
+	-- the start line (chequered) and the grid behind it: two columns of boxes, staggered
+	local gz = cz - D * 0.12
+	for row = 0, 1 do
+		for k = 0, 9 do
+			PartKit.Box(model, "Chequer", Vector3.new(3, 0.07, 1.6), CFrame.new(mx - TW / 2 + 1.5 + k * 3, fy + 0.035, gz - 0.8 + row * 1.6), if (k + row) % 2 == 0 then WHITE else BLACK, SMOOTH, DECOR)
+		end
 	end
-	local beam = PartKit.Box(model, "GantryBeam", Vector3.new(79, 4, 3), CFrame.new(cx, fy + 26, gz), STEEL, METAL)
-	PartKit.Sign(beam, Enum.NormalId.Back, "◀  START  ▶", WHITE, nil, Enum.Font.GothamBlack, 8)
+	for row = 0, 3 do
+		for _, col in { -1, 1 } do
+			local gx, gzz = mx + col * 7, gz + 9 + row * 14 + (if col > 0 then 7 else 0)
+			paint(Vector3.new(gx - 4, 0, gzz - 3), Vector3.new(gx + 4, 0, gzz - 3), 0.5, WHITE, "GridBox")
+			paint(Vector3.new(gx - 4, 0, gzz - 3), Vector3.new(gx - 4, 0, gzz + 3), 0.5, WHITE, "GridBox")
+			paint(Vector3.new(gx + 4, 0, gzz - 3), Vector3.new(gx + 4, 0, gzz + 3), 0.5, WHITE, "GridBox")
+		end
+	end
+	-- the gantry over the line: two towers and a beam with five start lights
+	for _, side in { -1, 1 } do
+		PartKit.Box(model, "GantryTower", Vector3.new(3, 26, 3), CFrame.new(mx + side * 19, fy + 13, gz), STEEL, METAL)
+		PartKit.Box(model, "GantryFoot", Vector3.new(5, 1, 5), CFrame.new(mx + side * 19, fy + 0.5, gz), Color3.fromRGB(200, 200, 196), CONCRETE)
+	end
+	local beam = PartKit.Box(model, "GantryBeam", Vector3.new(41, 4, 3), CFrame.new(mx, fy + 26, gz), STEEL, METAL)
+	PartKit.Sign(beam, Enum.NormalId.Back, "START", WHITE, nil, Enum.Font.GothamBlack, 8)
+	PartKit.Sign(beam, Enum.NormalId.Front, "FINISH", WHITE, nil, Enum.Font.GothamBlack, 8)
 	for k = -2, 2 do
 		-- (dark red until Client/DayNight counts them down on a Race Day; Index 1-5 left to right)
-		local lamp = PartKit.Ball(model, "StartLight", 1.6, Vector3.new(cx + k * 5, fy + 23, gz + 1.7), Color3.fromRGB(70, 18, 16), SMOOTH, DECOR)
+		local lamp = PartKit.Ball(model, "StartLight", 1.6, Vector3.new(mx + k * 4.5, fy + 23, gz + 1.7), Color3.fromRGB(70, 18, 16), SMOOTH, DECOR)
 		lamp:SetAttribute("Index", k + 3)
 	end
-	-- the grandstand along the west side, facing the line (its top row and roof inside the lot)
-	local gx = x0 + 26
+
+	-- the grandstand west of the main straight, facing it, and trackside boards in front of it
+	local sx = mx - TW / 2 - 12
+	local sLen, sMid = 150, gz + 10
 	for tier = 0, 5 do
-		PartKit.Box(model, "StandTier", Vector3.new(4, 1.5 + tier * 1.5, D * 0.5), CFrame.new(gx - tier * 4, fy + (1.5 + tier * 1.5) / 2, gz + 20), Color3.fromRGB(196, 196, 192), CONCRETE)
-		PartKit.Box(model, "StandSeats", Vector3.new(3.4, 0.5, D * 0.5 - 2), CFrame.new(gx - tier * 4, fy + 1.75 + tier * 1.5, gz + 20), if tier % 2 == 0 then RED else WHITE, SMOOTH, DECOR)
+		local h = 1.5 + tier * 1.5
+		PartKit.Box(model, "StandTier", Vector3.new(4, h, sLen), CFrame.new(sx - tier * 4, fy + h / 2, sMid), Color3.fromRGB(196, 196, 192), CONCRETE)
+		PartKit.Box(model, "StandSeats", Vector3.new(3.4, 0.5, sLen - 2), CFrame.new(sx - tier * 4, fy + h + 0.25, sMid), if tier % 2 == 0 then RED else WHITE, SMOOTH, DECOR)
 	end
-	PartKit.Box(model, "StandRoof", Vector3.new(28, 1, D * 0.52), CFrame.new(gx - 10, fy + 20, gz + 20), WHITE, METAL)
-	for _, dz in { -1, 1 } do
-		PartKit.Box(model, "StandPost", Vector3.new(1, 20, 1), CFrame.new(gx - 22, fy + 10, gz + 20 + dz * D * 0.24), STEEL, METAL)
+	PartKit.Box(model, "StandBack", Vector3.new(1, 12, sLen), CFrame.new(sx - 22.5, fy + 15, sMid), STEEL, METAL)
+	PartKit.Box(model, "StandRoof", Vector3.new(30, 1, sLen + 4), CFrame.new(sx - 10, fy + 22, sMid), WHITE, METAL)
+	for _, dz in { -1, 0, 1 } do
+		PartKit.Box(model, "StandPost", Vector3.new(1, 22, 1), CFrame.new(sx - 23, fy + 11, sMid + dz * (sLen / 2 - 2)), STEEL, METAL)
 	end
-	-- the pit garages along the east side, their doors facing the plaza (west)
-	local px = x1 - 16
+	for _, dz in { -40, 0, 40 } do
+		local at = Vector3.new(mx - TW / 2 - 5, fy + 2.75, gz + 10 + dz)
+		local face = PartKit.Box(model, "AdFace", Vector3.new(18, 3.5, 0.4), CFrame.lookAt(at, at + Vector3.new(1, 0, 0)), Color3.fromRGB(250, 250, 250), SMOOTH, NO_COLLIDE)
+		face:SetAttribute("AdKind", "Panel")
+		face:SetAttribute("AdSeed", rng:NextInteger(1, 1e6))
+		PartKit.Box(model, "BoardBack", Vector3.new(0.4, 4.5, 18.6), CFrame.new(at + Vector3.new(-0.4, -0.5, 0)), STEEL, METAL, DECOR)
+	end
+
+	-- the pit garages down the east side facing the back straight, the pit lane and its wall
+	local px = x1 - 14
 	local pd = D * 0.55
-	PartKit.Box(model, "PitGarages", Vector3.new(22, 16, pd), CFrame.new(px, fy + 8, cz + 10), Color3.fromRGB(230, 230, 232), CONCRETE)
-	PartKit.Box(model, "PitBand", Vector3.new(22.4, 2.4, pd + 0.4), CFrame.new(px, fy + 14.4, cz + 10), RED, SMOOTH, DECOR)
-	for k = 0, 3 do
-		local dz = cz + 10 - pd / 2 + pd * (k + 0.5) / 4
+	PartKit.Box(model, "PitGarages", Vector3.new(22, 16, pd), CFrame.new(px, fy + 8, cz), Color3.fromRGB(230, 230, 232), CONCRETE)
+	PartKit.Box(model, "PitRoof", Vector3.new(24, 1, pd + 2), CFrame.new(px, fy + 16.5, cz), STEEL, METAL)
+	PartKit.Box(model, "PitBand", Vector3.new(22.4, 2.4, pd + 0.4), CFrame.new(px, fy + 14.4, cz), RED, SMOOTH, DECOR)
+	for k = 0, 5 do
+		local dz = cz - pd / 2 + pd * (k + 0.5) / 6
 		local door = PartKit.Box(model, "RollUpDoor", Vector3.new(0.6, 11, 12), CFrame.new(px - 11.2, fy + 5.5, dz), Color3.fromRGB(200, 202, 206), METAL)
 		PartKit.Kit(door, "RollUpDoor", nil, "-X")
-		local num = PartKit.Box(model, "PitNumber", Vector3.new(0.2, 2.2, 3), CFrame.new(px - 11.3, fy + 12.5, dz), WHITE, SMOOTH, DECOR)
-		PartKit.Sign(num, Enum.NormalId.Left, tostring(k + 1), Color3.fromRGB(20, 20, 24), nil, Enum.Font.GothamBlack, 20)
+		local num = PartKit.Box(model, "PitNumber", Vector3.new(0.3, 2.2, 3), CFrame.new(px - 11.4, fy + 12.6, dz), WHITE, SMOOTH, DECOR)
+		PartKit.Sign(num, Enum.NormalId.Left, tostring(k + 1), BLACK, nil, Enum.Font.GothamBlack, 20)
 	end
-	-- an LED screen on the pit roof (Client/Billboards cycles the ads on it)
-	local screen = PartKit.Box(model, "AdFace", Vector3.new(30, 12, 0.6), CFrame.new(px, fy + 24, cz + 10) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(20, 20, 24), SMOOTH, NO_COLLIDE)
+	paint(Vector3.new(px - 23, 0, cz - pd / 2), Vector3.new(px - 23, 0, cz + pd / 2), 0.6, GOLD)
+	PartKit.Box(model, "PitWall", Vector3.new(1.6, 3, pd - 30), CFrame.new(bx + TW / 2 + 3, fy + 1.5, cz), Color3.fromRGB(220, 220, 216), CONCRETE)
+	-- flags along the pit roof, and an LED screen on it facing the plaza
+	local flagColors = { RED, WHITE, GOLD, Color3.fromRGB(40, 110, 230) }
+	for k = 0, 5 do
+		local fz = cz - pd / 2 + 8 + k * (pd - 16) / 5
+		PartKit.Post(model, "FlagPole", 0.3, 9, Vector3.new(px + 9, fy + 17, fz), STEEL, METAL, DECOR)
+		PartKit.Box(model, "Flag", Vector3.new(0.1, 2.4, 3.6), CFrame.new(px + 9, fy + 24.6, fz + 1.9), flagColors[k % #flagColors + 1], Enum.Material.Fabric, DECOR)
+	end
+	local screen = PartKit.Box(model, "AdFace", Vector3.new(30, 12, 0.6), CFrame.new(px, fy + 25, cz) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(20, 20, 24), SMOOTH, NO_COLLIDE)
 	screen:SetAttribute("AdKind", "Screen")
 	screen:SetAttribute("AdSeed", rng:NextInteger(1, 1e6))
-	PartKit.Box(model, "ScreenFrame", Vector3.new(31, 13, 0.4), CFrame.new(px + 0.6, fy + 24, cz + 10) * CFrame.Angles(0, math.rad(90), 0), STEEL, METAL)
+	PartKit.Box(model, "ScreenFrame", Vector3.new(31, 13, 0.4), CFrame.new(px + 0.6, fy + 25, cz) * CFrame.Angles(0, math.rad(90), 0), STEEL, METAL)
 	for _, dz in { -10, 10 } do
-		PartKit.Box(model, "ScreenLeg", Vector3.new(0.8, 8, 0.8), CFrame.new(px + 1, fy + 20, cz + 10 + dz), STEEL, METAL)
+		PartKit.Box(model, "ScreenLeg", Vector3.new(0.8, 8, 0.8), CFrame.new(px + 1, fy + 20.5, cz + dz), STEEL, METAL)
 	end
-	-- the race desk by the line
-	local deskAt = Vector3.new(cx + 48, fy, gz + 14)
-	local desk = PartKit.Box(model, "RaceDesk", Vector3.new(10, 4, 3), CFrame.new(deskAt + Vector3.new(0, 2, 0)), RED, SMOOTH)
-	local deskSign = PartKit.Box(model, "RaceDeskSign", Vector3.new(9, 2.2, 0.3), CFrame.new(deskAt + Vector3.new(0, 6.8, -1)), STEEL, SMOOTH, DECOR)
-	PartKit.Sign(deskSign, Enum.NormalId.Back, "RACES", WHITE, nil, Enum.Font.GothamBlack, 12)
+
+	-- light towers at the corners (Globe lenses: lit at night)
+	for _, corner in { Vector3.new(x0 + 10, 0, z0 + 10), Vector3.new(x1 - 10, 0, z0 + 10), Vector3.new(x0 + 10, 0, z1 - 10), Vector3.new(x1 - 10, 0, z1 - 10) } do
+		local base = Vector3.new(corner.X, fy, corner.Z)
+		PartKit.Post(model, "LightTower", 1.4, 40, base, STEEL, METAL)
+		local toward = (Vector3.new(cx, 0, cz) - corner).Unit
+		local head = base + Vector3.new(0, 40, 0)
+		PartKit.Box(model, "LightBank", Vector3.new(8, 3.4, 1.2), CFrame.lookAt(head, head + toward) * CFrame.Angles(math.rad(-20), 0, 0), STEEL, METAL, DECOR)
+		PartKit.Box(model, "Globe", Vector3.new(7.2, 2.6, 0.3), CFrame.lookAt(head, head + toward) * CFrame.Angles(math.rad(-20), 0, 0) * CFrame.new(0, 0, -0.7), Color3.fromRGB(255, 246, 225), Enum.Material.Neon, DECOR)
+	end
+
+	-- the infield: the race desk by the grid, the timing tower, the podium
+	local desk = PartKit.Box(model, "RaceDesk", Vector3.new(3, 4, 10), CFrame.new(mx + TW / 2 + 10, fy + 2, gz + 16), RED, SMOOTH)
+	local deskSign = PartKit.Box(model, "RaceDeskSign", Vector3.new(0.3, 2.2, 9), CFrame.new(mx + TW / 2 + 11.2, fy + 6.6, gz + 16), STEEL, SMOOTH, DECOR)
+	PartKit.Sign(deskSign, Enum.NormalId.Left, "🏁 RACES", WHITE, nil, Enum.Font.GothamBlack, 12)
+	for _, dz in { -4.2, 4.2 } do
+		PartKit.Box(model, "RaceDeskPost", Vector3.new(0.3, 3, 0.3), CFrame.new(mx + TW / 2 + 11.2, fy + 4.4, gz + 16 + dz), STEEL, METAL, DECOR)
+	end
 	prompt(desk, "RacePrompt", "Race", "Race desk")
-	-- tyre walls round the plaza's corners
-	for _, corner in { Vector3.new(x0 + 6, 0, z0 + 6), Vector3.new(x1 - 6, 0, z0 + 6), Vector3.new(x0 + 6, 0, z1 - 6), Vector3.new(x1 - 6, 0, z1 - 6) } do
+	local tower = PartKit.Box(model, "TimingTower", Vector3.new(5, 30, 5), CFrame.new(mx + R, fy + 15, gz - 24), BLACK, SMOOTH)
+	PartKit.Sign(tower, Enum.NormalId.Left, "P1\nP2\nP3\nP4\nP5\nP6\nP7\nP8", GOLD, nil, Enum.Font.GothamBlack, 6)
+	PartKit.Box(model, "TowerCap", Vector3.new(5.6, 1.2, 5.6), CFrame.new(mx + R, fy + 30.6, gz - 24), RED, SMOOTH, DECOR)
+	local podium = Vector3.new(mx + R + 6, fy, gz + 70)
+	local steps: { { Z: number, H: number, Place: string } } = { { Z = 0, H = 4.5, Place = "1" }, { Z = 8, H = 3, Place = "2" }, { Z = -8, H = 2, Place = "3" } }
+	for _, step in steps do
+		local box = PartKit.Box(model, "Podium", Vector3.new(6, step.H, 8), CFrame.new(podium + Vector3.new(0, step.H / 2, step.Z)), WHITE, SMOOTH)
+		PartKit.Sign(box, Enum.NormalId.Left, step.Place, BLACK, nil, Enum.Font.GothamBlack, 20)
+	end
+	local backdrop = PartKit.Box(model, "PodiumBackdrop", Vector3.new(0.5, 10, 28), CFrame.new(podium + Vector3.new(4, 5, 0)), BLACK, SMOOTH)
+	PartKit.Sign(backdrop, Enum.NormalId.Left, "🏆 RACE PLAZA 🏆", GOLD, nil, Enum.Font.GothamBlack, 8)
+	-- tyre stacks in the lot's corners, and the plaza's sign by the south street
+	for _, corner in { Vector3.new(x0 + 6, 0, z0 + 22), Vector3.new(x1 - 6, 0, z0 + 22), Vector3.new(x0 + 6, 0, z1 - 22), Vector3.new(x1 - 6, 0, z1 - 22) } do
 		for k = 0, 2 do
-			PartKit.Post(model, "TyreStack", 3, 2.4, Vector3.new(corner.X, fy + k * 0.01, corner.Z) + Vector3.new(k * 2.6 * math.sign(cx - corner.X), 0, 0), Color3.fromRGB(24, 24, 26), Enum.Material.Rubber)
+			PartKit.Post(model, "TyreStack", 3, 2.4, Vector3.new(corner.X + k * 2.6 * math.sign(cx - corner.X), fy, corner.Z), Color3.fromRGB(24, 24, 26), Enum.Material.Rubber)
 		end
 	end
 	local plazaSign = PartKit.Box(model, "RacePlazaSign", Vector3.new(34, 6, 1.2), CFrame.new(cx, fy + 3, z1 - 6), STEEL, SMOOTH)

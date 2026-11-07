@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Layout = require(Shared.City.Layout)
 local Missions = require(Shared.Missions)
 
@@ -29,8 +30,9 @@ end
 
 Regulars.Spots = {
 	{ Giver = "Nina", Place = "Spawn", Offset = Vector3.new(16, 0, 4), Outfit = { Torso = rgb(60, 62, 70), Arms = rgb(60, 62, 70), Legs = rgb(240, 120, 30), Cap = rgb(240, 120, 30) } },
-	-- (behind the dispatch desk: Layout.Places.Depot is 18 design studs in front of it)
-	{ Giver = "Marco", Place = "Depot", Offset = Vector3.new(0, 0, -33), Outfit = { Torso = rgb(245, 196, 30), Arms = rgb(24, 24, 28), Legs = rgb(40, 60, 110), Cap = rgb(245, 196, 30), Bag = rgb(24, 24, 28) } },
+	-- (inside the dispatch kiosk, behind its counter: Layout.Places.Depot is 18 design studs in front
+	-- of the counter, he stands 4.5 behind it)
+	{ Giver = "Marco", Place = "Depot", Offset = Vector3.new(0, 0, -22.5 * Config.WORLD_SCALE), Outfit = { Torso = rgb(245, 196, 30), Arms = rgb(24, 24, 28), Legs = rgb(40, 60, 110), Cap = rgb(245, 196, 30), Bag = rgb(24, 24, 28) } },
 	{ Giver = "Jet", Place = "JumpPark", Offset = Vector3.new(-14, 0, -6), Outfit = { Torso = rgb(20, 20, 24), Arms = rgb(20, 20, 24), Legs = rgb(200, 30, 40), Helmet = rgb(255, 120, 20) } },
 	{ Giver = "Reyes", Place = "Police", Offset = Vector3.new(12, 0, 10), Outfit = { Torso = rgb(28, 40, 80), Arms = rgb(28, 40, 80), Legs = rgb(20, 22, 30) } },
 } :: { Spot }
@@ -49,7 +51,8 @@ local function ground(at: Vector3): Vector3
 		end
 	end
 	params.FilterDescendantsInstances = ignore
-	local hit = Workspace:Raycast(at + Vector3.new(0, 40, 0), Vector3.new(0, -120, 0), params)
+	-- (from just above the spot first, so a roof over it, like the dispatch kiosk's, isn't the ground)
+	local hit = Workspace:Raycast(at + Vector3.new(0, 10, 0), Vector3.new(0, -40, 0), params) or Workspace:Raycast(at + Vector3.new(0, 40, 0), Vector3.new(0, -120, 0), params)
 	return if hit then hit.Position else at
 end
 

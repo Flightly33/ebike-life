@@ -1199,6 +1199,10 @@ local function make(K: number)
 	-- grounds and car park the rest)
 	Layout.DEALERSHIP_DEPTH = 330 * K
 	Layout.DEALERSHIP_WIDTH = 380 * K
+	-- the courier depot's dispatch counter (its front, from the lot's north edge) and the race
+	-- plaza's main straight (its centre line, from the lot's middle): Landmarks builds them there
+	Layout.DEPOT_DESK_Z = 104 * K
+	Layout.RACE_TRACK_X = -10 * K
 	local dealershipEast = (dealership.LotMinX + dealership.LotMaxX) / 2 + math.min(dealership.LotMaxX - dealership.LotMinX, Layout.DEALERSHIP_WIDTH) / 2
 
 	local beachZ = 180 * KS
@@ -1225,10 +1229,10 @@ local function make(K: number)
 		-- (south of the fountains)
 		Plaza = lotCenter(plaza) + Vector3.new(0, 0, 45 * K),
 		Park = lotCenter(bayPark) + Vector3.new(0, 0, 60 * K),
-		-- (in the yard, in front of the dispatch desk, where Marco stands; Landmarks.Depot)
-		Depot = Vector3.new((depot.LotMinX + depot.LotMaxX) / 2 + (depot.LotMaxX - depot.LotMinX) * 0.2, Layout.CURB_Y, depot.LotMinZ + 106 * K),
-		-- (behind the start line, between the grid's two columns; Landmarks.RaceHub)
-		RaceHub = lotCenter(raceHub) + Vector3.new(0, 0, -(raceHub.LotMaxZ - raceHub.LotMinZ) * 0.12 + 40 * K),
+		-- (in the yard, in front of the dispatch kiosk where Marco stands; Landmarks.Depot)
+		Depot = Vector3.new((depot.LotMinX + depot.LotMaxX) / 2 + (depot.LotMaxX - depot.LotMinX) * 0.2, Layout.CURB_Y, depot.LotMinZ + Layout.DEPOT_DESK_Z + 18 * K),
+		-- (on the grid behind the start line, between its two columns; Landmarks.RaceHub)
+		RaceHub = lotCenter(raceHub) + Vector3.new(Layout.RACE_TRACK_X, 0, -(raceHub.LotMaxZ - raceHub.LotMinZ) * 0.12 + 40 * K),
 		-- on the streets through them (their blocks are built up)
 		Downtown = Vector3.new(Layout.Line(5) + 180 * KS, Layout.ROAD_Y, Layout.Line(Layout.AVENUE_INDEX) + 12 * K),
 		Wynwood = Vector3.new(Layout.Line(6), Layout.ROAD_Y, Layout.Line(0) + 180 * KS),
