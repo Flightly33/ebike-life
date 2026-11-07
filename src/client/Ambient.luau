@@ -555,7 +555,11 @@ local function poseWalker(walker: Walker, now: number)
 	else
 		local dir = (walker.To - walker.From).Unit
 		local p = if state == "Wait" then walker.From else walker.From + dir * walker.T
-		root = CFrame.lookAt(p, p + dir)
+		if state == "Cross" and walker.T > INSET and walker.T < walker.Length - INSET then
+			-- off the kerb: down on the road between the pavements
+			p = Vector3.new(p.X, Layout.ROAD_Y, p.Z)
+		end
+		root = CFrame.lookAt(p, p + Vector3.new(dir.X, 0, dir.Z))
 		if state ~= "Wait" then
 			legSwing = math.sin(now * 7 + walker.Phase) * math.rad(26)
 			armSwing = legSwing * 0.8
