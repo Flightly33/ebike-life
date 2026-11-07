@@ -7,6 +7,7 @@
 local Bikes = require(script.Parent.Bikes)
 local Config = require(script.Parent.Config)
 local Controls = require(script.Parent.Controls)
+local Gear = require(script.Parent.Gear)
 local Modes = require(script.Parent.Modes)
 local Livery = require(script.Parent.Livery)
 local Paints = require(script.Parent.Paints)
@@ -59,6 +60,12 @@ export type Settings = {
 	Keys: { [string]: string }, -- rebound keyboard controls: action id -> KeyCode name (Shared/Controls)
 }
 
+-- Rider gear (Shared/Gear): what's owned, and what's worn in each slot ("Helmet" -> item id)
+export type GearSave = {
+	Owned: { [string]: boolean },
+	Worn: { [string]: string },
+}
+
 export type Data = {
 	Version: number,
 	Cash: number,
@@ -78,6 +85,7 @@ export type Data = {
 	Missions: { [string]: boolean }, -- story missions done (Shared/Missions)
 	BestTimes: { [string]: number }, -- best time trial per course, seconds (Shared/Races)
 	Daily: Daily,
+	Gear: GearSave,
 }
 
 function Profile.Default(): Data
@@ -100,6 +108,7 @@ function Profile.Default(): Data
 		Missions = {},
 		BestTimes = {},
 		Daily = { LastLogin = 0, Streak = 0, Day = 0, Week = 0, Progress = {}, WeekProgress = {}, Claimed = {} },
+		Gear = { Owned = { h_open = true }, Worn = {} }, -- (everyone has the free open-face helmet)
 	}
 end
 
@@ -233,6 +242,24 @@ function Profile.Sanitize(saved: any): Data
 			for id, claimed in d.Claimed do
 				if type(id) == "string" and claimed == true then
 					out.Claimed[id] = true
+				end
+			end
+		end
+	end
+	if type(saved.Gear) == "table" then
+		local g = saved.Gear
+		if type(g.Owned) == "table" then
+			for id, owned in g.Owned do
+				if owned == true and Gear.Get(id) then
+					data.Gear.Owned[id] = true
+				end
+			end
+		end
+		if type(g.Worn) == "table" then
+			for slot, id in g.Worn do
+				local item = Gear.Get(id)
+				if Gear.IsSlot(slot) and item and item.Slot == slot and data.Gear.Owned[id] then
+					data.Gear.Worn[slot] = id
 				end
 			end
 		end

@@ -2,7 +2,8 @@
 	Phone: the in-game phone (` backquote, or the 📱 tile on the HUD): a handset with a wallpaper that
 	follows the time of day, a status bar (clock, signal, the bike's battery), a big lock-screen
 	clock with the weather, a grid of twelve apps that open the menus (Play for missions, jobs,
-	races, dailies and events; Map, My Rides, Dealer, Garage, Modes, Crates, Shop, Stats, Ranks,
+	races, dailies, events and the leaderboards; Map, My Rides, Dealer, Garage, Modes, Crates, Shop,
+	Stats, Gear (rider gear),
 	Messages for texts from the regulars, Settings), a dock, and red badges with what's waiting:
 	rewards to claim on Play, achievements on Stats, unread texts on Messages (UI/init counts them).
 	Built like a Panel so UI.Open shows and hides it.
@@ -40,7 +41,7 @@ local APPS: { App } = {
 	{ Name = "Crates", Icon = "🎁", Top = rgb(220, 120, 255), Bottom = rgb(140, 50, 200), Opens = "Crates" },
 	{ Name = "Shop", Icon = "💵", Top = rgb(140, 240, 90), Bottom = rgb(50, 160, 40), Opens = "Shop" },
 	{ Name = "Stats", Icon = "🏆", Top = rgb(255, 220, 80), Bottom = rgb(230, 150, 20), Opens = "Stats" },
-	{ Name = "Ranks", Icon = "📊", Top = rgb(120, 200, 255), Bottom = rgb(60, 90, 220), Opens = "Ranks" },
+	{ Name = "Gear", Icon = "🪖", Top = rgb(255, 150, 90), Bottom = rgb(200, 70, 40), Opens = "Gear" },
 	{ Name = "Messages", Icon = "💬", Top = rgb(110, 230, 120), Bottom = rgb(30, 170, 70), Opens = "Messages" },
 	{ Name = "Settings", Icon = "⚙️", Top = rgb(120, 130, 150), Bottom = rgb(60, 66, 80), Opens = "Menus" },
 }

@@ -737,6 +737,21 @@ do
 	world:Run(0.6)
 	shot("menu_Activities")
 	UI.Open("Activities")
+	-- the regulars stand where you'd find them, each with a Talk prompt; Nina's "!" is lit while
+	-- her tutorial is still open
+	local regulars = WS:FindFirstChild("Regulars")
+	local talking = 0
+	for _, model in regulars and regulars:GetChildren() or {} do
+		local prompt = model:FindFirstChild("TalkPrompt", true)
+		if prompt and prompt:GetAttribute("Giver") == model.Name then
+			talking += 1
+		end
+	end
+	check(talking == 4, string.format("Nina, Marco, Jet and Reyes are out with Talk prompts (%d)", talking))
+	world:Run(1.2)
+	local nina = regulars and regulars:FindFirstChild("Nina")
+	local mark = nina and nina:FindFirstChild("NameTag") and nina.NameTag:FindFirstChild("Ready")
+	check(mark ~= nil and mark.Visible == true, "Nina has a mission ready (the tutorial), so her ! is lit")
 	onDevices(function(device, w, h)
 		shot("device_" .. device .. "_hud", w, h)
 		for _, name in { "Phone", "Activities", "Map" } do
@@ -900,9 +915,57 @@ check(ok == true and data.Owned.halo_gt == true, "admin owns every bike (" .. to
 ok, message = invoke(AdminRemote, "wanted", 3)
 world:Run(0.5)
 check(ok == true and player:GetAttribute("Wanted") == 3, "admin sets 3 stars (" .. tostring(player:GetAttribute("Wanted")) .. ")")
+do
+	-- from two stars a police moto joins the chase: its officer rides it, it closes in, it leans
+	world:Run(2)
+	local moto: any = nil
+	for _, car in WS:WaitForChild("Vehicles"):GetChildren() do
+		if car:GetAttribute("Moto") == true then
+			moto = car
+		end
+	end
+	check(moto ~= nil and moto:GetAttribute("Pursuit") == true and moto:FindFirstChild("OfficerHelmet") ~= nil, "a police moto with its officer joins a 3-star chase")
+	if moto then
+		local root = moto.PrimaryPart
+		local me = rig.PrimaryPart.Position
+		local before = (root.Position - me).Magnitude
+		world:Run(4)
+		local after = (root.Position - rig.PrimaryPart.Position).Magnitude
+		local upright = root.CFrame.UpVector.Y
+		check(after < before or after < 120, string.format("the moto closes in (%.0f -> %.0f studs)", before, after))
+		check(upright > 0.75, string.format("and stays up, leaning at most ~40 degrees (up %.2f)", upright))
+	end
+end
 ok, message = invoke(AdminRemote, "wanted", 0)
 world:Run(0.5)
 check(ok == true and player:GetAttribute("Wanted") == 0, "admin clears the chase")
+do
+	-- rider gear: buy a helmet (it goes straight on), wear the free one, take it off
+	local GearRemote = ClientRemotes.Function("Gear")
+	ok, message = invoke(GearRemote, "Buy", "h_full")
+	world:Run(0.3)
+	local folder = rig:FindFirstChild("Gear")
+	local helmetPart = folder and folder:FindFirstChild("GearHelmet")
+	check(ok == true and data.Gear.Owned.h_full == true and data.Gear.Worn.Helmet == "h_full" and helmetPart ~= nil and helmetPart:GetAttribute("FirstPersonHide") == true, "bought a full-face helmet and it's on (" .. tostring(message) .. ")")
+	ok = invoke(GearRemote, "Buy", "h_full")
+	check(ok ~= true, "gear is bought once")
+	ok, message = invoke(GearRemote, "Wear", "j_leather")
+	check(ok ~= true, "gear you don't own can't be worn (" .. tostring(message) .. ")")
+	ok = invoke(GearRemote, "Buy", "j_courier")
+	ok = invoke(GearRemote, "Buy", "b_mx")
+	world:Run(0.3)
+	folder = rig:FindFirstChild("Gear")
+	check(folder ~= nil and folder:FindFirstChild("GearJacket") ~= nil and folder:FindFirstChild("GearBoot") ~= nil, "the courier jacket and MX boots are on too")
+	shot("hud_gear")
+	ok = invoke(GearRemote, "TakeOff", "Helmet")
+	world:Run(0.3)
+	folder = rig:FindFirstChild("Gear")
+	check(ok == true and data.Gear.Worn.Helmet == nil and folder ~= nil and folder:FindFirstChild("GearHelmet") == nil, "and the helmet comes off")
+	UI.Open("Gear")
+	world:Run(0.4)
+	shot("menu_Gear")
+	UI.Open("Gear")
+end
 ok, message = invoke(AdminRemote, "teleport", "JumpPark")
 check(ok == true, "admin teleport (" .. tostring(message) .. ")")
 ok, message = invoke(AdminRemote, "bike", "halo_gt")

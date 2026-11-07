@@ -24,6 +24,7 @@
 		SetSetup(bikeId, values)          the mechanic's free setup (Shared/Setup), at Flighty Garage
 		ClaimAchievement(id)              pays an achievement's reward once its goal is met
 		Order(counter, itemId)            buy off a shop counter's menu (OrderService checks you're at it)
+		Gear(action, id)                  rider gear: "Buy" or "Wear" an item id, "TakeOff" a slot
 		Activity(action, a, b)            missions, delivery jobs, races, dailies, leaderboards
 		                                  (ObjectiveService routes it: "Overview", "StartMission",
 		                                  "StartJob", "StartTrial", "JoinRace", "LeaveRace", "Cancel",
@@ -70,7 +71,7 @@ local EVENTS = {
 	"Message",
 }
 local UNRELIABLE = { "BikeState" }
-local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "SetLivery", "SetSetup", "OpenCrate", "BuyBoost", "Order", "ClaimAchievement", "GetProfile", "Admin", "Activity" }
+local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "SetLivery", "SetSetup", "OpenCrate", "BuyBoost", "Order", "ClaimAchievement", "GetProfile", "Admin", "Activity", "Gear" }
 
 local Remotes = {}
 

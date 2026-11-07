@@ -426,6 +426,24 @@ do
 	check(Dailies.Claimable(stale, t) == 0, "yesterday's progress doesn't count today")
 end
 
+-- Rider gear: unique ids, every slot stocked, sane prices, and the save keeps only what's owned
+do
+	local Gear = Loader.Require("ReplicatedStorage.Shared.Gear")
+	local seenGear, ok = {}, true
+	for _, item in Gear.List do
+		ok = ok and not seenGear[item.Id] and Gear.IsSlot(item.Slot) and item.Price >= 0 and item.Level >= 1 and item.Style ~= ""
+		seenGear[item.Id] = true
+	end
+	for _, slot in Gear.Slots do
+		ok = ok and #Gear.ForSlot(slot) >= 2
+	end
+	check(ok, string.format("%d gear items: unique ids, every slot stocked", #Gear.List))
+	local fresh = Profile.Default()
+	check(fresh.Gear.Owned.h_open == true and next(fresh.Gear.Worn) == nil, "everyone owns the free helmet, nobody wears anything to start")
+	local clean = Profile.Sanitize({ Gear = { Owned = { h_mx = true, nope = true }, Worn = { Helmet = "h_mx", Jacket = "j_leather", Boots = "h_open" } } }).Gear
+	check(clean.Owned.h_mx == true and clean.Owned.nope == nil and clean.Worn.Helmet == "h_mx" and clean.Worn.Jacket == nil and clean.Worn.Boots == nil, "the save wears only owned gear, each in its own slot")
+end
+
 if failures > 0 then
 	print(string.format("%d consistency check(s) failed", failures))
 	process.exit(1)

@@ -342,6 +342,12 @@ Config.Police = {
 	PursuitSpeed = { 24, 26, 28, 30, 33 }, -- m/s top speed per star (86 to 119 km/h)
 	PursuitAccel = { 5.5, 6, 6.5, 7, 7.5 }, -- m/s²
 	Units = { 1, 2, 3, 4, 5 }, -- cars chasing per star
+	-- Moto units (Bikes.PoliceMoto): quicker and nimbler than the cars; they tail and pace, never
+	-- set roadblocks or send officers out on foot
+	MotoUnits = { 0, 1, 1, 2, 2 }, -- motos chasing per star
+	MotoSpeed = { 28, 30, 32, 35, 38 }, -- m/s top speed per star (101 to 137 km/h)
+	MotoAccel = { 8, 8.5, 9, 9.5, 10 }, -- m/s²
+	MotoGap = 24, -- studs a moto keeps behind a moving rider
 	-- Tactics
 	-- no PIT or ramming: police don't use contact on motorcycles (it's deadly force)
 	FollowGap = 45, -- studs the chasing car keeps behind a moving rider (to its centre: a cruiser is ~27 long)

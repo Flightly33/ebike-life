@@ -329,7 +329,7 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 		local kit = geo.Kit or "Dirt"
 		local plateFrame = CFrame.fromMatrix(scale(lampAt + Vector3.new(0, 0.02, -0.02)), Vector3.xAxis, g.Axis, Vector3.xAxis:Cross(g.Axis))
 		local lampColor = Color3.fromRGB(255, 250, 230)
-		if kit == "Street" or kit == "Chopper" then
+		if kit == "Street" or kit == "Chopper" or kit == "Cargo" then
 			-- round headlight in a chrome bowl, mirrors on stalks
 			local lamp = lampAt + Vector3.new(0, 0.03, -0.03)
 			cyl(b, "Steer", "LampBowl", 0.17, 0.1, CFrame.new(scale(lamp)) * CFrame.Angles(0, math.pi / 2, 0), nil, if kit == "Chopper" then SILVER else BLACK, METAL)
@@ -341,9 +341,13 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 				cyl(b, "Steer", "Mirror", 0.09, 0.02, CFrame.new(scale(head + Vector3.new(0, 0.03, 0))) * CFrame.Angles(0, math.pi / 2, 0), nil, BLACK)
 			end
 		else
-			-- number plate with an LED (bigger, twin lamps on the enduro), white boards on the supermoto
-			box(b, "Steer", "NumberPlate", Vector3.new(0.24 * VIS, 0.2 * VIS, 0.03 * VIS), plateFrame, if kit == "Supermoto" then nil else "Accent", if kit == "Supermoto" then Color3.fromRGB(240, 240, 240) else nil)
-			if kit == "Enduro" then
+			-- number plate with an LED (bigger, twin lamps on the enduro and the police bike), white
+			-- boards on the supermoto, a small bare plate on the trials bike
+			local plateSize = if kit == "Trials" then Vector3.new(0.2 * VIS, 0.16 * VIS, 0.02 * VIS) else Vector3.new(0.24 * VIS, 0.2 * VIS, 0.03 * VIS)
+			box(b, "Steer", "NumberPlate", plateSize, plateFrame, if kit == "Supermoto" or kit == "Trials" then nil else "Accent", if kit == "Supermoto" or kit == "Trials" then Color3.fromRGB(240, 240, 240) else nil)
+			if kit == "Trials" then
+				-- (no lamp: a trials bike carries none)
+			elseif kit == "Enduro" or kit == "Police" then
 				for _, side in { -1, 1 } do
 					neon(b, "Steer", "Headlight", Vector3.new(0.06 * VIS, 0.06 * VIS, 0.02 * VIS), CFrame.new(scale(lampAt + Vector3.new(side * 0.04, 0.0, -0.045))), lampColor)
 				end
@@ -351,7 +355,24 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 				neon(b, "Steer", "Headlight", Vector3.new(0.12 * VIS, 0.05 * VIS, 0.02 * VIS), CFrame.new(scale(lampAt + Vector3.new(0, 0.0, -0.045))), lampColor)
 			end
 		end
-		if kit == "Enduro" then
+		if kit == "Cargo" then
+			-- the front rack: a tray on two stays from the head stock, over the lamp
+			local trayAt = lampAt + Vector3.new(0, 0.17, -0.12)
+			box(b, "Steer", "FrontRack", Vector3.new(0.34 * VIS, 0.02 * VIS, 0.26 * VIS), CFrame.new(scale(trayAt)), nil, BLACK, METAL)
+			for _, side in { -1, 1 } do
+				tube(b, "Steer", "RackStay", scale(g.HT + Vector3.new(side * 0.06, -0.03, 0)), scale(trayAt + Vector3.new(side * 0.14, -0.01, 0.1)), 0.018, nil, BLACK, METAL)
+				tube(b, "Steer", "RackRail", scale(trayAt + Vector3.new(side * 0.16, 0.025, 0.12)), scale(trayAt + Vector3.new(side * 0.16, 0.025, -0.12)), 0.014, nil, BLACK, METAL)
+			end
+		elseif kit == "Police" then
+			-- a tall screen over the lamps, red and blue strobes either side of it (Visuals flashes
+			-- LightRed / LightBlue while the unit is in pursuit)
+			local screen = box(b, "Steer", "Windscreen", Vector3.new(0.32 * VIS, 0.3 * VIS, 0.008 * VIS), plateFrame * CFrame.new(0, 0.24 * VIS, 0.02 * VIS) * CFrame.Angles(math.rad(-10), 0, 0), nil, Color3.fromRGB(190, 210, 230))
+			screen.Transparency = 0.55
+			for _, side in { -1, 1 } do
+				neon(b, "Steer", if side < 0 then "LightRed" else "LightBlue", Vector3.new(0.05 * VIS, 0.035 * VIS, 0.02 * VIS), plateFrame * CFrame.new(side * 0.14 * VIS, 0.06 * VIS, -0.025 * VIS), if side < 0 then Color3.fromRGB(255, 30, 40) else Color3.fromRGB(40, 90, 255))
+			end
+		end
+		if kit == "Enduro" or kit == "Police" then
 			-- hand guards
 			for _, side in { -1, 1 } do
 				local gripAt = g.Bars + Vector3.new(side * (geo.BarWidth / 2 - 0.06), 0.05, 0)
@@ -359,10 +380,10 @@ local function frontEnd(b: Builder, bike: Bikes.Bike, g: Geo, moto: boolean)
 			end
 		end
 		-- front fender: high on the dirt bikes, hugging the tyre on the road ones
-		if kit == "Supermoto" or kit == "Street" or kit == "Chopper" then
+		if kit == "Supermoto" or kit == "Street" or kit == "Chopper" or kit == "Cargo" then
 			-- a flat chord over the tyre: its ends at +-0.2 m are already below the top, so it clears
 			local fTop = g.FrontAxle + Vector3.new(0, g.Rf + 0.045, 0)
-			bar(b, "Fork", "Fender", scale(fTop + Vector3.new(0, 0, 0.16)), scale(fTop + Vector3.new(0, 0, -0.2)), geo.TireWidth + 0.04, 0.012, if kit == "Street" then "Frame" else "Accent")
+			bar(b, "Fork", "Fender", scale(fTop + Vector3.new(0, 0, 0.16)), scale(fTop + Vector3.new(0, 0, -0.2)), geo.TireWidth + 0.04, 0.012, if kit == "Street" or kit == "Cargo" then "Frame" else "Accent")
 		else
 			-- high fender right under the lower crown, clear of the tyre over the fork's travel; where the
 			-- fork is short of that (its length is capped by the bars) it sits higher, ahead of the crown
@@ -611,15 +632,53 @@ local function moto(b: Builder, bike: Bikes.Bike, g: Geo)
 	local tankRear = Vector3.new(0, seatH - 0.05, caseRearZ - 0.02)
 	bar(b, frame, "Tank", scale(tankFront), scale(tankRear), 0.22, 0.09, frame)
 	local caseBack = Vector3.new(0, seatH - 0.12, caseRearZ)
-	-- seat
-	local seatFront = Vector3.new(0, seatH - 0.02, caseBack.Z - 0.1)
-	local seatBack = Vector3.new(0, seatH + 0.04, g.RearAxle.Z - 0.05)
-	bar(b, frame, "SeatPad", scale(seatFront), scale(seatBack), 0.22, 0.08, nil, Color3.fromRGB(28, 28, 30))
-	-- tail section
-	bar(b, frame, "Tail", scale(seatBack + Vector3.new(0, -0.035, -0.05)), scale(seatBack + Vector3.new(0, 0.02, 0.32)), 0.16, 0.05, frame)
-	neon(b, frame, "Taillight", Vector3.new(0.08 * VIS, 0.03 * VIS, 0.015 * VIS), CFrame.new(scale(seatBack + Vector3.new(0, -0.03, 0.33))), Color3.fromRGB(255, 30, 30))
 	local kit = bike.Geometry.Kit or "Dirt"
-	if kit == "Street" or kit == "Chopper" then
+	-- seat (a short thin pad on the trials bike: its rider mostly stands)
+	local seatFront = Vector3.new(0, seatH - 0.02, caseBack.Z - 0.1)
+	local seatBack = Vector3.new(0, seatH + 0.04, g.RearAxle.Z - (if kit == "Trials" then 0.24 else 0.05))
+	bar(b, frame, "SeatPad", scale(seatFront), scale(seatBack), if kit == "Trials" then 0.16 else 0.22, if kit == "Trials" then 0.045 else 0.08, nil, Color3.fromRGB(28, 28, 30))
+	-- tail section (stubby on the trials bike)
+	-- (the trials tail kicks up steeply: its seat is low over a tall rear tyre)
+	local tailLength = if kit == "Trials" then 0.14 else 0.32
+	local tailRise = if kit == "Trials" then 0.12 else 0.02
+	bar(b, frame, "Tail", scale(seatBack + Vector3.new(0, -0.035, -0.05)), scale(seatBack + Vector3.new(0, tailRise, tailLength)), if kit == "Trials" then 0.12 else 0.16, 0.05, frame)
+	neon(b, frame, "Taillight", Vector3.new(0.08 * VIS, 0.03 * VIS, 0.015 * VIS), CFrame.new(scale(seatBack + Vector3.new(0, tailRise - 0.05, tailLength + 0.01))), Color3.fromRGB(255, 30, 30))
+	if bike.Geometry.Shrouds then
+		-- radiator shrouds down the tank's sides, a dark grille in each
+		for _, side in { -1, 1 } do
+			local at = tankFront:Lerp(tankRear, 0.25) + Vector3.new(side * 0.13, -0.09, 0)
+			local cf = CFrame.new(scale(at)) * CFrame.Angles(math.rad(-25), side * math.rad(8), 0)
+			box(b, frame, "Shroud", Vector3.new(0.025 * VIS, 0.2 * VIS, 0.24 * VIS), cf, frame)
+			box(b, frame, "RadiatorGrille", Vector3.new(0.012 * VIS, 0.14 * VIS, 0.17 * VIS), cf * CFrame.new(side * 0.014 * VIS, 0, 0), nil, DARK, METAL)
+		end
+	end
+	if kit == "Cargo" then
+		-- a flat rack over the rear wheel with a top box on it, the plate hung under
+		local deck = seatBack + Vector3.new(0, 0.0, 0.2)
+		box(b, frame, "RearRack", Vector3.new(0.3 * VIS, 0.02 * VIS, 0.44 * VIS), CFrame.new(scale(deck)), nil, BLACK, METAL)
+		for _, side in { -1, 1 } do
+			tube(b, frame, "RackStay", scale(deck + Vector3.new(side * 0.13, -0.01, 0.18)), scale(g.RearAxle + Vector3.new(side * (bike.Geometry.TireWidth / 2 + 0.06), 0.1, 0.02)), 0.02, nil, BLACK, METAL)
+		end
+		local boxAt = deck + Vector3.new(0, 0.15, 0.04)
+		box(b, frame, "TopBox", Vector3.new(0.36 * VIS, 0.28 * VIS, 0.38 * VIS), CFrame.new(scale(boxAt)), "Accent")
+		box(b, frame, "TopBoxLid", Vector3.new(0.37 * VIS, 0.03 * VIS, 0.39 * VIS), CFrame.new(scale(boxAt + Vector3.new(0, 0.15, 0))), frame)
+		local plate = deck + Vector3.new(0, -0.16, 0.24)
+		box(b, frame, "Plate", Vector3.new(0.16 * VIS, 0.11 * VIS, 0.008 * VIS), CFrame.new(scale(plate)), nil, Color3.fromRGB(240, 240, 240))
+	elseif kit == "Police" then
+		-- panniers either side of the tail, a light bar on a mast behind the seat
+		for _, side in { -1, 1 } do
+			local case = seatBack + Vector3.new(side * 0.2, -0.17, 0.08)
+			box(b, frame, "Pannier", Vector3.new(0.13 * VIS, 0.26 * VIS, 0.38 * VIS), CFrame.new(scale(case)), frame)
+			box(b, frame, "PannierStripe", Vector3.new(0.135 * VIS, 0.05 * VIS, 0.39 * VIS), CFrame.new(scale(case + Vector3.new(side * 0.002, 0.04, 0))), "Accent")
+		end
+		local mastFoot = seatBack + Vector3.new(0, -0.02, 0.14)
+		local mastTop = mastFoot + Vector3.new(0, 0.3, 0.04)
+		tube(b, frame, "LightMast", scale(mastFoot), scale(mastTop), 0.025, nil, BLACK, METAL)
+		box(b, frame, "LightBarBase", Vector3.new(0.3 * VIS, 0.03 * VIS, 0.06 * VIS), CFrame.new(scale(mastTop)), nil, BLACK)
+		for _, side in { -1, 1 } do
+			neon(b, frame, if side < 0 then "LightRed" else "LightBlue", Vector3.new(0.13 * VIS, 0.045 * VIS, 0.05 * VIS), CFrame.new(scale(mastTop + Vector3.new(side * 0.075, 0.035, 0))), if side < 0 then Color3.fromRGB(255, 30, 40) else Color3.fromRGB(40, 90, 255))
+		end
+	elseif kit == "Street" or kit == "Chopper" then
 		-- tail tidy with the plate
 		local plate = seatBack + Vector3.new(0, -0.2, 0.36)
 		box(b, frame, "PlateHanger", Vector3.new(0.05 * VIS, 0.16 * VIS, 0.02 * VIS), CFrame.new(scale(plate + Vector3.new(0, 0.1, -0.02))), nil, BLACK)

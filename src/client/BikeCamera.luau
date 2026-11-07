@@ -124,7 +124,7 @@ local function setHeadHidden(on: boolean)
 		for _, d in character:GetDescendants() do
 			if d:IsA("BasePart") then
 				local accessory = d:FindFirstAncestorOfClass("Accessory")
-				if d.Name == "Head" or accessory then
+				if d.Name == "Head" or accessory or d:GetAttribute("FirstPersonHide") == true then
 					hidden[d] = d.LocalTransparencyModifier
 					d.LocalTransparencyModifier = 1
 				end

@@ -68,9 +68,28 @@ local function meshes(model: any): { any }
 	return out
 end
 
+-- every bike on sale (and the police moto) has its Blender model
+do
+	local missing = {}
+	for _, bike in Bikes.List do
+		if Manifest[bike.Id] == nil then
+			table.insert(missing, bike.Id)
+		end
+	end
+	if Manifest[Bikes.PoliceMoto.Id] == nil then
+		table.insert(missing, Bikes.PoliceMoto.Id)
+	end
+	check(#missing == 0, "every bike is in the Blender manifest (missing: " .. table.concat(missing, ", ") .. ")")
+end
+
 for _, bike in Bikes.List do
 	local model = BikeModel.Build(bike, nil)
 	local list = meshes(model)
+	if Manifest[bike.Id] == nil then
+		-- (a bike the Blender build hasn't modelled yet stays part-built)
+		check(#list == 0 and model:FindFirstChildOfClass("Seat") ~= nil and model:FindFirstChild("GripL", true) ~= nil, bike.Id .. ": no meshes yet, so it stays part-built")
+		continue
+	end
 	check(#list == #Manifest[bike.Id], string.format("%s: %d meshes placed", bike.Id, #list))
 	local welded, wheel, steer, crank, fork, swing = 0, 0, 0, 0, 0, 0
 	for _, part in list do

@@ -64,6 +64,12 @@ function RiderLook.Apply(character: Model, effect: string?)
 	end
 	local state: Saved = { Transparency = {}, Colors = {}, Decals = {}, Added = {} }
 	saved[character] = state
+	-- (rider gear comes off while the look is on: GearService puts it back after)
+	character:SetAttribute("RiderLook", effect)
+	local gear = character:FindFirstChild("Gear")
+	if gear then
+		gear:Destroy()
+	end
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then
 			local inAccessory = d:FindFirstAncestorOfClass("Accessory") ~= nil
@@ -211,6 +217,7 @@ function RiderLook.Clear(character: Model)
 		return
 	end
 	saved[character] = nil
+	character:SetAttribute("RiderLook", nil)
 	for part, value in state.Transparency do
 		if part.Parent then
 			part.Transparency = value

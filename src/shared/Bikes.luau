@@ -5,6 +5,9 @@
 	mid-mounted motor driving the rear wheel by chain, real peak power and pack sizes at real voltages
 	and real weights, from a 2 kW youth pit bike to 25 kW (the top of the class), plus the Deathrider.
 	They're off-road machines; the cops take an interest when they're ridden over 45 km/h on the street.
+	Phase 3 added a utility cargo bike (delivery jobs pay more on it), a trials bike and a flagship
+	street bike on a full-size light e-moto's powertrain (45 kW). The police ride their own e-moto
+	(Bikes.PoliceMoto, not for sale).
 
 	Physics reads these through BikeStats.Compute, which also applies the player's tuning upgrades.
 ]]
@@ -15,7 +18,9 @@ export type Style = "City" | "Folding" | "Cruiser" | "Cargo" | "Fat" | "Hardtail
 -- E-moto body kits: a youth pit bike, a dirt bike (high fender, number plate), a supermoto (low
 -- fender, number boards), an enduro (headlight, hand guards), a street bike (round / LED headlight,
 -- mirrors, tail tidy) and a chopper (the Deathrider)
-export type Kit = "Pit" | "Dirt" | "Supermoto" | "Enduro" | "Street" | "Chopper"
+-- Phase 3: a utility cargo bike (racks front and back, a top box), a trials bike (a pad for a seat,
+-- tiny tail) and the police moto (windscreen, light bar, panniers)
+export type Kit = "Pit" | "Dirt" | "Supermoto" | "Enduro" | "Street" | "Chopper" | "Cargo" | "Trials" | "Police"
 export type Rarity = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Cursed"
 
 export type Geometry = {
@@ -30,6 +35,7 @@ export type Geometry = {
 	Kit: Kit?, -- e-moto body kit (fenders, lights, plates, tail)
 	FrontTravel: number?, -- suspension travel at the wheel, m (the maker's figure)
 	RearTravel: number?,
+	Shrouds: boolean?, -- radiator shrouds on the tank's sides (a liquid-cooled motor)
 }
 
 export type Bike = {
@@ -369,6 +375,42 @@ local list: { Bike } = {
 		Colors = { Frame = Color3.fromRGB(245, 120, 20), Accent = Color3.fromRGB(20, 20, 22), Rims = Color3.fromRGB(25, 25, 28) },
 	},
 	{
+		Id = "hauler_c",
+		Name = "Hauler C",
+		Type = "Utility Cargo E-Moto",
+		Blurb = "9 kW and a 3.5 kWh pack on a load frame with racks front and back and a top box, 97 kg, 90 km/h. Delivery jobs pay a quarter more on it.",
+		Price = 22000,
+		Level = 16,
+		Rarity = "Epic",
+		Class = "Off-road",
+		LegalKmh = 45,
+		MaxKmh = 90,
+		Drive = "Mid-mount PMSM",
+		NominalW = 6000,
+		PeakW = 9000,
+		TorqueNm = 55,
+		WheelTorqueNm = 330,
+		Volts = 52,
+		BatteryWh = 3500,
+		WeightKg = 97,
+		Throttle = true,
+		Pedals = false,
+		Brakes = "Hydraulic disc, 3-piston",
+		BrakeG = 0.85,
+		Suspension = "150 mm fork, mono shock",
+		Tires = "90/90-17 / 110/80-17 road",
+		TireKind = "Road",
+		CdA = 0.62,
+		Crr = 0.016,
+		Regen = 0.12,
+		HopSpeed = 3.4,
+		Landing = 0.6,
+		AirControl = 0.85,
+		WheeliePop = 0.85,
+		Geometry = { Style = "Moto", Kit = "Cargo", WheelDiameter = 0.6, TireWidth = 0.09, Wheelbase = 1.4, SeatHeight = 0.8, BarHeight = 1.06, BarWidth = 0.76, FrontTravel = 0.15, RearTravel = 0.14 },
+		Colors = { Frame = Color3.fromRGB(240, 190, 30), Accent = Color3.fromRGB(32, 32, 36), Rims = Color3.fromRGB(30, 30, 32) },
+	},
+	{
 		Id = "nova_n",
 		Name = "Nova N",
 		Type = "Naked Street E-Moto",
@@ -403,6 +445,42 @@ local list: { Bike } = {
 		WheeliePop = 1.1,
 		Geometry = { Style = "Moto", Kit = "Street", WheelDiameter = 0.62, TireWidth = 0.11, Wheelbase = 1.32, SeatHeight = 0.82, BarHeight = 1.04, BarWidth = 0.74, FrontTravel = 0.13, RearTravel = 0.12 },
 		Colors = { Frame = Color3.fromRGB(20, 22, 26), Accent = Color3.fromRGB(0, 210, 255), Rims = Color3.fromRGB(20, 22, 26) },
+	},
+	{
+		Id = "pulse_tr",
+		Name = "Pulse TR",
+		Type = "Trials E-Moto",
+		Blurb = "11 kW peak (6 kW rated) from a 50 V, 1.9 kWh pack in 73 kg, on 21/18 inch trials tyres. Barely a seat, all grip: the hop and wheelie king.",
+		Price = 33000,
+		Level = 20,
+		Rarity = "Legendary",
+		Class = "Off-road",
+		LegalKmh = 45,
+		MaxKmh = 65,
+		Drive = "Mid-mount PMSM",
+		NominalW = 6000,
+		PeakW = 11000,
+		TorqueNm = 40,
+		WheelTorqueNm = 420,
+		Volts = 50,
+		BatteryWh = 1875,
+		WeightKg = 73,
+		Throttle = true,
+		Pedals = false,
+		Brakes = "4-piston / 2-piston disc",
+		BrakeG = 0.95,
+		Suspension = "175 mm fork, 170 mm shock",
+		Tires = "2.75-21 / 4.00-18 trials",
+		TireKind = "Knobby",
+		CdA = 0.5,
+		Crr = 0.02,
+		Regen = 0.12,
+		HopSpeed = 5,
+		Landing = 0.75,
+		AirControl = 1.25,
+		WheeliePop = 1.45,
+		Geometry = { Style = "Moto", Kit = "Trials", WheelDiameter = 0.71, RearWheelDiameter = 0.66, TireWidth = 0.1, Wheelbase = 1.32, SeatHeight = 0.7, BarHeight = 1.05, BarWidth = 0.82, FrontTravel = 0.175, RearTravel = 0.17 },
+		Colors = { Frame = Color3.fromRGB(250, 250, 250), Accent = Color3.fromRGB(255, 120, 0), Rims = Color3.fromRGB(28, 28, 30) },
 	},
 	{
 		Id = "storm_x",
@@ -549,6 +627,42 @@ local list: { Bike } = {
 		Colors = { Frame = Color3.fromRGB(245, 245, 245), Accent = Color3.fromRGB(255, 40, 60), Rims = Color3.fromRGB(255, 40, 60) },
 	},
 	{
+		Id = "apex_r",
+		Name = "Apex R",
+		Type = "Flagship Street E-Moto",
+		Blurb = "A full-size light e-moto: 45 kW, 900 Nm at the wheel and a 7.2 kWh magnesium pack in 124 kg, liquid cooled, on 17 inch street tyres. 150 km/h.",
+		Price = 220000,
+		Level = 42,
+		Rarity = "Mythic",
+		Class = "Off-road",
+		LegalKmh = 45,
+		MaxKmh = 150,
+		Drive = "Liquid-cooled PMAC",
+		NominalW = 22000,
+		PeakW = 45000,
+		TorqueNm = 150,
+		WheelTorqueNm = 900,
+		Volts = 360,
+		BatteryWh = 7200,
+		WeightKg = 124,
+		Throttle = true,
+		Pedals = false,
+		Brakes = "Radial 4-piston, 310 mm",
+		BrakeG = 1.1,
+		Suspension = "48 mm fork, 290 mm; linkage shock, 300 mm",
+		Tires = "120/70-17 / 160/60-17 street",
+		TireKind = "Road",
+		CdA = 0.55,
+		Crr = 0.014,
+		Regen = 0.2,
+		HopSpeed = 4.2,
+		Landing = 0.66,
+		AirControl = 1.05,
+		WheeliePop = 1.35,
+		Geometry = { Style = "Moto", Kit = "Supermoto", Shrouds = true, WheelDiameter = 0.62, RearWheelDiameter = 0.63, TireWidth = 0.13, Wheelbase = 1.48, SeatHeight = 0.93, BarHeight = 1.12, BarWidth = 0.82, FrontTravel = 0.29, RearTravel = 0.3 },
+		Colors = { Frame = Color3.fromRGB(22, 24, 28), Accent = Color3.fromRGB(0, 200, 255), Rims = Color3.fromRGB(22, 22, 24) },
+	},
+	{
 		Id = "deathrider",
 		Name = "Deathrider",
 		Type = "Cursed Electric Cruiser",
@@ -588,6 +702,46 @@ local list: { Bike } = {
 }
 
 Bikes.List = list
+
+-- The police e-moto: PoliceService's moto units ride it (CarDriver drives it like a car, it leans
+-- into turns); never sold, so it isn't on the list. An enduro on Storm-class power with a screen,
+-- a light bar and panniers.
+Bikes.PoliceMoto = {
+	Id = "police_moto",
+	Name = "Interceptor",
+	Type = "Police E-Moto",
+	Blurb = "20 kW, a 5 kWh pack at 96 V, 110 kg with the screen, the light bar and the panniers.",
+	Price = 0,
+	Level = 999,
+	Rarity = "Common",
+	Class = "Off-road",
+	LegalKmh = 45,
+	MaxKmh = 120,
+	Drive = "Mid-mount PMSM",
+	NominalW = 10000,
+	PeakW = 20000,
+	TorqueNm = 90,
+	WheelTorqueNm = 480,
+	Volts = 96,
+	BatteryWh = 5000,
+	WeightKg = 110,
+	Throttle = true,
+	Pedals = false,
+	Brakes = "4-piston disc, ABS",
+	BrakeG = 1.0,
+	Suspension = "220 mm fork, linkage shock",
+	Tires = "90/90-21 / 130/80-18 dual-sport",
+	TireKind = "Road",
+	CdA = 0.6,
+	Crr = 0.015,
+	Regen = 0.15,
+	HopSpeed = 3.8,
+	Landing = 0.62,
+	AirControl = 0.9,
+	WheeliePop = 1.0,
+	Geometry = { Style = "Moto", Kit = "Police", WheelDiameter = 0.7, RearWheelDiameter = 0.66, TireWidth = 0.1, Wheelbase = 1.38, SeatHeight = 0.86, BarHeight = 1.1, BarWidth = 0.8, FrontTravel = 0.22, RearTravel = 0.22 },
+	Colors = { Frame = Color3.fromRGB(245, 245, 248), Accent = Color3.fromRGB(20, 60, 170), Rims = Color3.fromRGB(26, 26, 28) },
+} :: Bike
 Bikes.ById = {} :: { [string]: Bike }
 for index, bike in list do
 	Bikes.ById[bike.Id] = bike

@@ -45,6 +45,7 @@ local BikeService = require(script.Parent.BikeService)
 local EconomyService = require(script.Parent.EconomyService)
 local CarDriver = require(script.Parent.CarDriver)
 local Officer = require(script.Parent.Officer)
+local PoliceMoto = require(script.Parent.PoliceMoto)
 
 local PoliceService = {}
 
@@ -67,6 +68,7 @@ type Unit = {
 	RoadblockAt: number,
 	Spikes: BasePart?,
 	Officers: { Model },
+	Moto: boolean, -- a moto unit (PoliceMoto): tails and paces, no roadblocks, no officers on foot
 }
 
 type Watch = {
@@ -145,7 +147,27 @@ local function spawnUnit(start: CFrame, extra: boolean): Unit
 	driver.TopSpeed = C.PatrolSpeed
 	driver.Accel = 4
 	driver.ObeyLights = true
-	local unit: Unit = { Driver = driver, Target = nil, Extra = extra, ReleasedAt = 0, Role = "Patrol", InterceptNode = nil, InterceptAt = 0, RoadblockAt = 0, Spikes = nil, Officers = {} }
+	local unit: Unit = { Driver = driver, Target = nil, Extra = extra, ReleasedAt = 0, Role = "Patrol", InterceptNode = nil, InterceptAt = 0, RoadblockAt = 0, Spikes = nil, Officers = {}, Moto = false }
+	table.insert(units, unit)
+	return unit
+end
+
+-- A moto unit, brought in for a chase (always an extra: they go home when it's over)
+local function spawnMoto(start: CFrame): Unit
+	local built = PoliceMoto.Build()
+	local model = built.Model
+	model:SetAttribute("Pursuit", false)
+	local driver = CarDriver.new(model, "PoliceMoto", start, rng)
+	driver.Moto = true
+	driver.Lift = built.Lift
+	driver.HalfLength = built.HalfLength
+	driver.HalfWidth = built.HalfWidth
+	model.Parent = vehicles
+	CarDriver.Claim(driver)
+	driver.TopSpeed = C.MotoSpeed[1]
+	driver.Accel = C.MotoAccel[1]
+	driver.ObeyLights = false
+	local unit: Unit = { Driver = driver, Target = nil, Extra = true, ReleasedAt = 0, Role = "Lead", InterceptNode = nil, InterceptAt = 0, RoadblockAt = 0, Spikes = nil, Officers = {}, Moto = true }
 	table.insert(units, unit)
 	return unit
 end
@@ -185,10 +207,21 @@ local function patrol(unit: Unit)
 	CarDriver.Cruise(driver, from, Layout.OtherEnd(edge, from))
 end
 
+-- the cars chasing a player (the motos are counted on their own)
 local function chasersOf(player: Player): number
 	local count = 0
 	for _, unit in units do
-		if unit.Target == player then
+		if unit.Target == player and not unit.Moto then
+			count += 1
+		end
+	end
+	return count
+end
+
+local function motosOf(player: Player): number
+	local count = 0
+	for _, unit in units do
+		if unit.Target == player and unit.Moto then
 			count += 1
 		end
 	end
@@ -212,8 +245,13 @@ local function assign(unit: Unit, player: Player, stars: number)
 	unit.Target = player
 	local driver = unit.Driver
 	driver.Model:SetAttribute("Pursuit", true)
-	driver.TopSpeed = C.PursuitSpeed[math.clamp(stars, 1, #C.PursuitSpeed)]
-	driver.Accel = C.PursuitAccel[math.clamp(stars, 1, #C.PursuitAccel)]
+	if unit.Moto then
+		driver.TopSpeed = C.MotoSpeed[math.clamp(stars, 1, #C.MotoSpeed)]
+		driver.Accel = C.MotoAccel[math.clamp(stars, 1, #C.MotoAccel)]
+	else
+		driver.TopSpeed = C.PursuitSpeed[math.clamp(stars, 1, #C.PursuitSpeed)]
+		driver.Accel = C.PursuitAccel[math.clamp(stars, 1, #C.PursuitAccel)]
+	end
 	driver.ObeyLights = false
 end
 
@@ -269,6 +307,15 @@ local function dispatch(player: Player, stars: number)
 			local unit = spawnUnit(start, true)
 			assign(unit, player, stars)
 		end
+	end
+	-- and the motos, from two stars: in from out of sight like the extra cars
+	local motos = C.MotoUnits[math.clamp(stars, 1, #C.MotoUnits)]
+	while motosOf(player) < motos and totalChasers() < 14 do
+		local nodeId = entryNode(position)
+		local node = Layout.Nodes[nodeId]
+		local look = Vector3.new(position.X - node.Position.X, 0, position.Z - node.Position.Z)
+		local start = CFrame.lookAt(node.Position, node.Position + (if look.Magnitude > 1 then look.Unit else Vector3.new(0, 0, -1)))
+		assign(spawnMoto(start), player, stars)
 	end
 end
 
@@ -558,7 +605,7 @@ local function tick(dt: number)
 
 		-- Keep the chasers coming if some were lost, but only while someone can see them: dispatch
 		-- doesn't know where a rider who's broken line of sight has gone
-		if w.Heat.Stars > 0 and os.clock() - w.SeenAt < 3 and chasersOf(player) < math.min(C.Units[w.Heat.Stars], C.MaxPursuers) then
+		if w.Heat.Stars > 0 and os.clock() - w.SeenAt < 3 and (chasersOf(player) < math.min(C.Units[w.Heat.Stars], C.MaxPursuers) or motosOf(player) < C.MotoUnits[math.clamp(w.Heat.Stars, 1, #C.MotoUnits)]) then
 			dispatch(player, w.Heat.Stars)
 		end
 		if w.Heat.Stars >= C.RoadblockStars and riding and w.Seen and os.clock() - w.RoadblockAt > 20 then
@@ -575,7 +622,7 @@ local function tick(dt: number)
 			local stopped = bailed or not riding or kmh < C.DeployKmh
 			if stopped then
 				for _, unit in units do
-					if unit.Target == player and #unit.Officers == 0 and (unit.Driver.Position - position).Magnitude < C.DeployRange then
+					if unit.Target == player and not unit.Moto and #unit.Officers == 0 and (unit.Driver.Position - position).Magnitude < C.DeployRange then
 						deployOfficers(unit, position)
 						break
 					end
@@ -619,6 +666,9 @@ local function assignRoles(now: number)
 			end)
 			for i, unit in list do
 				unit.Role = if i == 1 then "Lead" elseif i == 2 then "Flank" else "Intercept"
+				if unit.Moto and unit.Role == "Intercept" then
+					unit.Role = "Flank" -- (a moto paces: it doesn't block crossings)
+				end
 			end
 		end
 	end
@@ -696,7 +746,7 @@ local function driveTactics(unit: Unit, player: Player, position: Vector3, veloc
 	local moving = flat.Magnitude / Config.STUDS_PER_METER * 3.6 > C.BoxInKmh
 	if moving and role ~= "Flank" then
 		-- tail at a safe gap, never into the bike
-		aim = position - flat.Unit * C.FollowGap
+		aim = position - flat.Unit * (if unit.Moto then C.MotoGap else C.FollowGap)
 	end
 	if role == "Flank" and visible and distance < 140 * MAP then
 		-- ride alongside, on the side the car is already on

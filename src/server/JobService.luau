@@ -19,6 +19,7 @@ local Objectives = require(Shared.Objectives)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 
+local BikeService = require(script.Parent.BikeService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local ObjectiveService = require(script.Parent.ObjectiveService)
@@ -35,6 +36,7 @@ JobService.REFRESH = 150 -- seconds an offer list lasts
 JobService.BASE = 140
 JobService.PER_STUD = 0.1
 JobService.LEVEL = 0.03 -- pay per level
+JobService.CARGO_BONUS = 1.25 -- delivered on a cargo bike (Bikes kit "Cargo": the Hauler C)
 JobService.KMH = 30 -- the average speed the time limit allows for
 JobService.SPARE = 75 -- seconds on top
 local MAP = Config.MAP_SCALE / 1.25
@@ -185,7 +187,9 @@ function JobService.Start(player: Player, index: any): (boolean, string)
 			local spare = math.clamp((run.Ends - t) / offer.TimeLimit, 0, 1)
 			local rush = Events.Multiplier(t, "Jobs")
 			local tip = math.floor(offer.Pay * 0.5 * spare * (if run.Crashes == 0 then 1 else 0.4))
-			local total = math.floor((offer.Pay + tip) * rush)
+			local ride = BikeService.Get(who)
+			local cargo = if ride and ride.Riding and ride.Bike.Geometry.Kit == "Cargo" then JobService.CARGO_BONUS else 1
+			local total = math.floor((offer.Pay + tip) * rush * cargo)
 			EconomyService.Reward(who, total, objective.Reward.Xp, if tip > 0 then string.format("Delivery + $%d tip", tip) else "Delivery")
 			local data = DataService.Get(who)
 			if data then
@@ -193,7 +197,7 @@ function JobService.Start(player: Player, index: any): (boolean, string)
 				DataService.Changed(who)
 			end
 			JobService.Delivered:Fire(who, total)
-			Remotes.Event("Notify"):FireClient(who, "Cash", string.format("📦 Delivered! $%d%s%s", offer.Pay, if tip > 0 then string.format(" + $%d tip", tip) else "", if rush > 1 then " · Courier Rush x2" else ""), total)
+			Remotes.Event("Notify"):FireClient(who, "Cash", string.format("📦 Delivered! $%d%s%s%s", offer.Pay, if tip > 0 then string.format(" + $%d tip", tip) else "", if rush > 1 then " · Courier Rush x2" else "", if cargo > 1 then string.format(" · cargo bike +%d%%", math.floor((cargo - 1) * 100 + 0.5)) else ""), total)
 		end,
 	})
 	return true, objective.Title

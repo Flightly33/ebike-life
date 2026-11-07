@@ -30,6 +30,7 @@ import meshkit as K  # noqa: E402
 import emoto  # noqa: E402
 import citykit  # noqa: E402
 import facadekit  # noqa: E402
+import gearkit  # noqa: E402
 import realism_pack  # noqa: E402
 import vegetation  # noqa: E402
 from meshkit import B, Vector as V  # noqa: E402,F401
@@ -1341,6 +1342,8 @@ def main():
         facadekit.build_all()
         for name, paint in facadekit.PAINT.items():
             colors[name] = {"Paint": paint}
+        # the rider gear shells (Shared/Gear: GearService swaps them in for its part-built shells)
+        gearkit.build_all()
     manifest = K.build_objects()
     if kits:
         # the trees and palms (textured, built with their own UVs) and the PBR library's images
@@ -1367,7 +1370,7 @@ def main():
         if ob.parent is None and ob.type == "EMPTY":
             if ob.name == "Realism_Swatches":
                 groups["Textures"].append(ob)
-            elif ob.name.startswith("Kit_"):
+            elif ob.name.startswith("Kit_") or ob.name.startswith("Gear_"):
                 groups["CityKit"].append(ob)
             else:
                 groups["Vehicles"].append(ob)

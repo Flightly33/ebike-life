@@ -63,6 +63,10 @@ export type Driver = {
 	Force: VectorForce,
 	Rng: Random,
 	Alive: boolean,
+	-- a moto unit (PoliceMoto): its pivot sits Lift studs up, and it leans into turns
+	Lift: number,
+	Moto: boolean,
+	Lean: number,
 }
 
 CarDriver.All = {} :: { Driver }
@@ -134,6 +138,9 @@ function CarDriver.new(model: Model, kind: CarModel.Kind, start: CFrame, rng: Ra
 		Force = force,
 		Rng = rng,
 		Alive = true,
+		Lift = 0,
+		Moto = false,
+		Lean = 0,
 	}, CarDriver) :: any
 	table.insert(CarDriver.All, self)
 	return self
@@ -484,6 +491,11 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 	end
 	self.Yaw = wrap(self.Yaw + yawRate * dt)
 	dir = forward(self.Yaw)
+	if self.Moto then
+		-- lean into the turn: the angle that balances it (tan = v * turn rate / g), eased in
+		local want = math.clamp(math.atan(self.Speed * yawRate / 9.81), -0.65, 0.65)
+		self.Lean += (want - self.Lean) * math.min(1, dt * 6)
+	end
 
 	-- Move, stopping at walls
 	local delta = dir * (self.Speed * STUDS * dt)
@@ -522,7 +534,8 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 		self.StuckTime = math.max(0, self.StuckTime - dt)
 	end
 
-	local cf = CFrame.new(self.Position) * CFrame.fromEulerAnglesYXZ(0, self.Yaw, 0) * CFrame.Angles(self.Pitch, 0, 0)
+	-- (a moto rolls about its tyres' contact, then stands its pivot up off the road)
+	local cf = CFrame.new(self.Position) * CFrame.fromEulerAnglesYXZ(0, self.Yaw, 0) * CFrame.Angles(self.Pitch, 0, self.Lean) * CFrame.new(0, self.Lift, 0)
 	self.Model:PivotTo(cf)
 	self.Root.AssemblyLinearVelocity = dir * (self.Speed * STUDS)
 	self.Root.AssemblyAngularVelocity = Vector3.zero

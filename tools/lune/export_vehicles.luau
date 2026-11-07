@@ -19,8 +19,18 @@ local function c(col: any): { number }
 	return { col.R, col.G, col.B }
 end
 
-local out = { Bikes = {}, Cars = CarModel.Dims, VisualStudsPerMeter = 0.8 / 0.28, CarScale = CarModel.SCALE }
-for _, bike in Bikes.List do
+-- (the bus and the box van stay part-built for now: a generic Blender car shell would replace their
+-- cargo box, doors and signs)
+local cars = {}
+for kind, dims in CarModel.Dims do
+	if kind ~= "Bus" and kind ~= "BoxVan" then
+		cars[kind] = dims
+	end
+end
+local bikes = table.clone(Bikes.List)
+table.insert(bikes, Bikes.PoliceMoto) -- the police units' moto (not for sale, modelled all the same)
+local out = { Bikes = {}, Cars = cars, VisualStudsPerMeter = 0.8 / 0.28, CarScale = CarModel.SCALE }
+for _, bike in bikes do
 	local g = BikeModel.Geometry(bike)
 	local geo = bike.Geometry
 	table.insert(out.Bikes, {

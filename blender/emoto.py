@@ -47,6 +47,9 @@ FAMILY = {
     "storm_x": "Storm", "storm_xr": "Storm", "viper_sm": "Storm",
     "scout_e": "Box", "halo_gt": "Box",
     "flit_s": "Cafe", "nova_n": "Cafe", "deathrider": "Cafe",
+    # Phase 3: the cargo bike and the police moto on the Box's battery frame, the trials bike on
+    # the Bee's slim one, the flagship on the Storm's plastics
+    "hauler_c": "Box", "police_moto": "Box", "pulse_tr": "Bee", "apex_r": "Storm",
 }
 FRAME_SLOT = {"Bee": "Metal", "Sting": "Black", "Storm": "Dark", "Box": "Black", "Cafe": "Black"}
 
@@ -73,6 +76,12 @@ STYLE = {
     "flit_s": {"Head": "round", "Tail": "tidy", "Graphic": "none", "Guards": False},
     "nova_n": {"Head": "round", "Tail": "tidy", "Graphic": "split", "Guards": False},
     "deathrider": {"Head": "round", "Tail": "tidy", "Graphic": "none", "Guards": False},
+    # FrontRack a tray over the lamp; Trials a pad for a seat and a kicked-up stub of a tail (Head
+    # none: no lamp); Panniers / Screen side cases and a tall screen (the police moto)
+    "hauler_c": {"Head": "round", "Tail": "tidy", "Graphic": "none", "Guards": False, "Rack": True, "TopBox": True, "FrontRack": True},
+    "pulse_tr": {"Head": "none", "Tail": "trials", "Graphic": "stripes", "Guards": False, "Trials": True},
+    "apex_r": {"Head": "hex", "Tail": "tidy", "Graphic": "chevrons", "Guards": False},
+    "police_moto": {"Head": "twin", "Tail": "mx", "Graphic": "none", "Guards": True, "Panniers": True, "Screen": True},
 }
 
 
@@ -123,7 +132,7 @@ def build(k, P, cockpit, caliper_unused=None):
     Tf = k.get("FrontTravel", 0.2)
     Tr = k.get("RearTravel", 0.2)
     knobby = k["TireKind"] in ("Knobby", "Fat", "Moto")
-    road_kit = kit in ("Supermoto", "Street", "Chopper")
+    road_kit = kit in ("Supermoto", "Street", "Chopper", "Cargo")
     F = lambda slot, bm: K.put("Frame", slot, bm)  # noqa: E731
     S = lambda slot, bm: K.put("Steer", slot, bm)  # noqa: E731
     FK = lambda slot, bm: K.put("Fork", slot, bm)  # noqa: E731
@@ -312,13 +321,17 @@ def build(k, P, cockpit, caliper_unused=None):
 
     # the seat: long, flat, slim at the front, its top at the rider's seat point
     seat_f = Vector((0, rear_top.y + 0.13, sh - 0.035))
-    seat_b = Vector((0, RA.y + 0.03, sh + 0.025))
+    trials = style.get("Trials", False)
+    seat_b = Vector((0, RA.y + (0.24 if trials else 0.03), sh + (0.012 if trials else 0.025)))
     secs = []
     for i in range(10):
         f = i / 9
         p = seat_f + (seat_b - seat_f) * f
         hw = 0.06 + 0.055 * min(1.0, f * 3) - 0.015 * max(0.0, f - 0.85) / 0.15
         hh = 0.03 + 0.016 * min(1.0, f * 2.5)
+        if trials:
+            hw *= 0.8
+            hh *= 0.6
         if fam == "Cafe":
             hw += 0.012
             hh += 0.03 * max(0.0, f - 0.7) / 0.3  # the tail hump
@@ -336,7 +349,10 @@ def build(k, P, cockpit, caliper_unused=None):
     over_tyre = max(sh + 0.0, RA.z + Rr + 0.8 * Tr + 0.04)
     rf0 = Vector((0, rear_top.y - 0.12, sh - 0.065))
     rf1 = Vector((0, RA.y + 0.02, over_tyre - 0.005))
-    rf2 = Vector((0, RA.y - (0.12 if style["Tail"] == "tidy" else 0.22), over_tyre + (0.03 if style["Tail"] == "tidy" else 0.06)))
+    if style["Tail"] == "trials":
+        rf2 = Vector((0, RA.y - 0.04, over_tyre + 0.15))
+    else:
+        rf2 = Vector((0, RA.y - (0.12 if style["Tail"] == "tidy" else 0.22), over_tyre + (0.03 if style["Tail"] == "tidy" else 0.06)))
     F("Frame", K.loft([(rf0, 0.08, 0.02, 3), (rf0 + (rf1 - rf0) * 0.5 + Z * 0.012, 0.1, 0.024, 3), (rf1, 0.095, 0.022, 3), (rf2, 0.055, 0.014, 3)], 24, True, axis="Y"))
     lamp = rf2 + Y * -0.005 - Z * 0.018
     F("Black", K.rbox(lamp, (0.075, 0.02, 0.03), 0.008))
@@ -373,6 +389,14 @@ def build(k, P, cockpit, caliper_unused=None):
             F("Metal", K.rbox(box_c - Y * 0.162 + Z * 0.05, (0.04, 0.006, 0.02), 0.004))  # lock
             F("Leather", K.rbox(box_c + Y * 0.162 + Z * 0.0, (0.2, 0.025, 0.12), 0.02))  # backrest pad
             F("Black", K.rbox(box_c - Z * 0.128, (0.2, 0.2, 0.012), 0.004))  # base plate
+    if style.get("Panniers"):
+        for side in (-1, 1):
+            case = Vector((side * 0.2, RA.y + 0.05, over_tyre - 0.16))
+            F("Frame", K.rbox(case, (0.12, 0.38, 0.26), 0.03))
+            F("Accent", K.rbox(case + X * side * 0.061, (0.004, 0.36, 0.05), 0.003))
+            F("Black", K.rbox(case + Z * 0.12, (0.125, 0.385, 0.015), 0.004))  # lid seal
+            F("NeonRed", K.rbox(case - Y * 0.19 - Z * 0.04, (0.06, 0.004, 0.025), 0.004))  # reflector
+            F("Black", K.sweep([Vector((side * 0.07, RA.y + 0.12, sh - 0.08)), case + X * -side * 0.06 + Z * 0.08], 0.008, 8))  # bracket
     if kit == "Supermoto" or fam == "Storm":
         for side in (-1, 1):
             board = K.spline2d([(rf0.y - 0.02, sh - 0.07), (rf1.y + 0.12, over_tyre - 0.03), (rf1.y + 0.1, over_tyre - 0.16), (rf0.y - 0.08, sh - 0.2)], 4)
@@ -561,7 +585,7 @@ def build(k, P, cockpit, caliper_unused=None):
     # round headlight with mirrors (street / chopper); fenders high or low
     plate_c = (HB + HT) / 2 + fwd_perp * 0.1 + AX * 0.02
     plate_rot = K.frame_rot(X, fwd_perp, AX)
-    if kit in ("Street", "Chopper"):
+    if kit in ("Street", "Chopper", "Cargo"):
         lamp_at = plate_c + fwd_perp * 0.02 + AX * 0.03
         bowl = "Chrome" if kit == "Chopper" else "Black"
         S(bowl, K.lathe(lamp_at, fwd_perp, [(-0.085, 0), (-0.085, 0.04), (-0.06, 0.08), (0.0, 0.095), (0.012, 0.09), (0.012, 0)], 36))
@@ -578,7 +602,7 @@ def build(k, P, cockpit, caliper_unused=None):
             S("NeonAmber", K.sphere(lamp_at + X * side * 0.17 - fwd_perp * 0.02, 0.014, 10, 6))
     else:
         shield = K.spline2d([(-0.13, 0.11), (0.0, 0.135), (0.13, 0.11), (0.125, -0.06), (0.06, -0.13), (-0.06, -0.13), (-0.125, -0.06)], 6)
-        plate_slot = "White" if kit == "Supermoto" else "Accent"
+        plate_slot = "White" if kit in ("Supermoto", "Trials") else "Accent"
         S(plate_slot, K.prism(shield, 0.012, plate_c - fwd_perp * 0.006, X, AX, fwd_perp, 0.003))
         head = style["Head"]
         lens = plate_c + fwd_perp * 0.012 - AX * 0.04
@@ -599,6 +623,8 @@ def build(k, P, cockpit, caliper_unused=None):
             S("NeonWhite", K.rbox(lens - AX * 0.01 + fwd_perp * 0.002, (0.17, 0.004, 0.012), 0.004, plate_rot))
             for side in (-1, 1):
                 S("NeonCyan", K.rbox(plate_c + fwd_perp * 0.013 + X * side * 0.105 + AX * 0.02, (0.012, 0.004, 0.09), 0.004, plate_rot))
+        elif head == "none":
+            pass  # (a trials bike carries no lamp)
         else:
             S("Black", K.rbox(plate_c + fwd_perp * 0.008 - AX * 0.04, (0.17, 0.006, 0.075), 0.015, plate_rot))
             S("NeonWhite", K.rbox(lens, (0.15, 0.004, 0.022), 0.008, plate_rot))
@@ -615,7 +641,7 @@ def build(k, P, cockpit, caliper_unused=None):
         for i in range(9):
             a = math.radians(-35 + i * 14)
             pts.append(FA + Y * (math.sin(a) * r) + Z * (math.cos(a) * r))
-        FK("Frame" if kit == "Street" else "Accent", K.sweep(pts, 0, 16, profile=(tw / 2 + 0.025, 0.006), n=4))
+        FK("Frame" if kit in ("Street", "Cargo") else "Accent", K.sweep(pts, 0, 16, profile=(tw / 2 + 0.025, 0.006), n=4))
         for side in (-1, 1):
             FK("Black", K.bar(FA + X * side * (tw / 2 + 0.03) + Z * 0.06, pts[4] + X * side * (tw / 2 + 0.02), 0.012, 0.02, 0.003))
     else:
@@ -637,6 +663,17 @@ def build(k, P, cockpit, caliper_unused=None):
             S("Metal", K.sweep([g0 + Y * 0.01, g0 + Y * 0.09 + X * side * 0.05 + Z * 0.015, g1 + Y * -0.01, P["Bars"] + X * side * (k["BarWidth"] / 2 + 0.012)], 0.006, 8))
             S("Accent", K.sweep([g0 + Y * 0.02, g0 + Y * 0.08 + X * side * 0.05 + Z * 0.02, g1], 0, 12, profile=(0.05, 0.006)))
             S("Black", K.rbox(g0 + Y * 0.075 + X * side * 0.045 + Z * 0.02, (0.03, 0.012, 0.02), 0.004))
+    if style.get("FrontRack"):
+        # a tray over the lamp on two stays from the head stock, a rail round it
+        tray = plate_c + fwd_perp * 0.06 + AX * 0.2
+        S("Black", K.rbox(tray, (0.34, 0.26, 0.014), 0.004))
+        for side in (-1, 1):
+            S("Black", K.sweep([HT + X * side * 0.05 - AX * 0.02, tray + X * side * 0.14 + Y * -0.1 - Z * 0.008], 0.009, 8))
+        S("Black", K.sweep([tray + Vector((-0.17, 0.13, 0.02)), tray + Vector((-0.17, -0.13, 0.02)), tray + Vector((0.17, -0.13, 0.02)), tray + Vector((0.17, 0.13, 0.02))], 0.007, 8, closed=True, samples=3))
+    if style.get("Screen"):
+        # a tall screen over the lamps, raked with the steering
+        S("Glass", K.rbox(plate_c + AX * 0.21 + fwd_perp * 0.025, (0.3, 0.006, 0.28), 0.03, plate_rot))
+        S("Black", K.rbox(plate_c + AX * 0.075 + fwd_perp * 0.022, (0.31, 0.01, 0.02), 0.004, plate_rot))  # its mount
     # display on the top clamp, key switch
     disp = HT + AX * 0.05 + fwd_perp * 0.03
     S("Dark", K.rbox(disp, (0.1, 0.02, 0.065), 0.01, plate_rot))

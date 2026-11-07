@@ -18,6 +18,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Dailies = require(Shared.Dailies)
+local Missions = require(Shared.Missions)
 local Economy = require(Shared.Economy)
 local Remotes = require(Shared.Remotes)
 
@@ -46,6 +47,7 @@ local WantedHud = require(script.WantedHud)
 local Objective = require(script.Objective)
 local Activities = require(script.Activities)
 local Inbox = require(script.Inbox)
+local GearShop = require(script.GearShop)
 local Route = require(script.Route)
 
 local UI = {}
@@ -60,6 +62,37 @@ local function close()
 			panel.Frame.Visible = false
 		end
 		openName = nil
+	end
+end
+
+-- what the regulars say when you talk to them (Server/Regulars)
+local REGULAR_LINES: { [string]: string } = {
+	Nina = "Need something to do? Here's what I've got.",
+	Marco = "Parcels don't deliver themselves.",
+	Jet = "Ready to show me what you've got?",
+	Reyes = "Keep it clean out there. Or don't: I'll be waiting.",
+}
+
+-- A "!" over each regular with a mission ready for you
+local function markRegulars()
+	local folder = Workspace:FindFirstChild("Regulars")
+	local data = State.Get()
+	if not folder or not data then
+		return
+	end
+	for _, model in folder:GetChildren() do
+		local tag = model:FindFirstChild("NameTag")
+		local mark = tag and tag:FindFirstChild("Ready")
+		if mark and mark:IsA("TextLabel") then
+			local ready = false
+			for _, mission in Missions.List do
+				if mission.Giver == model.Name and Missions.Status(mission, data.Missions, data.Level) == "Ready" then
+					ready = true
+					break
+				end
+			end
+			mark.Visible = ready
+		end
 	end
 end
 
@@ -191,6 +224,7 @@ function UI.Init()
 	panels.Stats = StatsScreen.new(menus)
 	panels.Activities = Activities.new(menus)
 	panels.Messages = Inbox.new(menus)
+	panels.Gear = GearShop.new(menus)
 	panels.Phone = Phone.new(menus, UI.Open, close, counts)
 	panels.Menus = MainMenu.new(menus, close)
 	panels.Admin = AdminPanel.new(menus, function()
@@ -226,7 +260,17 @@ function UI.Init()
 		if who ~= player then
 			return
 		end
-		if prompt.Name == "DealershipPrompt" then
+		if prompt.Name == "TalkPrompt" then
+			-- one of the regulars: their line, and their missions on the phone
+			local attribute = prompt:GetAttribute("Giver")
+			local giver = if type(attribute) == "string" then attribute else ""
+			local info = Missions.Givers[giver]
+			local line = REGULAR_LINES[giver]
+			if info and line then
+				Toasts.Message("Info", string.format("%s %s: \"%s\"", info.Icon, giver, line))
+			end
+			UI.Open("Missions")
+		elseif prompt.Name == "DealershipPrompt" then
 			UI.Open("Dealership")
 		elseif prompt.Name == "TuningPrompt" then
 			UI.Open("Garage")
@@ -329,6 +373,7 @@ function UI.Init()
 		Hud.SetBadges(c.Activities, c.Activities + c.Stats + c.Messages)
 	end
 	State.Changed:Connect(badges)
+	State.Changed:Connect(markRegulars)
 	Inbox.Changed:Connect(badges)
 	local sinceBadges = 0
 
@@ -338,6 +383,7 @@ function UI.Init()
 		if sinceBadges >= 1 then
 			sinceBadges = 0
 			badges()
+			markRegulars()
 		end
 		Hud.Update(dt)
 		TrickHud.Update(dt)

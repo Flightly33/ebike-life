@@ -79,15 +79,20 @@ local function place(driver: CarDriver.Driver, edge: Layout.Edge)
 end
 
 local function spawnCar(): Car
-	local kind = CarModel.CivilianKinds[rng:NextInteger(1, #CarModel.CivilianKinds)]
+	local kind = CarModel.TrafficKinds[rng:NextInteger(1, #CarModel.TrafficKinds)]
 	local color = CarModel.CivilianColors[rng:NextInteger(1, #CarModel.CivilianColors)]
-	local model = CarModel.Build(kind, { Color = color })
+	-- (the bus and the courier's van keep their livery)
+	local fleet = kind == "Bus" or kind == "BoxVan"
+	local model = CarModel.Build(kind, if fleet then nil else { Color = color })
 	model.Name = "Traffic"
 	local edge = pickRoad() :: Layout.Edge
 	local driver = CarDriver.new(model, kind, CFrame.new(Layout.Nodes[edge.A].Position), rng)
 	model.Parent = vehicles
 	CarDriver.Claim(driver)
 	driver.TopSpeed = Config.Traffic.Speed + rng:NextNumber(-Config.Traffic.SpeedVariance, Config.Traffic.SpeedVariance)
+	if kind == "Bus" then
+		driver.TopSpeed *= 0.8 -- a bus takes its time
+	end
 	place(driver, edge)
 	return { Driver = driver, StillFor = 0 }
 end

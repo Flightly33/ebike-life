@@ -37,7 +37,7 @@ local HEAD = Color3.fromRGB(255, 250, 232)
 local TAIL = Color3.fromRGB(215, 18, 26)
 local AMBER = Color3.fromRGB(255, 150, 20)
 
-export type Kind = string -- "Police" | "Sedan" | "Hatch" | "SUV" | "Van" | "Taxi"
+export type Kind = string -- "Police" | "Sedan" | "Hatch" | "SUV" | "Van" | "Taxi" | "Bus" | "BoxVan"
 export type Options = { Static: boolean?, Color: Color3?, Plate: string? }
 
 type Dims = {
@@ -62,12 +62,17 @@ local DIMS: { [string]: Dims } = {
 	Hatch = { Length = 4.1, Width = 1.78, BodyHeight = 0.64, Clearance = 0.16, CabinHeight = 0.68, CabinLength = 2.45, Wheelbase = 2.6, Wheel = 0.62, Hood = 0.24, Rake = 1.3, RearRake = 0.35, Trunk = false },
 	SUV = { Length = 4.75, Width = 1.95, BodyHeight = 0.8, Clearance = 0.24, CabinHeight = 0.72, CabinLength = 2.95, Wheelbase = 2.85, Wheel = 0.76, Hood = 0.24, Rake = 1.05, RearRake = 0.25, Trunk = false },
 	Van = { Length = 5.3, Width = 2.0, BodyHeight = 0.9, Clearance = 0.22, CabinHeight = 1.0, CabinLength = 4.4, Wheelbase = 3.3, Wheel = 0.7, Hood = 0.12, Rake = 0.55, RearRake = 0.05, Trunk = false },
+	-- a 12 m city bus (all cabin, a flat front) and a box van (a short cab, then the cargo box)
+	Bus = { Length = 12.0, Width = 2.55, BodyHeight = 1.05, Clearance = 0.32, CabinHeight = 1.85, CabinLength = 11.6, Wheelbase = 6.1, Wheel = 1.0, Hood = 0.0, Rake = 0.12, RearRake = 0.06, Trunk = false },
+	BoxVan = { Length = 6.4, Width = 2.1, BodyHeight = 1.0, Clearance = 0.26, CabinHeight = 1.0, CabinLength = 1.7, Wheelbase = 3.9, Wheel = 0.8, Hood = 0.12, Rake = 0.6, RearRake = 0.1, Trunk = false },
 }
 
 CarModel.Dims = DIMS
 
 local CIVILIAN_KINDS: { Kind } = { "Sedan", "Sedan", "Hatch", "Hatch", "SUV", "Van", "Taxi" }
-CarModel.CivilianKinds = CIVILIAN_KINDS
+CarModel.CivilianKinds = CIVILIAN_KINDS -- (parked cars too: no buses in the car parks)
+-- what drives about: the cars, plus a city bus and a courier's box van now and then
+CarModel.TrafficKinds = { "Sedan", "Sedan", "Hatch", "Hatch", "SUV", "Van", "Taxi", "Bus", "BoxVan" } :: { Kind }
 CarModel.CivilianColors = {
 	Color3.fromRGB(200, 30, 35),
 	Color3.fromRGB(30, 70, 160),
@@ -106,7 +111,7 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 		-- with streaming on, a vehicle always arrives whole
 		model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	end
-	local paint = if options and options.Color then options.Color elseif kind == "Police" then Color3.fromRGB(18, 18, 20) elseif kind == "Taxi" then Color3.fromRGB(250, 196, 18) else Color3.fromRGB(200, 30, 35)
+	local paint = if options and options.Color then options.Color elseif kind == "Police" then Color3.fromRGB(18, 18, 20) elseif kind == "Taxi" then Color3.fromRGB(250, 196, 18) elseif kind == "Bus" or kind == "BoxVan" then Color3.fromRGB(240, 242, 244) else Color3.fromRGB(200, 30, 35)
 	local police = kind == "Police"
 	local white = Color3.fromRGB(242, 242, 242)
 
@@ -198,7 +203,9 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 	local quarterIsMetal = dims.Trunk
 	for _, xs in { -1, 1 } do
 		local x = Vector3.new(xs * glassX, 0, 0)
-		local depth = math.min(0.9, (roofBackZ - roofFrontZ) * 0.6)
+		-- (the quarter glass fills the triangle under the pillar: thin on the bus's upright front,
+		-- or it would stand out ahead of it)
+		local depth = if kind == "Bus" then 0.12 else math.min(0.9, (roofBackZ - roofFrontZ) * 0.6)
 		tint(slab("SideGlassFront", cowl + x, roofFront + x, 0.025, depth, WINDOW, GLASS))
 		tint(at("SideGlass", Vector3.new(0.025, dims.CabinHeight, roofBackZ - roofFrontZ), Vector3.new(xs * glassX, top + dims.CabinHeight / 2, (roofFrontZ + roofBackZ) / 2), WINDOW, GLASS))
 		tint(slab("SideGlassRear", roofBack + x, tail + x, 0.025, depth, WINDOW, GLASS))
@@ -437,6 +444,31 @@ function CarModel.Build(kind: Kind, options: Options?): Model
 		for i = 0, 2 do
 			at("RoofBar", Vector3.new(roofW - 0.1, 0.04, 0.05), Vector3.new(0, roofY + 0.1, roofFrontZ + 0.8 + i * 1.0), BLACK)
 		end
+	elseif kind == "Bus" then
+		-- (Miami Transit: made up) a destination sign over the windscreen, a teal band along the
+		-- sides, two doors on the kerb side, the engine grille at the back
+		local sign = at("DestinationSign", Vector3.new(W * 0.72, 0.24, 0.05), Vector3.new(0, roofY - 0.17, roofFrontZ - 0.04), Color3.fromRGB(20, 20, 22))
+		PartKit.Sign(sign, Enum.NormalId.Front, "12  BRICKELL", Color3.fromRGB(255, 170, 30), nil, Enum.Font.Code, 40)
+		for _, xs in { -1, 1 } do
+			at("BusBand", Vector3.new(0.012, 0.18, cabinEndZ - cowlZ - 0.3), Vector3.new(xs * (W / 2 + 0.006), top - 0.28, (cowlZ + cabinEndZ) / 2), Color3.fromRGB(0, 150, 140))
+		end
+		for _, z in { cowlZ + 0.95, (cowlZ + cabinEndZ) / 2 + 0.7 } do
+			at("BusDoor", Vector3.new(0.014, dims.BodyHeight + dims.CabinHeight - 0.3, 1.1), Vector3.new(W / 2 + 0.008, clear + 0.1 + (dims.BodyHeight + dims.CabinHeight - 0.3) / 2, z), Color3.fromRGB(46, 50, 56))
+		end
+		at("EngineGrille", Vector3.new(W * 0.6, 0.36, 0.03), Vector3.new(0, top - 0.32, L / 2 + 0.015), Color3.fromRGB(40, 40, 44), METAL)
+		at("RoofPod", Vector3.new(roofW * 0.7, 0.22, 2.4), Vector3.new(0, roofY + 0.11, (roofFrontZ + roofBackZ) / 2 + 2), Color3.fromRGB(225, 227, 230))
+	elseif kind == "BoxVan" then
+		-- a courier's box van: the cargo box behind the cab, Flighty Courier on its sides
+		local boxFront, boxBack = cabinEndZ + 0.08, L / 2 - 0.02
+		local boxH = 1.55
+		local boxCenter = Vector3.new(0, top + boxH / 2 - 0.05, (boxFront + boxBack) / 2)
+		local cargo = at("CargoBox", Vector3.new(W, boxH, boxBack - boxFront), boxCenter, Color3.fromRGB(245, 196, 30))
+		finish(PartKit.Box(model, "CargoHull", Vector3.new(W, boxH, boxBack - boxFront) * S, CFrame.new(boxCenter * S), paint, SMOOTH, { Transparency = 1 }), true)
+		for _, face in { Enum.NormalId.Left, Enum.NormalId.Right } do
+			PartKit.Sign(cargo, face, "FLIGHTY COURIER", Color3.fromRGB(24, 24, 28), nil, Enum.Font.GothamBlack, 46)
+		end
+		at("CargoDoorLine", Vector3.new(0.02, boxH - 0.1, 0.02), Vector3.new(0, boxCenter.Y, boxBack + 0.005), BLACK)
+		at("CargoBumper", Vector3.new(W * 0.9, 0.12, 0.12), Vector3.new(0, clear + 0.1, boxBack + 0.05), BLACK)
 	end
 
 	-- Imported Blender meshes replace the part-built shell; hulls, lamps and lettering stay

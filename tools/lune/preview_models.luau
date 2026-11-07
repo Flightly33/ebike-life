@@ -35,6 +35,19 @@ for i, bike in Bikes.List do
 	dummy.Color = Color3.fromRGB(80, 120, 200)
 	dummy.Parent = root
 end
+-- the police moto with its officer, after the bikes
+do
+	local PoliceMoto = Loader.Require("ServerScriptService.Server.PoliceMoto")
+	local moto = PoliceMoto.Build().Model
+	PartKit.PlaceStatic(moto, CFrame.new(#Bikes.List * 10, 0, 0) * CFrame.Angles(0, math.rad(90), 0))
+	moto.Parent = root
+end
+-- the big ones (a 64-stud bus) in their own row behind the cars
+for i, kind in { "Bus", "BoxVan" } do
+	local big = CarModel.Build(kind, { Static = true })
+	PartKit.PlaceStatic(big, CFrame.new((i - 1) * 90, 0, 90) * CFrame.Angles(0, math.rad(90), 0))
+	big.Parent = root
+end
 for i, kind in { "Police", "Sedan", "Hatch", "SUV", "Van", "Taxi" } do
 	local car = CarModel.Build(kind, { Static = true })
 	PartKit.PlaceStatic(car, CFrame.new((i - 1) * 22, 0, 40) * CFrame.Angles(0, math.rad(90), 0))

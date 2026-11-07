@@ -139,7 +139,8 @@ local function carRig(model: Model): CarRig?
 	local wheels: { Motor6D } = {}
 	local red, blue = {}, {}
 	for _, d in model:GetDescendants() do
-		if d:IsA("Motor6D") and d.Name == "Spin" then
+		-- (a car's wheels; a police moto's are the bike's FrontSpin / RearSpin)
+		if d:IsA("Motor6D") and (d.Name == "Spin" or d.Name == "FrontSpin" or d.Name == "RearSpin") then
 			table.insert(wheels, d)
 		elseif d:IsA("BasePart") then
 			if d.Name == "LightRed" then
@@ -154,7 +155,7 @@ local function carRig(model: Model): CarRig?
 		Root = root,
 		Wheels = wheels,
 		Angle = 0,
-		RadiusStuds = CarModel.WheelRadius(if type(kind) == "string" then kind else "Sedan"),
+		RadiusStuds = if type(model:GetAttribute("WheelRadius")) == "number" then model:GetAttribute("WheelRadius") :: number else CarModel.WheelRadius(if type(kind) == "string" then kind else "Sedan"),
 		Red = red,
 		Blue = blue,
 		Siren = nil,
