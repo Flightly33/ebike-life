@@ -74,6 +74,8 @@ type Unit = {
 type Watch = {
 	Heat: Heat.State,
 	SeenAt: number,
+	LastSeen: Vector3?, -- where a cop last saw them, and how they were going
+	LastVelocity: Vector3,
 	Seen: boolean,
 	Spotted: boolean,
 	Inside: number?, -- intersection node the player is crossing
@@ -92,7 +94,7 @@ losParams.RespectCanCollide = true
 local function watch(player: Player): Watch
 	local w = watches[player]
 	if not w then
-		w = { Heat = Heat.new(), SeenAt = -math.huge, Seen = false, Spotted = false, Inside = nil, MaxStarsThisChase = 0, RoadblockAt = -math.huge }
+		w = { Heat = Heat.new(), SeenAt = -math.huge, LastSeen = nil, LastVelocity = Vector3.zero, Seen = false, Spotted = false, Inside = nil, MaxStarsThisChase = 0, RoadblockAt = -math.huge }
 		watches[player] = w
 	end
 	return w
@@ -115,6 +117,29 @@ local function whereIs(player: Player): (Vector3?, Vector3)
 		return root.Position, root.AssemblyLinearVelocity
 	end
 	return nil, Vector3.zero
+end
+
+-- A sighting: when, and where they were going
+local function sighted(player: Player, w: Watch)
+	w.SeenAt = os.clock()
+	local position, velocity = whereIs(player)
+	if position then
+		w.LastSeen = position
+		w.LastVelocity = velocity
+	end
+end
+
+-- Where the police think a wanted rider is: where they are while a cop can see them (or did a
+-- moment ago, C.Memory), otherwise where they were last seen, carried on the way they were going.
+-- Lose them and that's where the cars go and search (they used to drive at the rider wherever they
+-- were, which only stayed escapable while far-off cars never arrived: CarDriver.PlanStart)
+local function believedAt(player: Player, w: Watch): (Vector3?, Vector3)
+	local position, velocity = whereIs(player)
+	local last = w.LastSeen
+	if os.clock() - w.SeenAt <= C.Memory or not last then
+		return position, velocity
+	end
+	return last + Vector3.new(w.LastVelocity.X, 0, w.LastVelocity.Z) * C.Memory, Vector3.zero
 end
 
 local function refreshIgnore()
@@ -300,7 +325,7 @@ local function entryNode(position: Vector3): number
 end
 
 local function dispatch(player: Player, stars: number)
-	local position = whereIs(player)
+	local position = believedAt(player, watch(player))
 	if not position then
 		return
 	end
@@ -541,7 +566,7 @@ function PoliceService.SetWanted(player: Player, stars: number)
 		for s = 0, stars - 1 do
 			heat += Heat.Needed(s)
 		end
-		w.SeenAt = os.clock()
+		sighted(player, w)
 		onEvents(player, w, Heat.Offence(w.Heat, heat))
 	else
 		Remotes.Event("Police"):FireClient(player, "Wanted", { Stars = 0 })
@@ -603,7 +628,7 @@ local function tick(dt: number)
 		end
 		w.Seen = seen
 		if seen then
-			w.SeenAt = os.clock()
+			sighted(player, w)
 		end
 
 		-- What are they doing?
@@ -812,7 +837,7 @@ local function driveUnits(dt: number)
 		local driver = unit.Driver
 		local target = unit.Target
 		if target then
-			local position, velocity = whereIs(target)
+			local position, velocity = believedAt(target, watch(target))
 			if position and target.Parent then
 				driveTactics(unit, target, position, velocity, now)
 			else
@@ -869,7 +894,7 @@ function PoliceService.Init()
 				for _, unit in units do
 					if (unit.Driver.Position - position).Magnitude < 30 then
 						local w = watch(player)
-						w.SeenAt = os.clock()
+						sighted(player, w)
 						onEvents(player, w, Heat.Offence(w.Heat, C.HitCop))
 						break
 					end

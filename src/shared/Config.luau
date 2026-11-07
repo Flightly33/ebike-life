@@ -330,6 +330,7 @@ Config.Police = {
 	EvadeBase = 7, -- seconds out of sight to escape at one star...
 	EvadePerStar = 2.5, -- ...plus this per extra star
 	LoseRange = 655, -- studs: further than this always counts as out of sight
+	Memory = 2, -- seconds the police keep tracking a rider out of sight; then they go where they last saw them (carried on this long) and search
 	BustRange = 14, -- studs
 	BustKmh = 12, -- slower than this near a cop and the cuffs come out
 	BustTime = 2.6,
