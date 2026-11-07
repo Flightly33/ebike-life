@@ -53,7 +53,7 @@ function gradientCss(n) {
 function textHeight(n, w) {
   const size = n.textSize || 14;
   const perLine = Math.max(1, Math.floor(w / (size * 0.52)));
-  const lines = String(n.text || "").split("\n").reduce((s, line) => s + Math.max(1, Math.ceil(line.length / perLine)), 0);
+  const lines = String(n.text || "").split(String.fromCharCode(10)).reduce((s, line) => s + Math.max(1, Math.ceil(line.length / perLine)), 0);
   return Math.ceil(lines * size * 1.18);
 }
 function autoH(n, w, declared) {

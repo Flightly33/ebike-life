@@ -166,7 +166,7 @@ function Objective.Init(gui: ScreenGui)
 	lobbyLabel.Visible = false
 
 	-- the mission giver's call, sliding in from the left under the tracker
-	callCard = New("Frame", { Name = "Call", BackgroundColor3 = Color3.fromRGB(24, 24, 28), BackgroundTransparency = 0.04, Size = UDim2.fromOffset(420, 88), Position = UDim2.fromOffset(-440, 106), Visible = false, Parent = gui })
+	callCard = New("Frame", { Name = "Call", BackgroundColor3 = Color3.fromRGB(24, 24, 28), BackgroundTransparency = 0.04, Size = UDim2.fromOffset(420, 80), Position = UDim2.fromOffset(-440, 106), Visible = false, Parent = gui })
 	Theme.Corner(callCard, 14)
 	Theme.Stroke(callCard, C.Gold, 2, 0.3)
 	callTitle = Theme.Label({ Text = "", Size = UDim2.new(1, -24, 0, 24), Position = UDim2.fromOffset(14, 6), TextSize = 18, Color = C.Gold, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = callCard })

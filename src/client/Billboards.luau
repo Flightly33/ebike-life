@@ -389,9 +389,13 @@ local function choose()
 			removeFace(face)
 		end
 	end
+	-- (a few new faces a second, nearest first: the ad in front of you shows before the far ones)
 	local added = 0
-	for part in keep do
-		if not shown[part] and added < 4 then
+	for i = 1, math.min(#want, maxFaces) do
+		local part = want[i].Part
+		if added >= 4 then
+			break
+		elseif not shown[part] then
 			added += 1
 			addFace(part)
 		end
