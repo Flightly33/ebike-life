@@ -256,8 +256,34 @@ local function assign(unit: Unit, player: Player, stars: number)
 end
 
 -- A node out of the player's sight, 350-700 studs away (at MAP 1), to bring a new car in from
+-- Where an extra unit comes in: a road node 350-700 studs (by the map's scale) from the rider, out of
+-- sight, and not much further by road than as the crow flies (one search from the rider's crossing),
+-- so it doesn't turn up across the bay or the freeway with a long way round to drive
 local function entryNode(position: Vector3): number
+	local road = Layout.RoadDistances(Layout.NearestNode(position), 1100 * MAP)
+	local pool: { number } = {}
+	for nodeId, byRoad in road do
+		local distance = (Layout.Nodes[nodeId].Position - position).Magnitude
+		if distance > 350 * MAP and distance < 700 * MAP and byRoad < distance * 1.6 then
+			table.insert(pool, nodeId)
+		end
+	end
+	table.sort(pool) -- (the same draws pick the same nodes, whatever order the search left them in)
 	local best: number? = nil
+	for _ = 1, math.min(30, #pool) do
+		local nodeId = pool[rng:NextInteger(1, #pool)]
+		local node = Layout.Nodes[nodeId]
+		if (node.Position - position).Magnitude > C.LoseRange then
+			best = nodeId
+		end
+		if not lineOfSight(node.Position + Vector3.new(0, 5, 0), position + Vector3.new(0, 3, 0)) then
+			return nodeId
+		end
+	end
+	if best then
+		return best
+	end
+	-- (nothing near enough by road: any node at that range, as the crow flies)
 	for _ = 1, 30 do
 		local node = Layout.Nodes[rng:NextInteger(1, #Layout.Nodes)]
 		local distance = (node.Position - position).Magnitude

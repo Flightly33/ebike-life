@@ -324,6 +324,39 @@ local function extendCruise(self: Driver)
 	self.FromNode, self.ToNode = to, after
 end
 
+-- The crossing to plan a road route from: the one the car is driving into while that's still in
+-- front of it (or the one it's in the middle of), else the far end of the road it's on. Never one
+-- it has already passed: planned from the node nearest a point just ahead, a car in the first half
+-- of a road got the crossing behind it, turned back for it, turned again, and two seconds later did
+-- it all over (chases that never closed in)
+local function planStart(self: Driver): number
+	local dir = forward(self.Yaw)
+	local function ahead(nodeId: number): number
+		local offset = Layout.Nodes[nodeId].Position - self.Position
+		return Vector3.new(offset.X, 0, offset.Z):Dot(dir)
+	end
+	local heading = self.WaypointNodes[self.WaypointIndex]
+	if heading and Layout.Nodes[heading] and ahead(heading) > 0 then
+		return heading
+	end
+	local nearest = Layout.NearestNode(self.Position + dir * 40)
+	if ahead(nearest) > -20 * CAR then
+		return nearest
+	end
+	local best, bestDistance = nearest, math.huge
+	for _, edgeId in Layout.Nodes[nearest].Edges do
+		local other = Layout.OtherEnd(Layout.Edges[edgeId], nearest)
+		if ahead(other) > 0 then
+			local d = (Layout.Nodes[other].Position - self.Position).Magnitude
+			if d < bestDistance then
+				best, bestDistance = other, d
+			end
+		end
+	end
+	return best
+end
+CarDriver.PlanStart = planStart
+
 -- Chase `target`; `direct` when the cop can see it and it's close
 function CarDriver.Chase(self: Driver, target: Vector3, velocity: Vector3, direct: boolean)
 	self.Mode = "Chase"
@@ -337,7 +370,7 @@ function CarDriver.Chase(self: Driver, target: Vector3, velocity: Vector3, direc
 	if self.Direct or now >= self.ReplanAt or #self.Waypoints - self.WaypointIndex < 1 then
 		self.Direct = false
 		self.ReplanAt = now + 2
-		local start = Layout.NearestNode(self.Position + forward(self.Yaw) * 40)
+		local start = planStart(self)
 		local goal = Layout.NearestNode(target)
 		local path = Layout.Path(start, goal)
 		self.Waypoints = { Layout.Nodes[start].Position }

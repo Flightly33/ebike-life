@@ -968,10 +968,9 @@ local function make(K: number)
 
 	-- Shortest path by road length (Dijkstra on a binary heap: fast enough for the client's route
 	-- line every second, and the police's and traffic's planning)
-	function Layout.Path(from: number, to: number): { number }
-		if from == to then
-			return { from }
-		end
+	-- Dijkstra over the road graph from `from`: each node reached, its distance by road and the node
+	-- before it; it stops once `to` is settled, and goes no further than `limit` studs
+	local function search(from: number, to: number?, limit: number?): ({ [number]: number }, { [number]: number })
 		local dist: { [number]: number } = { [from] = 0 }
 		local prev: { [number]: number } = {}
 		local done: { [number]: boolean } = {}
@@ -1025,7 +1024,7 @@ local function make(K: number)
 					local edge = Layout.Edges[edgeId]
 					local other = Layout.OtherEnd(edge, current)
 					local d = best + edge.Length
-					if not done[other] and d < (dist[other] or math.huge) then
+					if not done[other] and d < (dist[other] or math.huge) and (limit == nil or d <= limit) then
 						dist[other] = d
 						prev[other] = current
 						push(d, other)
@@ -1033,6 +1032,14 @@ local function make(K: number)
 				end
 			end
 		end
+		return dist, prev
+	end
+
+	function Layout.Path(from: number, to: number): { number }
+		if from == to then
+			return { from }
+		end
+		local _, prev = search(from, to, nil)
 		if prev[to] == nil then
 			return { from }
 		end
@@ -1043,6 +1050,12 @@ local function make(K: number)
 			table.insert(path, 1, node)
 		end
 		return path
+	end
+
+	-- Every node within `limit` studs of `from` by road, and how far it is
+	function Layout.RoadDistances(from: number, limit: number): { [number]: number }
+		local dist = search(from, nil, limit)
+		return dist
 	end
 
 	function Layout.EdgeBetween(a: number, b: number): Edge?
