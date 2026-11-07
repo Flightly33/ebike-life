@@ -48,6 +48,8 @@ export type District =
 	| "Dealership"
 	| "Plaza"
 	| "Police"
+	| "Depot"
+	| "RaceHub"
 	| "Condo"
 	| "ArtDeco"
 	| "Mansion"
@@ -285,9 +287,9 @@ local function make(K: number)
 		{ "Suburb", "Suburb", "Midtown", "Midtown", "Freeway", "Midtown", "Edgewater", "Edgewater" },
 		{ "Jump", "Jump", "FastFood", "Dealership", "Freeway", "Corridor", "Corridor", "Corridor" },
 		{ "Suburb", "Suburb", "Police", "Plaza", "Freeway", "Downtown", "Downtown", "BayPark" },
-		{ "Suburb", "FastFood", "Parking", "Midtown", "Freeway", "Downtown", "Downtown", "Downtown" },
+		{ "Suburb", "FastFood", "Depot", "Midtown", "Freeway", "Downtown", "Downtown", "Downtown" },
 		{ "Suburb", "Suburb", "Midtown", "FastFood", "Freeway", "Brickell", "Brickell", "Brickell" },
-		{ "Suburb", "Suburb", "Suburb", "Parking", "Freeway", "Brickell", "Brickell", "Marina" },
+		{ "Suburb", "Suburb", "Suburb", "RaceHub", "Freeway", "Brickell", "Brickell", "Marina" },
 	}
 	-- the I-95 corridor blocks with a pair of on/off ramps (bz); ramps climb away from the street
 	-- their foot is on: in row 1 from the south street (z = Line(2)) north, in row 5 from the north
@@ -1187,6 +1189,8 @@ local function make(K: number)
 	local jump = Layout.FindDistrict("Jump") :: Block
 	local plaza = Layout.FindDistrict("Plaza") :: Block
 	local bayPark = Layout.FindDistrict("BayPark") :: Block
+	local depot = Layout.FindDistrict("Depot") :: Block
+	local raceHub = Layout.FindDistrict("RaceHub") :: Block
 
 	local function lotCenter(block: Block): Vector3
 		return Vector3.new((block.LotMinX + block.LotMaxX) / 2, Layout.CURB_Y, (block.LotMinZ + block.LotMaxZ) / 2)
@@ -1221,6 +1225,10 @@ local function make(K: number)
 		-- (south of the fountains)
 		Plaza = lotCenter(plaza) + Vector3.new(0, 0, 45 * K),
 		Park = lotCenter(bayPark) + Vector3.new(0, 0, 60 * K),
+		-- (in the yard, in front of the dispatch desk, where Marco stands; Landmarks.Depot)
+		Depot = Vector3.new((depot.LotMinX + depot.LotMaxX) / 2 + (depot.LotMaxX - depot.LotMinX) * 0.2, Layout.CURB_Y, depot.LotMinZ + 106 * K),
+		-- (behind the start line, between the grid's two columns; Landmarks.RaceHub)
+		RaceHub = lotCenter(raceHub) + Vector3.new(0, 0, -(raceHub.LotMaxZ - raceHub.LotMinZ) * 0.12 + 40 * K),
 		-- on the streets through them (their blocks are built up)
 		Downtown = Vector3.new(Layout.Line(5) + 180 * KS, Layout.ROAD_Y, Layout.Line(Layout.AVENUE_INDEX) + 12 * K),
 		Wynwood = Vector3.new(Layout.Line(6), Layout.ROAD_Y, Layout.Line(0) + 180 * KS),
@@ -1254,6 +1262,8 @@ local function make(K: number)
 		{ Id = "Airport", Name = "Airport runway" },
 		{ Id = "Everglades", Name = "Everglades" },
 		{ Id = "Plaza", Name = "City Plaza" },
+		{ Id = "Depot", Name = "Flighty Courier Depot" },
+		{ Id = "RaceHub", Name = "Race Plaza" },
 	}
 
 	-- Charging stations: kiosk positions (on pads, by the kerb) and which way each faces (its street)

@@ -274,6 +274,18 @@ function UI.Init()
 			UI.Open("Dealership")
 		elseif prompt.Name == "TuningPrompt" then
 			UI.Open("Garage")
+		elseif prompt.Name == "GearPrompt" then
+			-- the gear rack in Flighty Bike Gear at the courier depot
+			if openName ~= "Gear" then
+				UI.Open("Gear")
+			end
+		elseif prompt.Name == "RacePrompt" then
+			-- the race desk at the Race Plaza
+			if openName ~= "Activities" then
+				UI.Open("Races")
+			else
+				Activities.Show("Races")
+			end
 		elseif prompt.Name == "OrderPrompt" then
 			local counter = prompt.Parent
 			if counter and counter:IsA("BasePart") then

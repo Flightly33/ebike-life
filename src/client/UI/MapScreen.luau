@@ -60,6 +60,8 @@ local DISTRICTS: { [string]: Color3 } = {
 	FastFood = rgb(96, 70, 58),
 	Freeway = rgb(56, 56, 60),
 	Parking = rgb(62, 62, 66),
+	Depot = rgb(92, 84, 56),
+	RaceHub = rgb(74, 58, 62),
 }
 
 local PLACE_ICONS: { [string]: string } = {
@@ -78,6 +80,8 @@ local PLACE_ICONS: { [string]: string } = {
 	Airport = "✈️",
 	Everglades = "🐊",
 	Plaza = "⛲",
+	Depot = "📦",
+	RaceHub = "🏁",
 }
 
 function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel

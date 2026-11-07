@@ -309,7 +309,7 @@ local function streetscape(city: Instance, rng: Random)
 	Props.Streetscape(folder, Vector3.new(westAve - 3, Y, isl.MinZ + tip), Vector3.new(westAve - 3, Y, isl.MaxZ - tip), rng, "Palm", Vector3.new(1, 0, 0))
 end
 
-local BUSY: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Midtown = true, Plaza = true, Dealership = true, Police = true, ArtDeco = true, Condo = true, Havana = true, HavanaPark = true }
+local BUSY: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Midtown = true, Plaza = true, Dealership = true, Police = true, ArtDeco = true, Condo = true, Havana = true, HavanaPark = true, Depot = true, RaceHub = true }
 
 -- Benches, bins, racks, meters, news boxes and bollards along the pavements; bus stops on the
 -- avenues; street-name signs at the crossings
@@ -537,6 +537,10 @@ function Builder.Build(): Model
 			Landmarks.Plaza(blocks, block, rng)
 		elseif district == "BayPark" then
 			Landmarks.BayPark(blocks, block, rng)
+		elseif district == "Depot" then
+			Landmarks.Depot(blocks, block, rng)
+		elseif district == "RaceHub" then
+			Landmarks.RaceHub(blocks, block, rng)
 		elseif district == "Marina" then
 			Landmarks.Marina(blocks, block, rng)
 		elseif district == "Jump" then

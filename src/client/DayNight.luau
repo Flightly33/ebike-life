@@ -6,7 +6,9 @@
 	  - at dusk the street lamps glow, and the nearest ones (the graphics mode's LampLights within
 	    Config.DayNight.LampRange) cast real light;
 	  - a stable share of windows light up warm (each window always the same way);
-	  - bike and car headlights cast light (your bike's always, the nearest cars').
+	  - bike and car headlights cast light (your bike's always, the nearest cars');
+	  - the event stage's lights in Bayfront Park chase through colours while a city event runs
+	    (Shared/Events), and on a Race Day the Race Plaza's start lights count down to a start.
 	Everything here is local: the clock comes from the server time, so all players agree.
 ]]
 
@@ -18,6 +20,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local DayNightShared = require(Shared.DayNight)
+local Events = require(Shared.Events)
 local Weather = require(Shared.Weather)
 
 local BikeController = require(script.Parent.BikeController)
@@ -35,6 +38,7 @@ local lamps: { [BasePart]: Saved } = {}
 local windows: { [BasePart]: Saved } = {}
 local lampLights: { [BasePart]: PointLight } = {}
 local beams: { [BasePart]: SpotLight } = {}
+local stage: { [BasePart]: Saved } = {} -- the event stage's lights and the race plaza's start lights
 local nightOn = false
 local pending: { BasePart } = {}
 
@@ -88,6 +92,8 @@ local function track(d: Instance)
 		if nightOn then
 			dressWindow(d, true)
 		end
+	elseif name == "EventLight" or name == "StartLight" then
+		stage[d] = { Material = d.Material, Color = d.Color, Transparency = d.Transparency }
 	end
 end
 
@@ -95,6 +101,7 @@ local function untrack(d: Instance)
 	if d:IsA("BasePart") then
 		lamps[d] = nil
 		windows[d] = nil
+		stage[d] = nil
 		local light = lampLights[d]
 		if light then
 			light:Destroy()
@@ -190,6 +197,42 @@ local function flushWindows()
 		end
 		if part.Parent then
 			dressWindow(part, nightOn)
+		end
+	end
+end
+
+local EVENT_COLORS = { Color3.fromRGB(255, 60, 200), Color3.fromRGB(60, 220, 255), Color3.fromRGB(255, 200, 40), Color3.fromRGB(120, 255, 140) }
+local START_RED = Color3.fromRGB(255, 36, 28)
+DayNight.START_CYCLE = 8 -- seconds: five reds, one a second, a held second, then lights out
+
+-- The stage lights chase through colours while an event runs (each lamp a step behind the last);
+-- on a Race Day the start lights (Index 1-5) come on one a second, hold, and go out, over and over
+local function updateStage(t: number)
+	if next(stage) == nil then
+		return
+	end
+	local event = Events.At(t)
+	local beat = math.floor(t * 3)
+	local phase = t % DayNight.START_CYCLE
+	for part, saved in stage do
+		local index = part:GetAttribute("Index")
+		local n = if type(index) == "number" then index else 1
+		local on, color = false, saved.Color
+		if part.Name == "StartLight" then
+			on = event ~= nil and event.Id == "RaceDay" and phase < 6 and n <= math.floor(phase) + 1
+			color = START_RED
+		elseif event then
+			on = true
+			color = EVENT_COLORS[1 + (beat + n) % #EVENT_COLORS]
+		end
+		if on then
+			part.Material = Enum.Material.Neon
+			part.Color = color
+			part.Transparency = 0
+		else
+			part.Material = saved.Material
+			part.Color = saved.Color
+			part.Transparency = saved.Transparency
 		end
 	end
 end
@@ -340,6 +383,7 @@ function DayNight.Init()
 			if night ~= nightOn then
 				setNight(night)
 			end
+			updateStage(Workspace:GetServerTimeNow())
 		end
 		if lightClock >= 0.5 then
 			lightClock = 0

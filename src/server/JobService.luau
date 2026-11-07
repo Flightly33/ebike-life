@@ -1,7 +1,8 @@
 --[[
 	JobService: Flighty Courier delivery jobs. Pick-ups are the city's walk-in shop counters (every
-	`OrderCounter`, with its shop's name); drop-offs are the fronts of houses, villas, bungalows and
-	mansions (in front of their `Walls`, which face the street). The phone offers three jobs near you
+	`OrderCounter`, with its shop's name) and the Flighty Courier depot's dispatch desk (`DepotDock`,
+	Landmarks.Depot: the first offer made near the depot starts there); drop-offs are the fronts of
+	houses, villas, bungalows and mansions (in front of their `Walls`, which face the street). The phone offers three jobs near you
 	(new ones every couple of minutes, or once you take one); each pays by the distance between pick-up
 	and drop-off and the rider's level, and the clock starts at the pick-up. A tip on top for time to
 	spare and a clean ride. A Courier Rush doubles it.
@@ -42,6 +43,7 @@ JobService.SPARE = 75 -- seconds on top
 local MAP = Config.MAP_SCALE / 1.25
 
 local pickups: { Spot } = {}
+local depots: { Spot } = {}
 local dropoffs: { Spot } = {}
 local offers: { [Player]: { List: { Offer }, At: number } } = {}
 local rng = Random.new()
@@ -51,14 +53,19 @@ local HOMES = { House = true, Villa = true, Bungalow = true, Mansion = true }
 -- The pick-ups and drop-offs in the city (before CityKit swaps any stand-ins: counters and walls stay)
 function JobService.Scan(city: Instance)
 	table.clear(pickups)
+	table.clear(depots)
 	table.clear(dropoffs)
 	for _, d in city:GetDescendants() do
 		if d:IsA("BasePart") then
-			if d.Name == "OrderCounter" then
+			if d.Name == "OrderCounter" or d.Name == "DepotDock" then
 				local shop = d:GetAttribute("ShopName")
 				-- stand in front of the counter, on the customers' side
 				local front = d.CFrame * CFrame.new(0, 0, -6)
-				table.insert(pickups, { Name = if type(shop) == "string" then shop else "the shop", At = front.Position })
+				local spot = { Name = if type(shop) == "string" then shop else "the shop", At = front.Position }
+				table.insert(pickups, spot)
+				if d.Name == "DepotDock" then
+					table.insert(depots, spot)
+				end
 			elseif d.Name == "Walls" then
 				local model = d:FindFirstAncestorWhichIsA("Model")
 				if model and HOMES[model.Name] then
@@ -72,8 +79,8 @@ function JobService.Scan(city: Instance)
 	end
 end
 
-function JobService.Counts(): (number, number)
-	return #pickups, #dropoffs
+function JobService.Counts(): (number, number, number)
+	return #pickups, #dropoffs, #depots
 end
 
 local function districtName(at: Vector3): string
@@ -90,15 +97,24 @@ local function districtName(at: Vector3): string
 	return best
 end
 
-local function makeOffer(player: Player, near: Vector3): Offer?
+JobService.DEPOT_RANGE = 700 -- (times MAP) a rider this near the depot gets an offer from it
+
+local function makeOffer(player: Player, near: Vector3, fromDepot: boolean?): Offer?
 	if #pickups == 0 or #dropoffs == 0 then
 		return nil
 	end
 	local data = DataService.Get(player)
 	local level = if data then data.Level else 1
-	-- a counter fairly near the rider, then a home a ride away from it
+	-- a counter fairly near the rider (the depot if they're at it), then a home a ride away from it
 	local pickup: Spot? = nil
-	for _ = 1, 30 do
+	if fromDepot then
+		for _, depot in depots do
+			if (depot.At - near).Magnitude < JobService.DEPOT_RANGE * MAP then
+				pickup = depot
+			end
+		end
+	end
+	for _ = 1, if pickup then 0 else 30 do
 		local p = pickups[rng:NextInteger(1, #pickups)]
 		if (p.At - near).Magnitude < 1600 * MAP then
 			pickup = p
@@ -148,8 +164,8 @@ function JobService.Offers(player: Player): { Offer }
 	end
 	local list = {}
 	local near = where(player)
-	for _ = 1, JobService.OFFERS do
-		local offer = makeOffer(player, near)
+	for i = 1, JobService.OFFERS do
+		local offer = makeOffer(player, near, i == 1)
 		if offer then
 			table.insert(list, offer)
 		end

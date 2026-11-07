@@ -17,6 +17,7 @@ export type Course = {
 	Blurb: string,
 	Via: { string }, -- places, in order
 	Level: number, -- the level it opens at
+	Grid: boolean?, -- start on the first place itself (the Race Plaza's grid), not the street by it
 }
 
 export type Built = {
@@ -37,6 +38,8 @@ Races.MEDAL_PAY = { Gold = 1, Silver = 0.7, Bronze = 0.5, None = 0.3 }
 Races.PLACE_PAY = { 1.6, 1.2, 1.0, 0.8, 0.7, 0.6, 0.5, 0.5 }
 
 Races.Courses = {
+	{ Id = "plaza_sprint", Name = "Plaza Sprint", Blurb = "Off the Race Plaza's grid and up Miami Avenue to the City Plaza", Via = { "RaceHub", "Plaza" }, Level = 1, Grid = true },
+	{ Id = "brickell_loop", Name = "Brickell Loop", Blurb = "From the Race Plaza through Downtown to the bay and back for the flag", Via = { "RaceHub", "Downtown", "Park", "RaceHub" }, Level = 2, Grid = true },
 	{ Id = "downtown_dash", Name = "Downtown Dash", Blurb = "Flighty Mechanics to the Plaza through the towers, then the bay", Via = { "Dealership", "Downtown", "Plaza", "Park" }, Level = 1 },
 	{ Id = "wynwood_walls", Name = "Wynwood Walls", Blurb = "The mural district and back past the jump park", Via = { "Downtown", "Wynwood", "JumpPark" }, Level = 2 },
 	{ Id = "calle_ocho", Name = "Calle Ocho Sprint", Blurb = "Little Havana's main street, flat out", Via = { "Downtown", "LittleHavana" }, Level = 3 },
@@ -81,6 +84,13 @@ function Races.Build(course: Course): Built
 	local points: { Vector3 } = {}
 	local length, since = 0, 0
 	local start = Layout.Nodes[nodes[1]].Position
+	if course.Grid then
+		-- (off the grid and out onto the street: that bit counts too)
+		local grid = (Layout.Places :: any)[course.Via[1]] :: Vector3
+		length += (start - grid).Magnitude
+		since += (start - grid).Magnitude
+		start = grid
+	end
 	for k = 2, #nodes do
 		local a, b = Layout.Nodes[nodes[k - 1]].Position, Layout.Nodes[nodes[k]].Position
 		local d = (b - a).Magnitude
