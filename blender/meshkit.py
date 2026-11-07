@@ -40,6 +40,16 @@ def vehicle(name):
     _current["vehicle"] = name
 
 
+# the city kits the detail pass added (written on their own to CityKitDetail.fbx too, an add-on
+# import next to an earlier CityKit one); kits register here as they're built
+DETAIL = set()
+
+
+def detail(name):
+    DETAIL.add(name)
+    return name
+
+
 def put(group, slot, bm):
     BUCKETS.add((_current["vehicle"], group, slot), bm)
     return bm

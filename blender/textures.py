@@ -31,7 +31,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out", "textures"
 MATERIALS = []
 
 
-def material(name, base, tile, pattern, tint, size=1024, directional=False, metal=None, seed=None, livery=False, named=False):
+def material(name, base, tile, pattern, tint, size=1024, directional=False, metal=None, seed=None, livery=False, named=False, rnd=1):
     """Register a generator: it returns colour (H, W, 3), height (m), roughness and optionally
     metalness (H, W) or a constant via `metal`. Livery patterns (Shared/Livery: carbon, camo...)
     are painted on bikes by name and never override their base material. Named facade materials
@@ -40,7 +40,7 @@ def material(name, base, tile, pattern, tint, size=1024, directional=False, meta
     their base material either."""
 
     def wrap(fn):
-        MATERIALS.append({"Name": name, "Base": base, "Tile": tile, "Pattern": pattern, "Tint": tint, "Size": size, "Directional": directional, "Metal": metal, "Seed": seed or (zlib.crc32(name.encode()) % 100000), "Livery": livery, "Named": named, "Fn": fn})
+        MATERIALS.append({"Name": name, "Base": base, "Tile": tile, "Pattern": pattern, "Tint": tint, "Size": size, "Directional": directional, "Metal": metal, "Seed": seed or (zlib.crc32(name.encode()) % 100000), "Livery": livery, "Named": named, "Round": rnd, "Fn": fn})
         return fn
 
     return wrap
@@ -675,6 +675,180 @@ def corrugated(n, x, y, S, tile):
     return {"color": color, "height": height, "rough": rough, "metal": metal}
 
 
+# ---------------------------------------------------------------------------- the detail pass
+# Named variants the builders put on parts by role and district (rnd=2: they ship in Textures2.fbx,
+# an add-on import next to the first pack). Near-neutral like the rest, so the parts' colours still
+# decide the hue, except where the material's own colour variation matters (pavers, stone, rust).
+
+
+def _rects(n, x, y, cells, chance, size=(0.25, 0.75), soft=0.01):
+    """Soft-edged rectangles, at most one per cell of a `cells` x `cells` grid: 1 inside, 0 outside,
+    with each rectangle's id (for a tone each)."""
+    cx, cy = x * cells, y * cells
+    i, j = np.floor(cx).astype(np.int64), np.floor(cy).astype(np.int64)
+    k = (j % cells) * cells + (i % cells)
+    count = cells * cells
+    on = n.per_cell(count) < chance
+    w = n.per_cell(count, size[0], size[1])
+    h = n.per_cell(count, size[0], size[1])
+    ox = n.per_cell(count, 0, 1) * (1 - w)
+    oy = n.per_cell(count, 0, 1) * (1 - h)
+    lx, ly = cx - i, cy - j
+    dx = np.minimum(lx - ox[k], ox[k] + w[k] - lx)
+    dy = np.minimum(ly - oy[k], oy[k] + h[k] - ly)
+    inside = smoothstep(0, soft * cells, np.minimum(dx, dy)) * on[k]
+    return inside.astype(F), k
+
+
+@material("AsphaltWorn", "Asphalt", 4.0, "Organic", (100, 101, 104), named=True, rnd=2)
+def asphalt_worn(n, x, y, S, tile):
+    """Old, sun-bleached asphalt (side streets, car parks): the binder worn off the aggregate, a
+    network of cracks sealed with black tar snakes, darker patch repairs, oil drips."""
+    f1, _, ids = n.worley(x, y, 240, jitter=1.0)
+    stone = smoothstep(0.45, 0.2, f1)
+    tone = n.per_cell(240 * 240, -0.14, 0.14)[ids]
+    lum = 0.6 + stone * (0.16 + tone) + 0.04 * n.fbm(x, y, 150, 3) + 0.07 * n.fbm(x, y, 5, 4)
+    height = 0.0016 * stone + 0.0004 * n.fbm(x, y, 300, 2)
+    c1, c2, _ = n.worley(x, y, 7, jitter=1.0)
+    edge = c2 - c1 + 0.01 * n.fbm(x, y, 50, 2)
+    mask = smoothstep(0.35, 0.65, n.fbm(x + 0.3, y, 3, 4))
+    crack = smoothstep(0.012, 0.0, edge) * mask
+    tar = smoothstep(0.05, 0.02, edge) * mask
+    lum = lum * (1 - 0.6 * tar) - 0.1 * crack
+    height = height * (1 - tar) + 0.0006 * tar - 0.002 * crack
+    patch, pid = _rects(n, x, y, 3, 0.45)
+    ptone = n.per_cell(9, -0.06, 0.06)[pid]
+    lum = lerp(lum, 0.42 + ptone + 0.05 * n.fbm(x, y, 120, 3), patch)
+    height = height + 0.002 * patch
+    oil = smoothstep(0.62, 0.8, n.fbm(x + 0.71, y + 0.2, 6, 4))
+    lum = lum * (1 - 0.35 * oil)
+    rough = 0.92 - 0.25 * tar - 0.4 * oil - 0.05 * patch
+    return {"color": gray(lum), "height": height, "rough": rough}
+
+
+@material("ConcreteDeck", "Concrete", 6.0, "Regular", (186, 184, 178), named=True, rnd=2)
+def concrete_deck(n, x, y, S, tile):
+    """A concrete road deck (freeways, bridges, ramps): broom-tined panels with sealed joints, spalled
+    corners at the joints, hairline cracks, rust bleeding from the rebar, tyre polish."""
+    tine = n.perlin(x, y * 0.02, 300, 3) * 0.6 + n.fbm(x, y, 400, 2) * 0.4
+    lum = 0.8 + 0.035 * tine + 0.05 * n.fbm(x, y, 4, 5) + 0.02 * n.fbm(x, y, 60, 3)
+    height = 0.0006 * tine + 0.0003 * n.fbm(x, y, 200, 2)
+    jx = np.minimum((x * 2) % 1, 1 - (x * 2) % 1) * tile / 2
+    jy = np.minimum((y * 2) % 1, 1 - (y * 2) % 1) * tile / 2
+    joint = smoothstep(0.012, 0.004, np.minimum(jx, jy))
+    spall = smoothstep(0.06, 0.0, np.minimum(jx, jy)) * smoothstep(0.62, 0.8, n.fbm(x, y, 20, 3))
+    lum = lum * (1 - 0.55 * joint) - 0.12 * spall
+    height = height - 0.004 * joint - 0.006 * spall
+    c1, c2, _ = n.worley(x, y, 4, jitter=1.0)
+    crack = smoothstep(0.008, 0.0, c2 - c1 + 0.004 * n.fbm(x, y, 80, 2)) * smoothstep(0.55, 0.75, n.fbm(x + 0.5, y, 2, 3))
+    lum = lum - 0.2 * crack
+    height = height - 0.0015 * crack
+    rust = smoothstep(0.7, 0.9, n.fbm(x + 0.13, y * 3, 8, 4)) * (1 - joint)
+    polish = 0.5 + 0.5 * n.perlin(x, y, 2, 1)
+    color = gray(lum) * lerp(np.ones(3, F), np.array([1.12, 0.86, 0.66], F), (0.55 * rust)[..., None])
+    rough = 0.86 - 0.12 * polish + 0.08 * spall - 0.1 * joint
+    return {"color": color, "height": height, "rough": rough}
+
+
+@material("RoadPaint", "SmoothPlastic", 1.5, "Organic", (240, 240, 236), named=True, rnd=2)
+def road_paint(n, x, y, S, tile):
+    """Worn road paint (lane lines, crossings, stop bars): the asphalt's texture through the film,
+    chipped where the traffic runs, cracks following the road underneath, glass bead sparkle."""
+    f1, _, _ = n.worley(x, y, 140, jitter=1.0)
+    grain = smoothstep(0.5, 0.15, f1)
+    loss = smoothstep(0.55, 0.78, n.fbm(x, y, 9, 5) + 0.25 * grain)
+    c1, c2, _ = n.worley(x, y, 5, jitter=1.0)
+    crack = smoothstep(0.01, 0.0, c2 - c1) * smoothstep(0.4, 0.7, n.fbm(x + 0.2, y, 3, 3))
+    lum = 0.95 - 0.06 * grain - 0.55 * loss - 0.4 * crack + 0.02 * n.fbm(x, y, 40, 3)
+    bead = smoothstep(0.07, 0.02, f1) * (1 - loss)
+    height = 0.0006 * (1 - loss) + 0.0009 * grain - 0.001 * crack
+    rough = 0.6 + 0.3 * loss - 0.3 * bead
+    return {"color": gray(lum), "height": height, "rough": rough}
+
+
+@material("BrickPavers", "Brick", 1.6, "Regular", (168, 92, 64), named=True, rnd=2)
+def brick_pavers(n, x, y, S, tile):
+    """Clay pavers in basketweave (plazas, Brickell and Downtown pavements, Ocean Drive): 20 x 10 cm
+    pavers in pairs, sand joints, a tone and hue each, chamfered edges, worn paths and moss."""
+    sq = 8
+    sx, sy = x * sq, y * sq
+    i, j = np.floor(sx), np.floor(sy)
+    lx, ly = sx - i, sy - j
+    across = ((i + j) % 2) == 0
+    k = np.where(across, np.floor(ly * 2), np.floor(lx * 2))
+    fx = np.where(across, lx, (lx * 2) % 1)
+    fy = np.where(across, (ly * 2) % 1, ly)
+    wx = np.where(across, 0.2, 0.1)
+    wy = np.where(across, 0.1, 0.2)
+    d = np.minimum(np.minimum(fx, 1 - fx) * wx, np.minimum(fy, 1 - fy) * wy) + 0.0006 * n.fbm(x, y, 120, 2)
+    body = smoothstep(0.001, 0.005, d)
+    pid = (((j % sq) * sq + (i % sq)) * 2 + k).astype(np.int64)
+    count = sq * sq * 2
+    shade = n.per_cell(count, -0.16, 0.12)[pid]
+    hue = np.stack([1 + n.per_cell(count, -0.02, 0.1)[pid], 1 + n.per_cell(count, -0.12, 0.04)[pid], 1 + n.per_cell(count, -0.18, 0.02)[pid]], -1)
+    wear = smoothstep(0.35, 0.75, n.fbm(x, y, 2, 4))
+    lum = lerp(0.42, 0.74 + shade + 0.06 * n.fbm(x, y, 50, 3) + 0.1 * wear, body)
+    moss = (1 - body) * smoothstep(0.55, 0.8, n.fbm(x + 0.4, y, 3, 4))
+    color = tinted(lum, (1, 1, 1)) * lerp(np.ones_like(hue), hue, body[..., None])
+    color = lerp(color, np.array([0.32, 0.4, 0.2], F) * 1.0, (0.7 * moss)[..., None])
+    cracked = (n.per_cell(count)[pid] < 0.04) * body * smoothstep(0.01, 0.0, np.abs(fx - fy * 0.7 - 0.2) * 0.1)
+    height = body * 0.004 * smoothstep(0.0, 0.006, d) - 0.0015 * cracked + 0.0003 * n.fbm(x, y, 200, 2)
+    rough = lerp(0.95, 0.8 - 0.1 * wear, body)
+    return {"color": color, "height": height, "rough": rough}
+
+
+@material("CoralStone", "Limestone", 2.0, "Regular", (222, 210, 182), named=True, rnd=2)
+def coral_stone(n, x, y, S, tile):
+    """Cut coral keystone (Coral Gables, Coconut Grove): 60 x 30 cm blocks in running bond, full of
+    fossil pits and shell fragments, cream to buff block by block, grey-black lichen in the weather."""
+    courses, per = 6, 3
+    row = np.floor(y * courses)
+    bx = x * per + (row % 2) * 0.5
+    bi = np.floor(bx) % per
+    bid = ((row % courses) * per + bi).astype(np.int64)
+    lx = (bx % 1) * 0.6
+    ly = (y * courses % 1) * 0.3333
+    d = np.minimum(np.minimum(lx, 0.6 - lx), np.minimum(ly, 0.3333 - ly))
+    body = smoothstep(0.002, 0.007, d)
+    f1, _, _ = n.worley(x, y, 60, jitter=1.0)
+    g1, _, _ = n.worley(x + 0.5, y, 180, jitter=1.0)
+    pits = smoothstep(0.16, 0.05, f1) * smoothstep(0.4, 0.6, n.fbm(x, y, 12, 3) + 0.3) + 0.6 * smoothstep(0.12, 0.03, g1)
+    pits = np.clip(pits, 0, 1)
+    shell = smoothstep(0.035, 0.0, g1) * (n.fbm(x, y, 90, 2) > 0.2)
+    shade = n.per_cell(courses * per, -0.1, 0.08)[bid]
+    lum = 0.82 + shade + 0.05 * n.fbm(x, y, 30, 4) - 0.35 * pits + 0.12 * shell
+    lichen = smoothstep(0.55, 0.85, n.fbm(x + 0.2, y + 0.7, 3, 5))
+    lum = lerp(0.55, lum, body) * (1 - 0.35 * lichen)
+    hue = np.stack([1 + n.per_cell(courses * per, 0.0, 0.06)[bid], np.ones_like(shade), 1 - n.per_cell(courses * per, 0.0, 0.1)[bid]], -1)
+    color = tinted(lum, (1, 1, 1)) * lerp(np.ones_like(hue), hue, body[..., None])
+    height = body * (0.004 - 0.005 * pits + 0.0008 * n.fbm(x, y, 70, 3)) - (1 - body) * 0.002
+    rough = 0.94 - 0.04 * shell
+    return {"color": color, "height": height, "rough": rough}
+
+
+@material("CoralRubble", "Limestone", 2.5, "Organic", (214, 204, 180), named=True, rnd=2)
+def coral_rubble(n, x, y, S, tile):
+    """A coral rock wall (garden walls, park walls, old Miami houses): irregular oolite stones set
+    proud of deep, pale mortar, each stone pitted and toned its own way."""
+    f1, f2, ids = n.worley(x, y, 9, jitter=0.9)
+    gap = f2 - f1 + 0.04 * n.fbm(x, y, 30, 3)
+    body = smoothstep(0.05, 0.13, gap)
+    g1, _, _ = n.worley(x + 0.3, y, 120, jitter=1.0)
+    pits = smoothstep(0.14, 0.04, g1) * smoothstep(0.2, 0.5, n.fbm(x, y, 16, 3) + 0.25)
+    shade = n.per_cell(81, -0.14, 0.1)[ids]
+    lum = 0.78 + shade + 0.06 * n.fbm(x, y, 40, 4) - 0.32 * pits
+    mortar = 0.86 + 0.04 * n.fbm(x, y, 90, 3)
+    lum = lerp(mortar, lum, body)
+    dark = smoothstep(0.5, 0.85, n.fbm(x + 0.9, y, 2, 5))
+    lum = lum * (1 - 0.3 * dark)
+    hue = np.stack([1 + n.per_cell(81, 0.0, 0.07)[ids], np.ones(ids.shape, F), 1 - n.per_cell(81, 0.0, 0.12)[ids]], -1)
+    color = tinted(lum, (1, 1, 1)) * lerp(np.ones_like(hue), hue, body[..., None])
+    dome = np.clip(gap, 0, 0.5)
+    height = body * (0.012 * dome / 0.5 + 0.006 - 0.004 * pits) - (1 - body) * 0.006
+    rough = lerp(0.9, 0.95, body)
+    return {"color": color, "height": height, "rough": rough}
+
+
 # ---------------------------------------------------------------------------- livery patterns
 # Bike paint patterns (Shared/Livery), named "Pattern<Name>" so their variants are
 # "RealPattern<Name>". Most are luminance only, so the coat's colour sets the hue; woodland camo,
@@ -949,7 +1123,7 @@ def main():
         x, y = T.grid(size)
         n = T.Noise(spec["Seed"])
         maps = finish(spec, spec["Fn"](n, x, y, size, spec["Tile"]))
-        entry = {k: spec[k] for k in ("Name", "Base", "Tile", "Pattern", "Tint", "Size", "Directional", "Livery", "Named")}
+        entry = {k: spec[k] for k in ("Name", "Base", "Tile", "Pattern", "Tint", "Size", "Directional", "Livery", "Named", "Round")}
         entry["Maps"] = write(spec["Name"], maps, spec)
         done[spec["Name"]] = entry
         if spec["Directional"]:
