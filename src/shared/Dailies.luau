@@ -86,4 +86,34 @@ function Dailies.IsWeekly(id: string): boolean
 	return string.sub(id, 1, 2) == "w_"
 end
 
+-- What's waiting to be claimed at time `t` (the HUD's and phone's badges): the streak (1 or 0) plus
+-- the challenges done and not claimed. Progress only counts for the day and week it belongs to.
+export type Save = {
+	LastLogin: number,
+	Day: number,
+	Week: number,
+	Progress: { [string]: number },
+	WeekProgress: { [string]: number },
+	Claimed: { [string]: boolean },
+}
+function Dailies.Claimable(daily: Save, t: number): number
+	local day, week = Dailies.Day(t), Dailies.Week(t)
+	local count = if daily.LastLogin ~= day then 1 else 0
+	if daily.Day == day then
+		for _, c in Dailies.ForDay(day) do
+			if (daily.Progress[c.Stat] or 0) >= c.Goal and not daily.Claimed[c.Id] then
+				count += 1
+			end
+		end
+	end
+	if daily.Week == week then
+		for _, c in Dailies.ForWeek(week) do
+			if (daily.WeekProgress[c.Stat] or 0) >= c.Goal and not daily.Claimed[c.Id] then
+				count += 1
+			end
+		end
+	end
+	return count
+end
+
 return Dailies

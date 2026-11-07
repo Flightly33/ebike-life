@@ -60,6 +60,7 @@ function GuiExport.Node(inst: any): any
 		node.xx = enum(inst, "SizeConstraint") == "RelativeXX"
 		node.clips = inst.ClipsDescendants
 		node.autoX = enum(inst, "AutomaticSize") == "X" or enum(inst, "AutomaticSize") == "XY"
+		node.autoY = enum(inst, "AutomaticSize") == "Y" or enum(inst, "AutomaticSize") == "XY"
 		if inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox") then
 			node.text = inst.Text
 			node.textColor = color(inst.TextColor3)
@@ -102,6 +103,10 @@ function GuiExport.Node(inst: any): any
 			node.list = { dir = enum(c, "FillDirection"), pad = { c.Padding.Scale, c.Padding.Offset }, h = enum(c, "HorizontalAlignment"), v = enum(c, "VerticalAlignment") }
 		elseif k == "UIGridLayout" then
 			node.grid = { cell = udim2(c.CellSize), pad = udim2(c.CellPadding) }
+		elseif k == "UIScale" and inst.ClassName == "ScreenGui" then
+			node.scale = c.Scale
+		elseif k == "UISizeConstraint" then
+			node.minH = c.MinSize.Y
 		elseif c:IsA("GuiObject") then
 			table.insert(node.children, GuiExport.Node(c))
 		end
@@ -115,8 +120,10 @@ function GuiExport.Screens(screens: { any }): any
 	for _, sg in screens do
 		if sg.Enabled ~= false then
 			local layer = GuiExport.Node(sg)
-			layer.size = { 1, 0, 1, 0 }
-			layer.pos = { 0, 0, 0, 0 }
+			-- (under Roblox's 58 px top bar unless the gui ignores it)
+			local inset = if sg.IgnoreGuiInset == true then 0 else 58
+			layer.size = { 1, 0, 1, -inset }
+			layer.pos = { 0, 0, 0, inset }
 			layer.anchor = { 0, 0 }
 			layer.rot = 0
 			layer.bgT = 1

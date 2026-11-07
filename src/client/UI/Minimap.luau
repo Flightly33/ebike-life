@@ -17,10 +17,9 @@ local Layout = require(Shared.City.Layout)
 
 local Theme = require(script.Parent.Theme)
 
-local Minimap = {}
+local Route = require(script.Parent.Route)
 
--- where the current objective is (UI/Objective sets it): a gold marker, held at the rim when far
-Minimap.Target = nil :: (() -> Vector3?)?
+local Minimap = {}
 
 local New = Theme.New
 local SCALE = 0.21 * 1.25 / Config.MAP_SCALE -- pixels per stud: the same stretch of map at any MAP_SCALE
@@ -170,6 +169,31 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 	local arrow = Theme.Label({ Text = "▲", Size = UDim2.fromOffset(18, 18), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), TextSize = 16, Color = Color3.fromRGB(255, 255, 255), Stroke = 2, ZIndex = 10, Parent = canvas })
 	local goal = Theme.Label({ Text = "◆", Size = UDim2.fromOffset(20, 20), AnchorPoint = Vector2.new(0.5, 0.5), TextSize = 20, Color = Color3.fromRGB(255, 200, 50), Stroke = 2, ZIndex = 9, Parent = map })
 	goal.Visible = false
+	-- the road route to the target (UI/Route), drawn over the streets
+	local routeSegments: { Frame } = {}
+	local routeVersion = -1
+	local function drawRoute()
+		local pts = Route.Points()
+		for i = 1, math.max(#pts - 1, #routeSegments) do
+			local seg = routeSegments[i]
+			if i <= #pts - 1 then
+				if not seg then
+					seg = New("Frame", { BorderSizePixel = 0, BackgroundColor3 = Color3.fromRGB(255, 200, 50), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 6, Parent = map })
+					routeSegments[i] = seg
+				end
+				local a, b = pts[i], pts[i + 1]
+				local ax, az = toMap(a.X, a.Z)
+				local bx, bz = toMap(b.X, b.Z)
+				local length = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+				seg.Position = UDim2.fromOffset(px((ax + bx) / 2), px((az + bz) / 2))
+				seg.Size = UDim2.fromOffset(px(length + 4), 4)
+				seg.Rotation = math.deg(math.atan2(bz - az, bx - ax))
+				seg.Visible = true
+			elseif seg then
+				seg.Visible = false
+			end
+		end
+	end
 	local _ = arrow
 
 	local self: Minimap = {
@@ -188,10 +212,14 @@ function Minimap.new(parent: Instance, position: UDim2): Minimap
 			for _, label in icons do
 				label.Rotation = math.deg(angle)
 			end
-			-- the objective's marker, pinned to the rim when it's off the map
-			local targetOf = Minimap.Target
-			local target = if targetOf then targetOf() else nil
+			-- the target's marker, pinned to the rim when it's off the map, and the route to it
+			if Route.Version ~= routeVersion then
+				routeVersion = Route.Version
+				drawRoute()
+			end
+			local target, kind = Route.Target()
 			goal.Visible = target ~= nil
+			goal.Text = if kind == "Waypoint" then "📍" else "◆"
 			if target then
 				local tx, tz = toMap(target.X, target.Z)
 				local dx, dz = tx - mx, tz - mz

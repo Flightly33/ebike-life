@@ -14,6 +14,7 @@
 	  ObjStarted   server time the clock started (races and trials time from here)
 
 	Step kinds:
+	  Ride      be on your bike
 	  Reach     get within Radius studs of At (Ride: on the bike)
 	  Speed     reach Amount km/h
 	  Distance  ride Amount metres

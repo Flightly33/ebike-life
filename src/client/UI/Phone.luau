@@ -1,9 +1,11 @@
 --[[
 	Phone: the in-game phone (` backquote, or the 📱 tile on the HUD): a handset with a wallpaper that
 	follows the time of day, a status bar (clock, signal, the bike's battery), a big lock-screen
-	clock with the weather, a grid of apps that open the menus (Map, My Rides, Dealer, Tuning,
-	Crates, Shop, Stats, Settings, and Play and Ranks for missions, jobs, races, dailies, events and
-	the leaderboards), a dock, and a red badge on Stats while an achievement waits to be claimed. Built like a Panel so UI.Open shows and hides it.
+	clock with the weather, a grid of twelve apps that open the menus (Play for missions, jobs,
+	races, dailies and events; Map, My Rides, Dealer, Garage, Modes, Crates, Shop, Stats, Ranks,
+	Messages for texts from the regulars, Settings), a dock, and red badges with what's waiting:
+	rewards to claim on Play, achievements on Stats, unread texts on Messages (UI/init counts them).
+	Built like a Panel so UI.Open shows and hides it.
 ]]
 
 local Lighting = game:GetService("Lighting")
@@ -15,8 +17,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weather = require(Shared.Weather)
 
 local BikeController = require(script.Parent.Parent.BikeController)
+local Kit = require(script.Parent.Kit)
 local Panel = require(script.Parent.Panel)
-local StatsScreen = require(script.Parent.StatsScreen)
 local Theme = require(script.Parent.Theme)
 
 local Phone = {}
@@ -39,9 +41,10 @@ local APPS: { App } = {
 	{ Name = "Shop", Icon = "💵", Top = rgb(140, 240, 90), Bottom = rgb(50, 160, 40), Opens = "Shop" },
 	{ Name = "Stats", Icon = "🏆", Top = rgb(255, 220, 80), Bottom = rgb(230, 150, 20), Opens = "Stats" },
 	{ Name = "Ranks", Icon = "📊", Top = rgb(120, 200, 255), Bottom = rgb(60, 90, 220), Opens = "Ranks" },
+	{ Name = "Messages", Icon = "💬", Top = rgb(110, 230, 120), Bottom = rgb(30, 170, 70), Opens = "Messages" },
 	{ Name = "Settings", Icon = "⚙️", Top = rgb(120, 130, 150), Bottom = rgb(60, 66, 80), Opens = "Menus" },
 }
-local DOCK = { 1, 2, 3, 7 }
+local DOCK = { 1, 2, 11, 3 } -- Play, Map, Messages, My Rides
 
 -- the wallpaper's colours through the day
 type Key = { Hour: number, Top: Color3, Bottom: Color3 }
@@ -66,7 +69,8 @@ local function sky(hour: number): (Color3, Color3)
 	return SKY[1].Top, SKY[1].Bottom
 end
 
-function Phone.new(gui: Instance, open: (string) -> (), close: () -> ()): Panel.Panel
+-- `counts` says what's waiting, by the panel an app opens ("Activities", "Stats", "Messages")
+function Phone.new(gui: Instance, open: (string) -> (), close: () -> (), counts: () -> { [string]: number }): Panel.Panel
 	local frame = New("Frame", { Name = "Phone", BackgroundColor3 = rgb(16, 16, 18), Size = UDim2.fromOffset(340, 660), Position = UDim2.new(1, -40, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Visible = false, ZIndex = 20, Parent = gui })
 	Theme.Corner(frame, 46)
 	Theme.Stroke(frame, rgb(70, 70, 76), 3)
@@ -92,7 +96,8 @@ function Phone.new(gui: Instance, open: (string) -> (), close: () -> ()): Panel.
 	-- the app grid
 	local grid = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -28, 0, 320), Position = UDim2.fromOffset(14, 180), ZIndex = 31, Parent = screen })
 	New("UIGridLayout", { CellSize = UDim2.fromOffset(68, 96), CellPadding = UDim2.fromOffset(5, 10), SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
-	local badges: { TextLabel } = {}
+	type AppBadge = { Opens: string, Badge: Kit.Badge }
+	local badges: { AppBadge } = {}
 	local function appIcon(parent: Instance, app: App, order: number, label: boolean): Frame
 		local holder = New("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(68, if label then 96 else 68), LayoutOrder = order, ZIndex = 32, Parent = parent })
 		local tile = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = rgb(255, 255, 255), Size = UDim2.fromOffset(62, 62), Position = UDim2.new(0.5, 0, 0, 2), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 33, Parent = holder })
@@ -104,12 +109,9 @@ function Phone.new(gui: Instance, open: (string) -> (), close: () -> ()): Panel.
 		if label then
 			Theme.Label({ Text = app.Name, Size = UDim2.new(1, 4, 0, 18), Position = UDim2.new(0, -2, 0, 68), TextSize = 13, Font = Theme.Body, Stroke = 1, ZIndex = 33, Parent = holder })
 		end
-		if app.Opens == "Stats" then
-			local badge = Theme.Label({ Text = "", Size = UDim2.fromOffset(22, 22), Position = UDim2.new(1, 2, 0, -4), AnchorPoint = Vector2.new(1, 0), TextSize = 13, Font = Theme.Body, Stroke = 0, ZIndex = 40, Parent = holder })
-			badge.BackgroundColor3 = rgb(240, 50, 50)
-			badge.BackgroundTransparency = 0
-			Theme.Round(badge)
-			table.insert(badges, badge)
+		if app.Opens == "Stats" or app.Opens == "Activities" or app.Opens == "Messages" then
+			local entry: AppBadge = { Opens = app.Opens, Badge = Kit.Badge(tile) }
+			table.insert(badges, entry)
 		end
 		local scale = New("UIScale", { Parent = tile })
 		tile.MouseButton1Down:Connect(function()
@@ -153,10 +155,9 @@ function Phone.new(gui: Instance, open: (string) -> (), close: () -> ()): Panel.
 		weather.Text = string.format("%s  Miami · %d°C", icon, temp)
 		local pct = if BikeController.Active then math.floor(BikeController.BatteryFraction() * 100 + 0.5) else 100
 		status.Text = string.format("📶 5G   🔋 %d%%", pct)
-		local unclaimed = StatsScreen.Unclaimed()
+		local waiting = counts()
 		for _, b in badges do
-			b.Visible = unclaimed > 0
-			b.Text = tostring(unclaimed)
+			b.Badge.Set(waiting[b.Opens] or 0)
 		end
 	end
 	local since = 1

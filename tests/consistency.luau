@@ -303,10 +303,6 @@ do
 	check(free.Cover > 0, "an empty override lets the spells run")
 end
 
-if failures > 0 then
-	print(string.format("%d consistency check(s) failed", failures))
-	process.exit(1)
-end
 -- Activities: every race course builds along connected roads, every mission's places exist and
 -- the missions open in a chain from the first; dailies and events are well formed
 do
@@ -383,4 +379,55 @@ do
 	check(every and math.abs(running / (Events.SLOT * #Events.List * 2 / 60) - Events.ACTIVE / Events.SLOT) < 0.02, "every event comes round, each running half its slot")
 end
 
+-- Controls: defaults unique and bindable, binding swaps instead of leaving a control keyless, the
+-- fixed extras step aside for a key another control takes, and the save keeps only valid changes
+do
+	local Controls = Loader.Require("ReplicatedStorage.Shared.Controls")
+	local defaults, ok = {}, true
+	for _, a in Controls.List do
+		ok = ok and Controls.ValidKey(a.Default) and not defaults[a.Default] and Controls.GroupNames[a.Group] ~= nil
+		defaults[a.Default] = true
+		for _, alt in a.Alt or {} do
+			ok = ok and Controls.ValidKey(alt) and not defaults[alt]
+		end
+	end
+	check(ok, string.format("%d controls: default keys unique, bindable, in a known group", #Controls.List))
+	check(not Controls.ValidKey("B") and not Controls.ValidKey("Space") and not Controls.ValidKey("Escape") and not Controls.ValidKey("Banana"), "reserved and unknown keys can't be bound")
+	-- Hop onto R (Drift's key): Drift gets Q
+	local keys = assert(Controls.Bind(nil, "Hop", "R"))
+	check(Controls.Key(keys, "Hop") == "R" and Controls.Key(keys, "Drift") == "Q", "binding a taken key swaps the two controls")
+	-- back to the defaults: nothing saved
+	local back = assert(Controls.Bind(keys, "Hop", "Q"))
+	check(next(back) == nil, "keys back at their defaults save nothing")
+	-- Hop onto LeftControl (one of Wheelie's extras): Wheelie loses it, keeps the rest
+	local ctrl = assert(Controls.Bind(nil, "Hop", "LeftControl"))
+	local wheelie = Controls.Keys(ctrl, "Wheelie")
+	check(Controls.Key(ctrl, "Hop") == "LeftControl" and not table.find(wheelie, "LeftControl") and table.find(wheelie, "LeftShift") ~= nil, "a fixed extra steps aside for a key another control takes")
+	check(Controls.ActionOf(nil, "Up") == "Gas" and Controls.ActionOf(nil, "LeftControl") == "Wheelie", "the arrows and Ctrl work as extras by default")
+	local refused, why = Controls.Bind(nil, "Gas", "B")
+	check(refused == nil and type(why) == "string", "binding a reserved key is refused with a reason")
+	local clean = Profile.Sanitize({ Settings = { Keys = { Gas = "I", Brake = "B", Nope = "K", Hop = 5 }, HudScale = 9, HudLayout = "Huge" } }).Settings
+	check(clean.Keys.Gas == "I" and clean.Keys.Brake == nil and clean.Keys.Nope == nil and clean.Keys.Hop == nil and clean.HudScale == 1.3 and clean.HudLayout == "Auto", "saved settings: only valid key changes, HUD size and layout clamped")
+end
+
+-- Dailies.Claimable: the streak and finished challenges count, but only for their own day and week
+do
+	local Dailies = Loader.Require("ReplicatedStorage.Shared.Dailies")
+	local t = 20000 * 86400 + 3600
+	local day, week = Dailies.Day(t), Dailies.Week(t)
+	local first = Dailies.ForDay(day)[1]
+	local fresh = { LastLogin = 0, Day = day, Week = week, Progress = { [first.Stat] = first.Goal }, WeekProgress = {}, Claimed = {} }
+	local n = Dailies.Claimable(fresh, t)
+	check(n >= 2, "a waiting streak and a finished challenge both count (" .. n .. ")")
+	fresh.LastLogin = day
+	fresh.Claimed[first.Id] = true
+	check(Dailies.Claimable(fresh, t) == 0, "claimed things don't count")
+	local stale = { LastLogin = day, Day = day - 1, Week = week, Progress = { [first.Stat] = 1e9 }, WeekProgress = {}, Claimed = {} }
+	check(Dailies.Claimable(stale, t) == 0, "yesterday's progress doesn't count today")
+end
+
+if failures > 0 then
+	print(string.format("%d consistency check(s) failed", failures))
+	process.exit(1)
+end
 print("consistency checks passed")

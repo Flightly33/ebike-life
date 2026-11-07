@@ -2,25 +2,33 @@
 	Objective: the HUD for missions, delivery jobs, time trials and races (top left, where the HUD is
 	free): the objective's title, the current step with a progress bar, the clock (counting down a
 	time limit, or up in a race), the race position; a beacon in the world over the step's target with
-	its distance; the mission giver's call when one starts; race lobbies' countdowns and results.
+	its distance; the mission giver's call when one starts (sliding in under the tracker, where it
+	never covers the riding buttons or the speedometer); race lobbies' countdowns and results.
 
 	Everything it shows comes from the player's Obj* attributes (ObjectiveService) and the Objective
-	and Race remotes.
+	and Race remotes. A step's text can name a control as {Gas}, {Wheelie} (any Shared/Controls id)
+	or {MyRides}: the tracker writes in the key the player has bound, the controller button or the
+	touch button, whichever they're using.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Controls = require(Shared.Controls)
 local Economy = require(Shared.Economy)
 local Missions = require(Shared.Missions)
 local Objectives = require(Shared.Objectives)
 local Remotes = require(Shared.Remotes)
 
 local Sound = require(script.Parent.Parent.Sound)
+local State = require(script.Parent.Parent.State)
+local Inbox = require(script.Parent.Inbox)
+local Route = require(script.Parent.Route)
 local Theme = require(script.Parent.Theme)
 local Toasts = require(script.Parent.Toasts)
 
@@ -57,6 +65,46 @@ local function serverNow(): number
 	return Workspace:GetServerTimeNow()
 end
 
+-- what {Id} becomes on a touch screen and on a controller (the keyboard uses the bound key)
+local TOUCH_NAMES: { [string]: string } = {
+	Gas = "the GAS button",
+	Brake = "BRAKE",
+	Wheelie = "WHEELIE",
+	Hop = "HOP",
+	Drift = "DRIFT",
+	Camera = "CAM",
+	Mode = "MODE",
+	MyRides = "the 🏍 tile",
+}
+local PAD_NAMES: { [string]: string } = {
+	Gas = "RT",
+	Brake = "LT",
+	Wheelie = "X",
+	Hop = "Y",
+	Drift = "B",
+	Camera = "R3",
+	Mode = "RB",
+	MyRides = "the 🏍 tile",
+}
+
+-- A step's text with its {Control} names written for the player's keys, pad or touch screen
+function Objective.Keys(text: string): string
+	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local pad = string.sub(UserInputService:GetLastInputType().Name, 1, 7) == "Gamepad"
+	return (string.gsub(text, "{(%w+)}", function(id: string): string
+		if touch then
+			return TOUCH_NAMES[id] or id
+		elseif pad and PAD_NAMES[id] then
+			return PAD_NAMES[id]
+		elseif id == "MyRides" then
+			return "B"
+		elseif Controls.Get(id) then
+			return Controls.Label(Controls.Key(State.Settings().Keys, id))
+		end
+		return id
+	end))
+end
+
 local function makeBeacon()
 	local part = Instance.new("Part")
 	part.Name = "ObjectiveBeacon"
@@ -88,13 +136,13 @@ local function showCall(giver: string?, text: string)
 	callTitle.Text = if info then string.format("%s  %s", info.Icon, info.Title) else "📱 Incoming"
 	callText.Text = text
 	callCard.Visible = true
-	callCard.Position = UDim2.new(0.5, 0, 1, 40)
-	TweenService:Create(callCard, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 1, -96) }):Play()
+	callCard.Position = UDim2.fromOffset(-440, 106)
+	TweenService:Create(callCard, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.fromOffset(12, 106) }):Play()
 	Sound.Play("Cash", nil, 1.4, 0.4)
 	local shown = callText.Text
 	task.delay(9, function()
 		if callText.Text == shown then
-			TweenService:Create(callCard, TweenInfo.new(0.3), { Position = UDim2.new(0.5, 0, 1, 140) }):Play()
+			TweenService:Create(callCard, TweenInfo.new(0.3), { Position = UDim2.fromOffset(-440, 106) }):Play()
 		end
 	end)
 end
@@ -117,18 +165,20 @@ function Objective.Init(gui: ScreenGui)
 	lobbyLabel = Theme.Label({ Text = "", Size = UDim2.fromOffset(420, 26), Position = UDim2.fromOffset(12, 108), TextSize = 18, Color = KIND_COLORS.Race, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = gui })
 	lobbyLabel.Visible = false
 
-	-- the mission giver's call, sliding up from the bottom
-	callCard = New("Frame", { Name = "Call", BackgroundColor3 = Color3.fromRGB(24, 24, 28), BackgroundTransparency = 0.04, Size = UDim2.fromOffset(520, 92), Position = UDim2.new(0.5, 0, 1, 140), AnchorPoint = Vector2.new(0.5, 1), Visible = false, Parent = gui })
-	Theme.Corner(callCard, 16)
+	-- the mission giver's call, sliding in from the left under the tracker
+	callCard = New("Frame", { Name = "Call", BackgroundColor3 = Color3.fromRGB(24, 24, 28), BackgroundTransparency = 0.04, Size = UDim2.fromOffset(420, 88), Position = UDim2.fromOffset(-440, 106), Visible = false, Parent = gui })
+	Theme.Corner(callCard, 14)
 	Theme.Stroke(callCard, C.Gold, 2, 0.3)
-	callTitle = Theme.Label({ Text = "", Size = UDim2.new(1, -24, 0, 26), Position = UDim2.fromOffset(14, 8), TextSize = 20, Color = C.Gold, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = callCard })
-	callText = Theme.Label({ Text = "", Size = UDim2.new(1, -28, 1, -40), Position = UDim2.fromOffset(14, 34), TextSize = 16, Font = Theme.Body, Align = Enum.TextXAlignment.Left, Wrapped = true, Stroke = 1, Parent = callCard })
+	callTitle = Theme.Label({ Text = "", Size = UDim2.new(1, -24, 0, 24), Position = UDim2.fromOffset(14, 6), TextSize = 18, Color = C.Gold, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = callCard })
+	callText = Theme.Label({ Text = "", Size = UDim2.new(1, -28, 1, -36), Position = UDim2.fromOffset(14, 30), TextSize = 15, Font = Theme.Body, Align = Enum.TextXAlignment.Left, Wrapped = true, Stroke = 1, Parent = callCard })
+	callText.TextYAlignment = Enum.TextYAlignment.Top
 
 	Remotes.Event("Objective").OnClientEvent:Connect(function(kind: any, data: any)
 		local info = if type(data) == "table" then data else {}
 		if kind == "Started" then
 			if type(info.Intro) == "string" then
 				showCall(info.Giver, info.Intro)
+				Inbox.Add(if type(info.Giver) == "string" then info.Giver else "Flighty", info.Intro, "Call")
 			end
 			Toasts.Banner(string.upper(tostring(info.Title or "")), if info.Kind == "Job" then "Delivery job" elseif info.Kind == "Trial" then "Time trial: ride to the start" elseif info.Kind == "Race" then "Race!" else "Mission", KIND_COLORS[info.Kind] or C.Text, 2.2)
 		elseif kind == "Step" then
@@ -151,8 +201,10 @@ function Objective.Init(gui: ScreenGui)
 		local info = if type(data) == "table" then data else {}
 		if kind == "Lobby" then
 			lobby = info
+			Route.LobbyStart = if typeof(info.Start) == "Vector3" then info.Start else nil
 		elseif kind == "Go" then
 			lobby = nil
+			Route.LobbyStart = nil
 			Toasts.Banner("GO!", tostring(info.Name or ""), C.Cash, 1.5)
 			Sound.Play("LevelUp")
 		elseif kind == "Finished" then
@@ -162,6 +214,7 @@ function Objective.Init(gui: ScreenGui)
 			Sound.Play(if place == 1 then "Escaped" else "Cash")
 		elseif kind == "Results" then
 			lobby = nil
+			Route.LobbyStart = nil
 			if info.Trial then
 				local medal = tostring(info.Medal or "None")
 				local icon = if medal == "Gold" then "🥇" elseif medal == "Silver" then "🥈" elseif medal == "Bronze" then "🥉" else "🏁"
@@ -191,7 +244,7 @@ function Objective.Update()
 		barFill.BackgroundColor3 = color
 		local stepIndex, steps = player:GetAttribute("ObjStep"), player:GetAttribute("ObjSteps")
 		titleLabel.Text = string.format("%s %s", KIND_ICONS[kind :: string] or "", tostring(player:GetAttribute("ObjTitle") or ""))
-		stepLabel.Text = string.format("%s  (%s/%s)", tostring(player:GetAttribute("ObjText") or ""), tostring(stepIndex or 1), tostring(steps or 1))
+		stepLabel.Text = string.format("%s  (%s/%s)", Objective.Keys(tostring(player:GetAttribute("ObjText") or "")), tostring(stepIndex or 1), tostring(steps or 1))
 		local progress = tonumber(player:GetAttribute("ObjProgress")) or 0
 		local stepFraction = ((tonumber(stepIndex) or 1) - 1 + progress) / math.max(tonumber(steps) or 1, 1)
 		barFill.Size = UDim2.fromScale(math.clamp(stepFraction, 0, 1), 1)
@@ -231,6 +284,11 @@ function Objective.Update()
 			target = l.Start
 		end
 	end
+	-- a waypoint the rider set on the map, when there's nothing else to head for
+	local routeTarget, routeKind = Route.Target()
+	if not target and routeKind == "Waypoint" then
+		target = routeTarget
+	end
 	-- the beacon over the target
 	if target then
 		if not beacon then
@@ -238,7 +296,7 @@ function Objective.Update()
 		end
 		local b = beacon :: Part
 		b.CFrame = CFrame.new(target + Vector3.new(0, 80, 0)) * CFrame.Angles(0, 0, math.pi / 2)
-		b.Color = if active then (KIND_COLORS[kind :: string] or C.Gold) else KIND_COLORS.Race
+		b.Color = if active then (KIND_COLORS[kind :: string] or C.Gold) elseif routeKind == "Waypoint" then Color3.fromRGB(80, 220, 255) else KIND_COLORS.Race
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local label = beaconLabel
@@ -254,20 +312,6 @@ function Objective.Update()
 			beaconLabel.Text = ""
 		end
 	end
-end
-
--- Where the current objective (or the race lobby's start) is, for the minimap
-function Objective.Target(): Vector3?
-	local player = Players.LocalPlayer
-	local at = player:GetAttribute("ObjTarget")
-	if typeof(at) == "Vector3" then
-		return at
-	end
-	local l = lobby
-	if l and typeof(l.Start) == "Vector3" and player:GetAttribute("RaceLobby") ~= nil then
-		return l.Start
-	end
-	return nil
 end
 
 return Objective

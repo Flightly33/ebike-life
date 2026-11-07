@@ -1,11 +1,12 @@
 --[[
 	Input: one riding input from keyboard, gamepad and touch.
 
-	Keyboard (as on the reference HUD): W gas, S brake, A/D steer, Shift or Ctrl wheelie, C one hand,
-	V no hands, Space get off (Roblox's own jump does that), plus Q bunny hop (hold to preload),
-	M ride mode, 1-5 pick a mode, H bell, R drift (locks the rear brake), F first person.
-	In the air: Z superman, X can-can, T nac-nac, G knee knocker, N no-footer (hold), Y barspin (tap).
-	On the ground: brake + Shift = stoppie. P is the video camera (Client/CineCam).
+	Keyboard (as on the reference HUD, and rebindable in Menus > Controls: Shared/Controls, saved in
+	Settings.Keys): W gas, S brake, A/D steer (the arrow keys too), Shift or Ctrl wheelie, C one
+	hand, V no hands, Q bunny hop (hold to preload), M ride mode, H bell, R drift (locks the rear
+	brake), F first person. In the air: Z superman, X can-can, T nac-nac, G knee knocker, N no-footer
+	(hold), Y barspin (tap). On the ground: brake + wheelie = stoppie. Fixed: Space gets off (Roblox's
+	own jump does that), 1-5 pick a mode, P is the video camera (Client/CineCam).
 	Gamepad: RT gas, LT brake, left stick steer, X wheelie, Y hop, B drift, d-pad left/right one/no
 	hands, RB/LB mode, R3 first person, A get off. Touch: the on-screen riding buttons (UI/TouchControls) and the thumbstick.
 ]]
@@ -17,7 +18,10 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BikePhysics = require(Shared.BikePhysics)
+local Controls = require(Shared.Controls)
 local Signal = require(Shared.Signal)
+
+local State = require(script.Parent.State)
 
 local Input = {}
 
@@ -40,19 +44,51 @@ local controls: any = nil
 local enabled = false
 local airborne = false
 local padDriftLatched = false -- B held from the air (a Can-Can) doesn't become a drift on landing
+local bound: { [string]: { Enum.KeyCode } } = {} -- action id -> the keys that do it
+local bindRide: () -> ()
+
+local function keyCode(name: string): Enum.KeyCode?
+	local ok, code = pcall(function()
+		return (Enum.KeyCode :: any)[name]
+	end)
+	return if ok and code ~= nil then code :: Enum.KeyCode else nil
+end
+
+-- Use these key bindings (Settings.Keys; nil for the defaults)
+function Input.Bind(keys: Controls.Keys?)
+	for _, action in Controls.List do
+		local codes = {}
+		for _, name in Controls.Keys(keys, action.Id) do
+			local code = keyCode(name)
+			if code then
+				table.insert(codes, code)
+			end
+		end
+		bound[action.Id] = codes
+	end
+	if enabled then
+		bindRide()
+	end
+end
 
 -- The bike is in the air: pad buttons switch to their trick meanings (BikeController, every frame)
 function Input.SetAirborne(inAir: boolean)
 	airborne = inAir
 end
 
-local function down(...: Enum.KeyCode): boolean
-	for _, key in { ... } do
+-- One of the keys bound to this action is held
+local function held(id: string): boolean
+	local keys: { Enum.KeyCode } = bound[id] or {}
+	for _, key in keys do
 		if UserInputService:IsKeyDown(key) then
 			return true
 		end
 	end
 	return false
+end
+
+local function has(id: string, key: Enum.KeyCode): boolean
+	return table.find(bound[id] or {}, key) ~= nil
 end
 
 local function gamepad(): (number, number, number, boolean, boolean, boolean, boolean)
@@ -97,9 +133,9 @@ function Input.Read(): BikePhysics.Input
 	if UserInputService:GetFocusedTextBox() then
 		return input
 	end
-	local kbGas = if down(Enum.KeyCode.W, Enum.KeyCode.Up) then 1 else 0
-	local kbBrake = if down(Enum.KeyCode.S, Enum.KeyCode.Down) then 1 else 0
-	local kbSteer = (if down(Enum.KeyCode.D, Enum.KeyCode.Right) then 1 else 0) - (if down(Enum.KeyCode.A, Enum.KeyCode.Left) then 1 else 0)
+	local kbGas = if held("Gas") then 1 else 0
+	local kbBrake = if held("Brake") then 1 else 0
+	local kbSteer = (if held("Right") then 1 else 0) - (if held("Left") then 1 else 0)
 	local gpGas, gpBrake, gpSteer, gpWheelie, gpHop, gpOne, gpNo = gamepad()
 
 	-- Touch thumbstick: X steers, pushing forward also works as gas
@@ -125,62 +161,82 @@ function Input.Read(): BikePhysics.Input
 		steer = stickSteer
 	end
 	input.Steer = math.clamp(steer, -1, 1)
-	input.Wheelie = down(Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift, Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl) or gpWheelie or t.Wheelie
-	input.Hop = down(Enum.KeyCode.Q) or gpHop or t.Hop
-	input.OneHand = down(Enum.KeyCode.C) or gpOne or t.OneHand
-	input.NoHands = down(Enum.KeyCode.V) or gpNo or t.NoHands
+	input.Wheelie = held("Wheelie") or gpWheelie or t.Wheelie
+	input.Hop = held("Hop") or gpHop or t.Hop
+	input.OneHand = held("OneHand") or gpOne or t.OneHand
+	input.NoHands = held("NoHands") or gpNo or t.NoHands
 	local padDrift = gamepadDrift()
 	if padDrift and airborne then
 		padDriftLatched = true
 	elseif not padDrift then
 		padDriftLatched = false
 	end
-	input.Drift = down(Enum.KeyCode.R) or (padDrift and not padDriftLatched) or t.Drift
+	input.Drift = held("Drift") or (padDrift and not padDriftLatched) or t.Drift
 	-- air tricks (the physics only uses them in the air)
 	local pad = UserInputService:GetGamepadConnected(Enum.UserInputType.Gamepad1)
 	local function button(key: Enum.KeyCode): boolean
 		return pad and UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, key)
 	end
-	if down(Enum.KeyCode.Z) or button(Enum.KeyCode.DPadUp) or t.Trick then
+	if held("Superman") or button(Enum.KeyCode.DPadUp) or t.Trick then
 		input.Trick = "Superman"
-	elseif down(Enum.KeyCode.X) or button(Enum.KeyCode.ButtonB) then
+	elseif held("CanCan") or button(Enum.KeyCode.ButtonB) then
 		input.Trick = "CanCan"
-	elseif down(Enum.KeyCode.T) or (airborne and button(Enum.KeyCode.ButtonL1)) then
+	elseif held("NacNac") or (airborne and button(Enum.KeyCode.ButtonL1)) then
 		input.Trick = "NacNac"
-	elseif down(Enum.KeyCode.G) or button(Enum.KeyCode.DPadDown) then
+	elseif held("KneeKnocker") or button(Enum.KeyCode.DPadDown) then
 		input.Trick = "KneeKnocker"
-	elseif down(Enum.KeyCode.N) or (airborne and button(Enum.KeyCode.ButtonR1)) then
+	elseif held("NoFooter") or (airborne and button(Enum.KeyCode.ButtonR1)) then
 		input.Trick = "NoFooter"
 	end
-	input.Barspin = down(Enum.KeyCode.Y) or button(Enum.KeyCode.ButtonY) or t.Barspin
+	input.Barspin = held("Barspin") or button(Enum.KeyCode.ButtonY) or t.Barspin
 	return input
+end
+
+local MODE_KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five }
+
+local function onRideKey(_name: string, state: Enum.UserInputState, object: InputObject): Enum.ContextActionResult
+	if state ~= Enum.UserInputState.Begin or UserInputService:GetFocusedTextBox() then
+		return Enum.ContextActionResult.Pass
+	end
+	local key = object.KeyCode
+	if has("Mode", key) or (key == Enum.KeyCode.ButtonR1 and not airborne) then
+		Input.Action:Fire("ModeUp") -- (in the air the bumpers are Nac-Nac and No-Footer)
+	elseif key == Enum.KeyCode.ButtonL1 and not airborne then
+		Input.Action:Fire("ModeDown")
+	elseif has("Bell", key) then
+		Input.Action:Fire("Bell")
+	elseif has("Camera", key) or key == Enum.KeyCode.ButtonR3 then
+		Input.Action:Fire("Camera")
+	else
+		local index = table.find(MODE_KEYS, key)
+		if index then
+			Input.Action:Fire("Mode", index)
+		end
+	end
+	return Enum.ContextActionResult.Pass
+end
+
+-- (re)binds the riding keys: the mode, bell and camera keys the player chose, 1-5, the pad's
+bindRide = function()
+	ContextActionService:UnbindAction("EB_Ride")
+	local keys = table.clone(MODE_KEYS)
+	for _, key in { Enum.KeyCode.ButtonR1, Enum.KeyCode.ButtonL1, Enum.KeyCode.ButtonR3 } do
+		table.insert(keys, key)
+	end
+	for _, id in { "Mode", "Bell", "Camera" } do
+		local extra: { Enum.KeyCode } = bound[id] or {}
+		for _, key in extra do
+			table.insert(keys, key)
+		end
+	end
+	ContextActionService:BindActionAtPriority("EB_Ride", onRideKey, false, Enum.ContextActionPriority.High.Value, table.unpack(keys))
 end
 
 -- While riding, mode keys and the bell; Shift-lock would fight the wheelie key, so it's off
 function Input.SetRiding(riding: boolean)
 	enabled = riding
 	if riding then
-		ContextActionService:BindActionAtPriority("EB_Ride", function(_name: string, state: Enum.UserInputState, object: InputObject)
-			if state ~= Enum.UserInputState.Begin then
-				return Enum.ContextActionResult.Pass
-			end
-			local key = object.KeyCode
-			if key == Enum.KeyCode.M or (key == Enum.KeyCode.ButtonR1 and not airborne) then
-				Input.Action:Fire("ModeUp") -- (in the air the bumpers are Nac-Nac and No-Footer)
-			elseif key == Enum.KeyCode.ButtonL1 and not airborne then
-				Input.Action:Fire("ModeDown")
-			elseif key == Enum.KeyCode.H then
-				Input.Action:Fire("Bell")
-			elseif key == Enum.KeyCode.F or key == Enum.KeyCode.ButtonR3 then
-				Input.Action:Fire("Camera")
-			else
-				local index = table.find({ Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five }, key)
-				if index then
-					Input.Action:Fire("Mode", index)
-				end
-			end
-			return Enum.ContextActionResult.Pass
-		end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.M, Enum.KeyCode.H, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.ButtonR1, Enum.KeyCode.ButtonL1, Enum.KeyCode.F, Enum.KeyCode.ButtonR3)
+		bindRide()
 	else
 		ContextActionService:UnbindAction("EB_Ride")
 		for key in Input.Touch do
@@ -194,6 +250,10 @@ function Input.Riding(): boolean
 end
 
 function Input.Init()
+	Input.Bind(State.Settings().Keys)
+	State.SettingsChanged:Connect(function(settings: any)
+		Input.Bind(if type(settings) == "table" then settings.Keys else nil)
+	end)
 	task.spawn(function()
 		local player = Players.LocalPlayer
 		local scripts = player:WaitForChild("PlayerScripts")
@@ -209,5 +269,7 @@ function Input.Init()
 		end
 	end)
 end
+
+Input.Bind(nil) -- the defaults until the save's settings arrive
 
 return Input

@@ -2,8 +2,10 @@
 	MapScreen: the full map (J, the minimap, or the phone's Map app). The whole of Miami drawn from
 	Layout like the minimap (open land, the Everglades, water, beaches, the airport, the blocks by
 	district, the streets and the freeways in orange), with the places you can travel to, the
-	charging stations, police cars and the other riders on it, and you as an arrow. Scroll to zoom,
-	drag to move; click a place (or a row in the list) to travel there through the Teleport remote.
+	charging stations, the race courses' start lines, police cars and the other riders on it, and you
+	as an arrow; the route to your objective or waypoint in gold (UI/Route). Scroll to zoom, drag to
+	move; tap the map to set a waypoint (tap it again to clear it); tap a flag to head for that
+	race's start; click a place (or a row in the list) to travel there through the Teleport remote.
 ]]
 
 local Players = game:GetService("Players")
@@ -14,9 +16,11 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Layout = require(Shared.City.Layout)
+local Races = require(Shared.Races)
 local Remotes = require(Shared.Remotes)
 
 local Panel = require(script.Parent.Panel)
+local Route = require(script.Parent.Route)
 local Theme = require(script.Parent.Theme)
 local Toasts = require(script.Parent.Toasts)
 
@@ -139,6 +143,7 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 		Theme.Round(dot)
 		Theme.Label({ Text = "⚡", Size = UDim2.fromScale(1, 1), TextSize = 9, Stroke = 0, ZIndex = 8, Parent = dot })
 	end
+	local pinTapped = 0 -- when a pin or flag was last tapped (a tap on the map then isn't a waypoint)
 	-- places: a pin with its icon and name, click to travel
 	local function travel(id: string, name: string)
 		Remotes.Event("Teleport"):FireServer(id)
@@ -156,10 +161,52 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 			local tag = Theme.Label({ Text = place.Name, Size = UDim2.fromOffset(0, 16), Position = UDim2.new(0.5, 0, 1, 2), AnchorPoint = Vector2.new(0.5, 0), TextSize = 12, Stroke = 2, ZIndex = 10, Parent = pin })
 			tag.AutomaticSize = Enum.AutomaticSize.X
 			pin.Activated:Connect(function()
+				pinTapped = os.clock()
 				travel(place.Id, place.Name)
 			end)
 		end
 	end
+	-- the race courses' start lines: tap one to head there
+	for _, course in Races.Courses do
+		local start = Races.Build(course).Start
+		local mx, mz = toMap(start.X, start.Z)
+		local flag = New("TextButton", { Text = "", AutoButtonColor = false, Size = UDim2.fromOffset(22, 22), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromOffset(mx, mz), BackgroundColor3 = Theme.Roles.Race, ZIndex = 9, Parent = map })
+		Theme.Round(flag)
+		Theme.Stroke(flag, rgb(255, 255, 255), 1.5)
+		Theme.Label({ Text = "🏁", Size = UDim2.fromScale(1, 1), TextSize = 13, Stroke = 0, ZIndex = 10, Parent = flag })
+		flag.Activated:Connect(function()
+			pinTapped = os.clock()
+			Route.SetWaypoint(start)
+			Toasts.Message("Info", "📍 Heading for the start of " .. course.Name .. " (phone > Play > Races)")
+		end)
+	end
+	-- the route to the target and the target itself
+	local routeSegments: { Frame } = {}
+	local routeVersion = -1
+	local function drawRoute()
+		local pts = Route.Points()
+		for i = 1, math.max(#pts - 1, #routeSegments) do
+			local seg = routeSegments[i]
+			if i <= #pts - 1 then
+				if not seg then
+					seg = New("Frame", { BorderSizePixel = 0, BackgroundColor3 = rgb(255, 200, 50), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 7, Parent = map })
+					routeSegments[i] = seg
+				end
+				local a, b = pts[i], pts[i + 1]
+				local ax, az = toMap(a.X, a.Z)
+				local bx, bz = toMap(b.X, b.Z)
+				local length = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+				seg.Position = UDim2.fromOffset(px((ax + bx) / 2), px((az + bz) / 2))
+				seg.Size = UDim2.fromOffset(px(length + 3), 3)
+				seg.Rotation = math.deg(math.atan2(bz - az, bx - ax))
+				seg.Visible = true
+			elseif seg then
+				seg.Visible = false
+			end
+		end
+	end
+	local goal = Theme.Label({ Text = "◆", Size = UDim2.fromOffset(26, 26), AnchorPoint = Vector2.new(0.5, 0.5), TextSize = 24, Color = rgb(255, 200, 50), Stroke = 2.5, ZIndex = 16, Parent = map })
+	goal.Visible = false
 	-- live markers: you, the other riders, police cars
 	local me = New("Frame", { Size = UDim2.fromOffset(22, 22), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 20, Parent = map })
 	local halo = New("Frame", { Size = UDim2.fromScale(1.6, 1.6), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = rgb(80, 180, 255), BackgroundTransparency = 0.6, ZIndex = 19, Parent = me })
@@ -185,14 +232,14 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 	Theme.Corner(side, 8)
 	New("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 10), Parent = side })
 	Theme.Label({ Text = "Travel", Size = UDim2.new(1, 0, 0, 26), TextSize = 24, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = side })
-	local list = New("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 1, -150), Position = UDim2.fromOffset(0, 30), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 5, Parent = side })
+	local list = New("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 1, -176), Position = UDim2.fromOffset(0, 30), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 5, Parent = side })
 	Theme.List(list, Enum.FillDirection.Vertical, 5)
 	for i, place in Layout.Teleports do
 		Theme.Button({ Text = (PLACE_ICONS[place.Id] or "📍") .. "  " .. place.Name, Size = UDim2.new(1, -8, 0, 34), TextSize = 17, Color = rgb(58, 58, 64), LayoutOrder = i, Parent = list, OnClick = function()
 			travel(place.Id, place.Name)
 		end })
 	end
-	local legend = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 110), Position = UDim2.new(0, 0, 1, -118), Parent = side })
+	local legend = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 136), Position = UDim2.new(0, 0, 1, -142), Parent = side })
 	Theme.List(legend, Enum.FillDirection.Vertical, 2)
 	type Row = { Mark: string, Name: string, Color: Color3 }
 	local rows: { Row } = {
@@ -201,16 +248,29 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 		{ Mark = "●", Name = "Police", Color = rgb(240, 60, 60) },
 		{ Mark = "⚡", Name = "Chargers", Color = rgb(60, 200, 90) },
 		{ Mark = "━", Name = "Freeways", Color = rgb(240, 160, 56) },
+		{ Mark = "━", Name = "Your route (tap the map for a waypoint)", Color = rgb(255, 200, 50) },
 	}
 	for i, row in rows do
 		Theme.Label({ Text = row.Mark .. "  " .. row.Name, Size = UDim2.new(1, 0, 0, 20), TextSize = 16, Color = row.Color, Align = Enum.TextXAlignment.Left, Stroke = 1, LayoutOrder = i, Parent = legend })
 	end
 
-	-- zoom and pan
+	-- zoom and pan, in the view's own units: the menus' UIScale fits them to the screen, so a
+	-- position on screen is divided by it first (screen pixels -> view units)
 	local zoom, pan = 1, Vector2.new(0, 0)
+	local function uiScale(): number
+		local screen = view:FindFirstAncestorOfClass("ScreenGui")
+		local scale = screen and screen:FindFirstChildOfClass("UIScale")
+		return if scale then math.max(scale.Scale, 0.01) else 1
+	end
+	local function viewSize(): Vector2
+		return view.AbsoluteSize / uiScale()
+	end
+	local function inView(screen: Vector2): Vector2
+		return (screen - view.AbsolutePosition) / uiScale()
+	end
 	local function apply()
 		zoomScale.Scale = zoom
-		local size = view.AbsoluteSize
+		local size = viewSize()
 		local span = BASE * zoom
 		-- keep the map covering the view where it can
 		local minX, minY = math.min(0, size.X - span), math.min(0, size.Y - span)
@@ -219,13 +279,13 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 	end
 	local function centreOn(world: Vector3)
 		local mx, mz = toMap(world.X, world.Z)
-		local size = view.AbsoluteSize
+		local size = viewSize()
 		pan = Vector2.new(size.X / 2 - mx * zoom, size.Y / 2 - mz * zoom)
 		apply()
 	end
 	view.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseWheel then
-			local mouse = Vector2.new(input.Position.X, input.Position.Y) - view.AbsolutePosition
+			local mouse = inView(Vector2.new(input.Position.X, input.Position.Y))
 			local before = (mouse - pan) / zoom
 			zoom = math.clamp(zoom * (if input.Position.Z > 0 then 1.25 else 0.8), 0.6, 6)
 			pan = mouse - before * zoom
@@ -233,16 +293,34 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 		end
 	end)
 	local dragging: Vector2? = nil
+	local pressedAt: Vector2? = nil
 	view.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = Vector2.new(input.Position.X, input.Position.Y)
+			pressedAt = dragging
 		end
 	end)
+	-- a tap (no drag) sets a waypoint there, or clears the one it's on
+	local function tapped(screen: Vector2)
+		local pixel = (inView(screen) - pan) / zoom
+		local world = Vector3.new(pixel.X / SCALE - W, Layout.ROAD_Y, pixel.Y / SCALE - W)
+		local waypoint = Route.Waypoint
+		if waypoint then
+			local wx, wz = toMap(waypoint.X, waypoint.Z)
+			if (Vector2.new(wx, wz) - pixel).Magnitude * zoom < 18 then
+				Route.SetWaypoint(nil)
+				Toasts.Message("Info", "Waypoint cleared")
+				return
+			end
+		end
+		Route.SetWaypoint(world)
+		Toasts.Message("Info", "📍 Waypoint set: follow the gold line")
+	end
 	UserInputService.InputChanged:Connect(function(input)
 		local from = dragging
 		if from and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			local now = Vector2.new(input.Position.X, input.Position.Y)
-			pan += now - from
+			pan += (now - from) / uiScale()
 			dragging = now
 			apply()
 		end
@@ -250,6 +328,17 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 	UserInputService.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = nil
+			local from = pressedAt
+			pressedAt = nil
+			local here = Vector2.new(input.Position.X, input.Position.Y)
+			if from and panel.Frame.Visible and (here - from).Magnitude < 6 then
+				-- (a frame later: a flag or place pin tapped in the same click wins)
+				task.defer(function()
+					if os.clock() - pinTapped > 0.3 then
+						tapped(here)
+					end
+				end)
+			end
 		end
 	end)
 	-- zoom buttons
@@ -265,8 +354,7 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 					centreOn(root.Position)
 				end
 			else
-				local size = view.AbsoluteSize
-				local mid = size / 2
+				local mid = viewSize() / 2
 				local before = (mid - pan) / zoom
 				zoom = math.clamp(zoom * z.Factor, 0.6, 6)
 				pan = mid - before * zoom
@@ -299,6 +387,17 @@ function MapScreen.new(gui: Instance, close: () -> ()): Panel.Panel
 			local look = (Workspace.CurrentCamera :: Camera).CFrame.LookVector
 			arrow.Rotation = math.deg(math.atan2(look.X, -look.Z))
 			halo.BackgroundTransparency = 0.5 + 0.3 * math.sin(os.clock() * 4)
+		end
+		if Route.Version ~= routeVersion then
+			routeVersion = Route.Version
+			drawRoute()
+		end
+		local target, kind = Route.Target()
+		goal.Visible = target ~= nil
+		if target then
+			local gx, gz = toMap(target.X, target.Z)
+			goal.Position = UDim2.fromOffset(gx, gz)
+			goal.Text = if kind == "Waypoint" then "📍" else "◆"
 		end
 		for _, d in dots do
 			d.Visible = false

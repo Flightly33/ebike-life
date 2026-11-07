@@ -17,6 +17,11 @@ State.Player = Players.LocalPlayer
 State.Profile = nil :: Profile.Data?
 State.Changed = Signal.new() -- (profile)
 State.MenuOpened = Signal.new() -- (name) a menu asked to open ("MyRides", "Dealership", ...)
+-- (settings) the settings changed: a new profile, or the menu trying a value out before it's saved
+-- (the HUD's size and layout, key bindings, volumes and the field of view follow it at once)
+State.SettingsChanged = Signal.new()
+-- Menus > Controls is waiting for a key: the game's own keys (menus, the video camera) stand aside
+State.CapturingKey = false
 
 function State.Get(): Profile.Data?
 	return State.Profile
@@ -40,11 +45,29 @@ function State.Settings(): Profile.Settings
 	return Profile.Default().Settings
 end
 
+-- Use these settings now (the local copy), and save them when `save` is set. The server's clean copy
+-- comes back in the next profile.
+function State.SetSettings(settings: Profile.Settings, save: boolean?)
+	local data = State.Profile
+	if data then
+		data.Settings = settings
+	end
+	State.SettingsChanged:Fire(settings)
+	if save then
+		Remotes.Event("SaveSettings"):FireServer(settings)
+	end
+end
+
+local function received(data: Profile.Data)
+	State.Profile = data
+	State.Changed:Fire(data)
+	State.SettingsChanged:Fire(data.Settings)
+end
+
 function State.Init()
 	Remotes.Event("Profile").OnClientEvent:Connect(function(data: any)
 		if type(data) == "table" then
-			State.Profile = data
-			State.Changed:Fire(data)
+			received(data)
 		end
 	end)
 	task.spawn(function()
@@ -52,8 +75,7 @@ function State.Init()
 			return Remotes.Function("GetProfile"):InvokeServer()
 		end)
 		if ok and type(data) == "table" and State.Profile == nil then
-			State.Profile = data
-			State.Changed:Fire(data)
+			received(data)
 		end
 	end)
 end

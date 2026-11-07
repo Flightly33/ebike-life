@@ -23,6 +23,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local BikeController = require(script.Parent.BikeController)
+local State = require(script.Parent.State)
 
 local CineCam = {}
 
@@ -306,7 +307,7 @@ end
 
 function CineCam.Init()
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if processed then
+		if processed or State.CapturingKey then
 			return
 		end
 		local key = input.KeyCode

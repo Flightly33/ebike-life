@@ -39,6 +39,8 @@
 		Charge(percent)                   a charging station topped your battery up
 		Objective(kind, data)             "Started", "Step", "Done", "Failed" (ObjectiveService)
 		Race(kind, data)                  race lobby and results: "Lobby", "Countdown", "Go", "Results"
+		Message(from, text)               a text for the phone's Messages: from a regular ("Nina",
+		                                  "Marco", "Jet", "Reyes") or the city ("Daily", "Events", "Flighty")
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -65,6 +67,7 @@ local EVENTS = {
 	"GotUp",
 	"Objective",
 	"Race",
+	"Message",
 }
 local UNRELIABLE = { "BikeState" }
 local FUNCTIONS = { "BuyBike", "BuyUpgrade", "SetPaint", "SetLivery", "SetSetup", "OpenCrate", "BuyBoost", "Order", "ClaimAchievement", "GetProfile", "Admin", "Activity" }

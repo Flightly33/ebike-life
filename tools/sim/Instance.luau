@@ -33,6 +33,7 @@ type State = {
 
 local states: { [any]: State } = setmetatable({}, { __mode = "k" }) :: any
 Sim.States = states
+Sim.Viewport = Vector2.new(1280, 720) -- the screen (the camera's ViewportSize; tests may change it)
 -- Parts whose CFrame or Size changed since the world last looked (it re-bins them in its index)
 Sim.Moved = {} :: { [any]: boolean }
 
@@ -850,6 +851,10 @@ InstanceMT.__index = function(self, key)
 	elseif (key == "WorldPosition" or key == "WorldCFrame") and cls == "Attachment" then
 		local w = attachmentWorld(self)
 		return if key == "WorldPosition" then w.Position else w
+	elseif key == "AbsoluteSize" and cls == "ScreenGui" then
+		-- the screen under Roblox's top bar (58 px) unless the gui ignores it
+		local v = Sim.Viewport
+		return if st.Props.IgnoreGuiInset == true then v else Vector2.new(v.X, v.Y - 58)
 	elseif key == "AbsoluteSize" and (isA(cls, "GuiBase2d")) then
 		return Vector2.new(1280, 720)
 	elseif key == "AbsolutePosition" and isA(cls, "GuiBase2d") then

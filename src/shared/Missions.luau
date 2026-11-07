@@ -4,8 +4,10 @@
 	Reyes would like a word), opens at a level once the one before it is done, and is a list of
 	objective steps (Shared/Objectives). MissionService starts them and saves which are done.
 
-	A step here is { kind, text, value[, amount] }: a place name (Layout.Places) for Reach, an amount
-	for the others, and for Trick the trick kind then the amount.
+	A step here is { kind, text, value[, amount] }: a place name (Layout.Places, or
+	"DealershipCharger") for Reach, an amount for the others, and for Trick the trick kind then the
+	amount. A control in the text is written {Gas}, {Wheelie}, {MyRides}: the HUD puts in the key,
+	pad button or touch button the player uses (UI/Objective.Keys).
 ]]
 
 local Layout = require(script.Parent.City.Layout)
@@ -36,6 +38,19 @@ Missions.Givers = {
 } :: { [string]: { Icon: string, Title: string } }
 
 Missions.List = {
+	{
+		Id = "m00_tutorial", Chapter = 1, Name = "Welcome to Flighty", Giver = "Nina", Level = 1,
+		Intro = "Hi, I'm Nina! Let's get you riding: take your bike out, open her up, pop a wheelie, then charge up next door.",
+		Outro = "You're a natural. Keep your phone handy: Marco and Jet will be in touch.",
+		Steps = {
+			{ "Ride", "Open My Rides ({MyRides}), take your bike out and get on", 0 },
+			{ "Speed", "Open the throttle ({Gas}): reach 20 km/h", 20 },
+			{ "Wheelie", "Pull a wheelie: hold {Wheelie} with the gas for 1 second", 1 },
+			{ "Reach", "Ride to the ⚡ charger beside Flighty Mechanics", "DealershipCharger" },
+			{ "Reach", "Back to Flighty Mechanics to see Nina", "Dealership" },
+		},
+		Reward = { Cash = 300, Xp = 150 },
+	},
 	{
 		Id = "m01_first_ride", Chapter = 1, Name = "First Ride", Giver = "Nina", Level = 1,
 		Intro = "Welcome to Flighty! Take her round the block: ride to the Plaza, pull a wheelie, bring her back.",
@@ -151,7 +166,8 @@ function Missions.Objective(mission: Mission): Objectives.Objective
 	for _, s in mission.Steps do
 		local kind, text = s[1] :: string, s[2] :: string
 		if kind == "Reach" then
-			local at = (Layout.Places :: any)[s[3]] :: Vector3
+			-- (a place in Layout.Places, or the charger by the dealership)
+			local at = if s[3] == "DealershipCharger" then Layout.Chargers[1] else (Layout.Places :: any)[s[3]] :: Vector3
 			table.insert(steps, Objectives.Reach(text, at))
 		elseif kind == "Trick" then
 			table.insert(steps, Objectives.Trick(text, s[3] :: string, s[4] :: number))

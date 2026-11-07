@@ -4,6 +4,7 @@
 	next mission's giver gets in touch.
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -15,22 +16,28 @@ local ObjectiveService = require(script.Parent.ObjectiveService)
 
 local MissionService = {}
 
-local function notify(player: Player, kind: string, text: string)
-	Remotes.Event("Notify"):FireClient(player, kind, text)
+-- a text from one of the regulars, for the phone's Messages
+local function text(player: Player, from: string, message: string)
+	Remotes.Event("Message"):FireClient(player, from, message)
 end
 
--- The first mission that's open for this player, if any
+-- The first mission that's open for this player, if any (the tutorial only when nothing else is:
+-- a rider who's done a story mission doesn't need it suggested)
 function MissionService.Next(player: Player): Missions.Mission?
 	local data = DataService.Get(player)
 	if not data then
 		return nil
 	end
+	local tutorial: Missions.Mission? = nil
 	for _, mission in Missions.List do
 		if Missions.Status(mission, data.Missions, data.Level) == "Ready" then
-			return mission
+			if mission.Id ~= MissionService.TUTORIAL then
+				return mission
+			end
+			tutorial = mission
 		end
 	end
-	return nil
+	return tutorial
 end
 
 function MissionService.Start(player: Player, id: any): (boolean, string)
@@ -60,14 +67,12 @@ function MissionService.Start(player: Player, id: any): (boolean, string)
 			saved.Missions[mission.Id] = true
 			saved.Stats.Missions += 1
 			DataService.Changed(who)
-			local giver = Missions.Givers[mission.Giver]
-			notify(who, "Info", string.format("%s %s: \"%s\"", if giver then giver.Icon else "📱", mission.Giver, mission.Outro))
+			text(who, mission.Giver, mission.Outro)
 			local nextMission = MissionService.Next(who)
 			if nextMission then
-				local nextGiver = Missions.Givers[nextMission.Giver]
 				task.delay(4, function()
 					if who.Parent then
-						notify(who, "Info", string.format("📱 %s %s has a job for you: \"%s\" (phone > Play)", if nextGiver then nextGiver.Icon else "", nextMission.Giver, nextMission.Name))
+						text(who, nextMission.Giver, string.format("Got a job for you: \"%s\". Phone > Play when you're ready.", nextMission.Name))
 					end
 				end)
 			end
@@ -76,7 +81,31 @@ function MissionService.Start(player: Player, id: any): (boolean, string)
 	return true, mission.Name
 end
 
+MissionService.TUTORIAL = "m00_tutorial"
+MissionService.TUTORIAL_DELAY = 5 -- seconds after the save loads
+
+-- A new rider (hardly ridden, tutorial not done) gets the tutorial started for them
+local function welcome(player: Player)
+	local data = DataService.WaitFor(player)
+	if not data or data.Missions[MissionService.TUTORIAL] or data.Stats.Distance > 200 then
+		return
+	end
+	task.wait(MissionService.TUTORIAL_DELAY)
+	if player.Parent and not ObjectiveService.Active(player) then
+		local ok = MissionService.Start(player, MissionService.TUTORIAL)
+		if ok then
+			player:SetAttribute("TutorialStarted", true)
+		end
+	end
+end
+
 function MissionService.Init()
+	Players.PlayerAdded:Connect(function(player)
+		task.spawn(welcome, player)
+	end)
+	for _, player in Players:GetPlayers() do
+		task.spawn(welcome, player)
+	end
 	ObjectiveService.Handle("StartMission", function(player: Player, id: any)
 		return MissionService.Start(player, id)
 	end)

@@ -250,6 +250,11 @@ local function tick()
 					advance(player, run)
 				end
 			end
+		elseif step.Kind == "Ride" then
+			local ride = BikeService.Get(player)
+			if ride and ride.Riding then
+				advance(player, run)
+			end
 		elseif step.Kind == "Speed" then
 			local ride = BikeService.Get(player)
 			if ride and ride.Riding and BikeService.Kmh(ride) >= (step.Amount or 0) then

@@ -5,7 +5,8 @@
 //
 // Approximates Roblox: UDim2 sizes and positions, AnchorPoint, Rotation, SizeConstraint,
 // UICorner, UIStroke, UIGradient, UIPadding, UIListLayout, UIGridLayout, TextScaled (fits the
-// text to its box). Fonts: Inter stands in for Gotham and Fredoka One.
+// text to its box), a ScreenGui's UIScale, AutomaticSize Y (roughly: wrapped text by its length, a
+// vertical list by its children). Fonts: Inter stands in for Gotham and Fredoka One.
 import fs from "node:fs";
 import { chromium } from "playwright";
 
@@ -48,12 +49,36 @@ function gradientCss(n) {
   }
   return "linear-gradient(" + (g.rot + 90) + "deg," + stops.join(",") + ")";
 }
+// AutomaticSize Y, roughly: a wrapped text's lines, or the children stacked inside the padding
+function textHeight(n, w) {
+  const size = n.textSize || 14;
+  const perLine = Math.max(1, Math.floor(w / (size * 0.52)));
+  const lines = String(n.text || "").split("\n").reduce((s, line) => s + Math.max(1, Math.ceil(line.length / perLine)), 0);
+  return Math.ceil(lines * size * 1.18);
+}
+function autoH(n, w, declared) {
+  if (!n.autoY) return declared;
+  let cw = w, padY = 0;
+  if (n.padding) { const p = n.padding; cw = w - (p[0]*w + p[1]) - (p[2]*w + p[3]); padY = p[5] + p[7]; }
+  let content = 0;
+  if (n.text !== undefined && n.text !== "") content = n.wrapped ? textHeight(n, cw) : Math.ceil((n.textSize || 14) * 1.18);
+  const kids = (Array.isArray(n.children) ? n.children : []).filter(c => c.visible !== false);
+  if (n.list && n.list.dir !== "Horizontal") {
+    let total = 0;
+    kids.forEach((k, i) => { total += autoH(k, k.size[0] * cw + k.size[1], k.size[3]) + (i > 0 ? n.list.pad[1] : 0); });
+    content = Math.max(content, total);
+  } else {
+    for (const k of kids) content = Math.max(content, k.pos[3] + autoH(k, k.size[0] * cw + k.size[1], k.size[3]));
+  }
+  return Math.max(declared, content + padY, n.minH || 0);
+}
 function place(n, parentEl, pw, ph, slot) {
   if (n.visible === false) return;
   const sxBase = n.yy ? ph : pw, syBase = n.xx ? pw : ph;
   let w = n.size[0] * sxBase + n.size[1];
   let h = n.size[2] * syBase + n.size[3];
   if (n.autoX && n.text !== undefined) w = Math.max(w, n.text.length * h * 0.5 + 8);
+  if (n.autoY && !slot) h = autoH(n, w, h);
   let x, y;
   if (slot) { x = slot.x; y = slot.y; if (slot.w !== undefined) { w = slot.w; h = slot.h; } }
   else { x = n.pos[0] * pw + n.pos[1] - n.anchor[0] * w; y = n.pos[2] * ph + n.pos[3] - n.anchor[1] * h; }
@@ -89,6 +114,8 @@ function place(n, parentEl, pw, ph, slot) {
   if (n.padding) { const p = n.padding; const l = p[0]*w + p[1], r = p[2]*w + p[3], tp = p[4]*h + p[5], b = p[6]*h + p[7]; cx = l; cy = tp; cw = w - l - r; ch = h - tp - b; }
   const inner = document.createElement("div");
   inner.className = "n";
+  // a ScreenGui's UIScale: lay its contents out in the scaled-down screen, then scale them up
+  if (n.scale && n.scale !== 1) { cw /= n.scale; ch /= n.scale; inner.style.transform = "scale(" + n.scale + ")"; inner.style.transformOrigin = "0 0"; }
   Object.assign(inner.style, { left: cx + "px", top: cy + "px", width: cw + "px", height: ch + "px" });
   el.appendChild(inner);
   const kids = (Array.isArray(n.children) ? n.children : []).filter(c => c.visible !== false);
@@ -96,7 +123,7 @@ function place(n, parentEl, pw, ph, slot) {
     kids.sort((a, b) => (a.order || 0) - (b.order || 0));
     const horiz = n.list.dir === "Horizontal";
     const gap = horiz ? n.list.pad[0] * cw + n.list.pad[1] : n.list.pad[0] * ch + n.list.pad[1];
-    const sizes = kids.map(k => { const kw = k.size[0] * (k.yy ? ch : cw) + k.size[1]; const kh = k.size[2] * (k.xx ? cw : ch) + k.size[3]; return [k.autoX && k.text !== undefined ? Math.max(kw, k.text.length * kh * 0.5 + 8) : kw, kh]; });
+    const sizes = kids.map(k => { const kw = k.size[0] * (k.yy ? ch : cw) + k.size[1]; const kh = k.size[2] * (k.xx ? cw : ch) + k.size[3]; return [k.autoX && k.text !== undefined ? Math.max(kw, k.text.length * kh * 0.5 + 8) : kw, k.autoY ? autoH(k, kw, kh) : kh]; });
     const total = sizes.reduce((s, z) => s + (horiz ? z[0] : z[1]), 0) + gap * Math.max(0, kids.length - 1);
     let at = 0;
     if (horiz && n.list.h === "Center") at = (cw - total) / 2; else if (horiz && n.list.h === "Right") at = cw - total;

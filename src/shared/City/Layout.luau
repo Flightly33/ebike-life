@@ -964,7 +964,8 @@ local function make(K: number)
 		return nil
 	end
 
-	-- Shortest path by road length (Dijkstra)
+	-- Shortest path by road length (Dijkstra on a binary heap: fast enough for the client's route
+	-- line every second, and the police's and traffic's planning)
 	function Layout.Path(from: number, to: number): { number }
 		if from == to then
 			return { from }
@@ -972,24 +973,61 @@ local function make(K: number)
 		local dist: { [number]: number } = { [from] = 0 }
 		local prev: { [number]: number } = {}
 		local done: { [number]: boolean } = {}
-		while true do
-			local current, best = nil, math.huge
-			for id, d in dist do
-				if not done[id] and d < best then
-					current, best = id, d
+		local heapD: { number } = { 0 }
+		local heapN: { number } = { from }
+		local function push(d: number, n: number)
+			local i = #heapD + 1
+			heapD[i], heapN[i] = d, n
+			while i > 1 do
+				local parent = i // 2
+				if heapD[parent] <= heapD[i] then
+					break
 				end
+				heapD[parent], heapD[i] = heapD[i], heapD[parent]
+				heapN[parent], heapN[i] = heapN[i], heapN[parent]
+				i = parent
 			end
-			if current == nil or current == to then
-				break
+		end
+		local function pop(): (number, number)
+			local d, n = heapD[1], heapN[1]
+			local last = #heapD
+			heapD[1], heapN[1] = heapD[last], heapN[last]
+			heapD[last], heapN[last] = nil, nil
+			local i = 1
+			local count = last - 1
+			while true do
+				local left, right, smallest = i * 2, i * 2 + 1, i
+				if left <= count and heapD[left] < heapD[smallest] then
+					smallest = left
+				end
+				if right <= count and heapD[right] < heapD[smallest] then
+					smallest = right
+				end
+				if smallest == i then
+					break
+				end
+				heapD[smallest], heapD[i] = heapD[i], heapD[smallest]
+				heapN[smallest], heapN[i] = heapN[i], heapN[smallest]
+				i = smallest
 			end
-			done[current] = true
-			for _, edgeId in Layout.Nodes[current].Edges do
-				local edge = Layout.Edges[edgeId]
-				local other = Layout.OtherEnd(edge, current)
-				local d = best + edge.Length
-				if not done[other] and d < (dist[other] or math.huge) then
-					dist[other] = d
-					prev[other] = current
+			return d, n
+		end
+		while #heapD > 0 do
+			local best, current = pop()
+			if not done[current] then
+				if current == to then
+					break
+				end
+				done[current] = true
+				for _, edgeId in Layout.Nodes[current].Edges do
+					local edge = Layout.Edges[edgeId]
+					local other = Layout.OtherEnd(edge, current)
+					local d = best + edge.Length
+					if not done[other] and d < (dist[other] or math.huge) then
+						dist[other] = d
+						prev[other] = current
+						push(d, other)
+					end
 				end
 			end
 		end

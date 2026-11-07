@@ -1,7 +1,10 @@
 --[[
 	UI: builds the HUD and the menus and wires them to the game: server notices (Notify, Payout,
-	Police remotes), the local ride (BikeController) and the dealership / tuning prompts in the city.
-	One menu panel is open at a time; opening the same one again (or Esc) closes it.
+	Police, Message remotes), the local ride (BikeController) and the dealership / tuning prompts in
+	the city. One menu panel is open at a time; opening the same one again (or Esc) closes it. It
+	counts what's waiting for the badges (rewards to claim, achievements, unread texts) and sizes the
+	HUD (the screen's own fit times the player's HUD size setting) and the menus (fitted to the space
+	under Roblox's top bar).
 ]]
 
 local GuiService = game:GetService("GuiService")
@@ -14,6 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Dailies = require(Shared.Dailies)
 local Economy = require(Shared.Economy)
 local Remotes = require(Shared.Remotes)
 
@@ -41,7 +45,8 @@ local Garage = require(script.Garage)
 local WantedHud = require(script.WantedHud)
 local Objective = require(script.Objective)
 local Activities = require(script.Activities)
-local Minimap = require(script.Minimap)
+local Inbox = require(script.Inbox)
+local Route = require(script.Route)
 
 local UI = {}
 
@@ -58,10 +63,12 @@ local function close()
 	end
 end
 
+-- the Play hub's tabs, which UI.Open takes as names too (the Ranks app, the event pill)
+local PLAY_TABS = { Missions = true, Jobs = true, Races = true, Daily = true, Events = true, Ranks = true }
+
 function UI.Open(name: string)
-	-- the Ranks app is the Play hub on its leaderboards
-	if name == "Ranks" then
-		Activities.Show("Ranks")
+	if PLAY_TABS[name] then
+		Activities.Show(name)
 		name = "Activities"
 	end
 	-- tuning, parts and paint happen at Flighty Garage
@@ -91,13 +98,47 @@ function UI.Open(name: string)
 	Theme.Pop(panel.Frame)
 end
 
-local function screenScale(scale: UIScale)
+-- What's waiting, by the panel that shows it: rewards to claim (Play), achievements (Stats), texts
+local function counts(): { [string]: number }
+	local data = State.Get()
+	return {
+		Activities = if data then Dailies.Claimable(data.Daily, Workspace:GetServerTimeNow()) else 0,
+		Stats = StatsScreen.Unclaimed(),
+		Messages = Inbox.Unread(),
+	}
+end
+
+-- Fit a ScreenGui's UIScale to the screen (1250 x 750 design units). The HUD never goes below 0.65
+-- (its compact layout makes the room on a phone) and is times the player's HUD size; the menus fit
+-- the space under Roblox's top bar whatever it takes, so a panel never runs off a phone's screen.
+-- `after` runs once the scale changes (the HUD's layout depends on the room left).
+local function screenScale(scale: UIScale, hud: boolean, after: (() -> ())?)
+	local gui = scale.Parent :: ScreenGui
 	local function update()
-		local size = Workspace.CurrentCamera.ViewportSize
-		scale.Scale = math.clamp(math.min(size.Y / 750, size.X / 1250), 0.65, 1.5)
+		local fit
+		if hud then
+			local size = Workspace.CurrentCamera.ViewportSize
+			fit = math.clamp(math.min(size.Y / 750, size.X / 1250), 0.65, 1.5) * math.clamp(State.Settings().HudScale or 1, 0.7, 1.3)
+		else
+			local size = gui.AbsoluteSize
+			if size.Y <= 0 then
+				size = Workspace.CurrentCamera.ViewportSize
+			end
+			fit = math.clamp(math.min(size.Y / 750, size.X / 1250), 0.4, 1.5)
+		end
+		if math.abs(scale.Scale - fit) > 1e-4 then
+			scale.Scale = fit
+		end
+		if after then
+			after()
+		end
 	end
 	update()
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(update)
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(update)
+	if hud then
+		State.SettingsChanged:Connect(update)
+	end
 end
 
 function UI.Init()
@@ -113,21 +154,30 @@ function UI.Init()
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	local scale = Theme.New("UIScale", { Parent = gui })
-	screenScale(scale)
 
 	Hud.Init(gui, UI.Open)
+	screenScale(scale, true, function()
+		Hud.ApplyLayout()
+		TouchControls.SetCompact(Hud.Compact())
+	end)
 	Toasts.Init(gui, Hud.Minimap :: Frame)
+	Inbox.InitHud(gui, UI.Open)
 	Objective.Init(gui)
-	Minimap.Target = Objective.Target
+	Route.Init()
+	Route.OnArrive(function()
+		Toasts.Message("Info", "📍 You're at your waypoint")
+		Sound.Play("Cash", nil, 1.5, 0.4)
+	end)
 	TrickHud.Init(gui)
 	WantedHud.Init(gui)
 	OrderMenu.InitHud(gui)
 	TouchControls.Init(gui)
+	TouchControls.SetCompact(Hud.Compact())
 
 	-- Menus (a second ScreenGui above the HUD)
 	local menus = Theme.New("ScreenGui", { Name = "EbikeMenus", ResetOnSpawn = false, DisplayOrder = 5, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = player:WaitForChild("PlayerGui") })
 	local menuScale = Theme.New("UIScale", { Parent = menus })
-	screenScale(menuScale)
+	screenScale(menuScale, false)
 	panels.MyRides = Rides.MyRides(menus, close, function()
 		UI.Open("Dealership")
 	end)
@@ -140,7 +190,8 @@ function UI.Init()
 	panels.Map = MapScreen.new(menus, close)
 	panels.Stats = StatsScreen.new(menus)
 	panels.Activities = Activities.new(menus)
-	panels.Phone = Phone.new(menus, UI.Open, close)
+	panels.Messages = Inbox.new(menus)
+	panels.Phone = Phone.new(menus, UI.Open, close, counts)
 	panels.Menus = MainMenu.new(menus, close)
 	panels.Admin = AdminPanel.new(menus, function()
 		UI.Open("Admin")
@@ -151,6 +202,9 @@ function UI.Init()
 	GraphicsPrompt.Init(menus)
 
 	UserInputService.InputBegan:Connect(function(input, processed)
+		if State.CapturingKey then
+			return -- (Menus > Controls takes this key)
+		end
 		if input.KeyCode == Enum.KeyCode.Escape and openName then
 			close()
 		elseif not processed and input.KeyCode == Enum.KeyCode.B and not UserInputService:GetFocusedTextBox() then
@@ -194,9 +248,10 @@ function UI.Init()
 			return
 		end
 		if kind == "Event" then
-			-- a city event starting: a banner as well as the message
+			-- a city event starting: a banner as well as the message, and it's kept in Messages
 			Toasts.Banner("EVENT!", text, Theme.Colors.Gold, 4)
 			Sound.Play("LevelUp")
+			Inbox.Add("Events", text)
 		end
 		Toasts.Message(if kind == "Event" then "Cash" else kind, text)
 		if kind == "Level" then
@@ -204,6 +259,14 @@ function UI.Init()
 		elseif kind == "Cash" then
 			Sound.Play("Cash")
 		end
+	end)
+	-- Texts from the regulars and the city: the phone's Messages (a card slides in on the HUD)
+	Remotes.Event("Message").OnClientEvent:Connect(function(from: any, text: any)
+		if type(from) ~= "string" or type(text) ~= "string" then
+			return
+		end
+		Inbox.Add(from, text)
+		Sound.Play("Cash", nil, 1.8, 0.35)
 	end)
 	Remotes.Event("Payout").OnClientEvent:Connect(function(amount: any, label: any)
 		if type(amount) ~= "number" then
@@ -254,13 +317,28 @@ function UI.Init()
 			Toasts.Banner("BACKFLIP!", nil, Theme.Colors.Orange, 1.2)
 		end
 	end)
-	State.Changed:Connect(function()
+	State.SettingsChanged:Connect(function()
 		Hud.SetRiding(BikeController.Active)
 		Sound.SetVolume("SFX", State.Settings().Sounds)
 		BikeCamera.BodyCamFov = State.Settings().Fov or 90
 	end)
 
+	-- the badges: what's waiting on Play and on the phone
+	local function badges()
+		local c = counts()
+		Hud.SetBadges(c.Activities, c.Activities + c.Stats + c.Messages)
+	end
+	State.Changed:Connect(badges)
+	Inbox.Changed:Connect(badges)
+	local sinceBadges = 0
+
 	RunService.RenderStepped:Connect(function(dt)
+		-- (a new day brings a new streak reward without a profile change)
+		sinceBadges += dt
+		if sinceBadges >= 1 then
+			sinceBadges = 0
+			badges()
+		end
 		Hud.Update(dt)
 		TrickHud.Update(dt)
 		WantedHud.Update()

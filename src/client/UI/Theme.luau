@@ -262,6 +262,33 @@ function Theme.Chip(parent: Instance, caption: string, value: string, size: UDim
 	return chip, valueLabel
 end
 
+-- Design tokens: one set of sizes, colours and motions for every screen (UI/Kit builds on them)
+Theme.Space = { XS = 4, S = 8, M = 12, L = 16, XL = 24 }
+Theme.Radius = { S = 6, M = 10, L = 16 }
+Theme.Type = { Display = 38, Title = 26, Heading = 20, Body = 16, Caption = 13 }
+Theme.Roles = {
+	Surface = Color3.fromRGB(30, 30, 33), -- panels
+	Raised = Color3.fromRGB(44, 44, 48), -- cards and rows
+	Sunken = Color3.fromRGB(22, 22, 25), -- wells, tracks, inputs
+	Accent = C.Orange,
+	Positive = C.Green,
+	Negative = C.Red,
+	Warning = C.Gold,
+	Info = C.Blue,
+	Text = C.Text,
+	Muted = C.SubText,
+	-- the activities' colours (missions, jobs, trials, races)
+	Mission = Color3.fromRGB(255, 196, 46),
+	Job = Color3.fromRGB(90, 200, 255),
+	Trial = Color3.fromRGB(180, 120, 255),
+	Race = Color3.fromRGB(255, 90, 90),
+}
+Theme.Motion = {
+	Fast = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	Base = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	Spring = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+}
+
 -- Pops a GuiObject in with a scale tween
 function Theme.Pop(gui: GuiObject)
 	local scale = gui:FindFirstChildOfClass("UIScale") or New("UIScale", { Parent = gui })

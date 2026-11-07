@@ -7,7 +7,7 @@
 	  Events    the event running now and the timetable
 	  Ranks     the leaderboards across every server
 	Everything comes from the server in one Activity "Overview" call when the panel opens or a tab
-	changes; the buttons call the other Activity actions and refresh.
+	changes; the buttons call the other Activity actions and refresh. Built from UI/Kit.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,6 +18,7 @@ local Missions = require(Shared.Missions)
 local Objectives = require(Shared.Objectives)
 local Remotes = require(Shared.Remotes)
 
+local Kit = require(script.Parent.Kit)
 local Panel = require(script.Parent.Panel)
 local Theme = require(script.Parent.Theme)
 local Toasts = require(script.Parent.Toasts)
@@ -26,18 +27,22 @@ local Activities = {}
 
 local New = Theme.New
 local C = Theme.Colors
+local R = Theme.Roles
 
 local TABS = { "Missions", "Jobs", "Races", "Daily", "Events", "Ranks" }
-local TAB_ICONS = { Missions = "⭐", Jobs = "📦", Races = "🏁", Daily = "🎁", Events = "🎉", Ranks = "📊" }
+local TAB_LABELS = { Missions = "⭐ Missions", Jobs = "📦 Jobs", Races = "🏁 Races", Daily = "🎁 Daily", Events = "🎉 Events", Ranks = "📊 Ranks" }
 
 local current = "Missions"
 local panel: Panel.Panel
 local list: ScrollingFrame
-local tabButtons: { [string]: TextButton } = {}
+local tabs: Kit.Tabs
 local footer: TextLabel
 local cancelButton: TextButton
 local boardIndex = 1
 local busy = false
+
+-- Fired with the overview whenever it's fetched (the HUD's badges listen)
+Activities.Fetched = nil :: ((any) -> ())?
 
 local function call(action: string, a: any?, b: any?): (boolean, any)
 	local ok, result, extra = pcall(function()
@@ -47,49 +52,6 @@ local function call(action: string, a: any?, b: any?): (boolean, any)
 		return false, "No connection"
 	end
 	return result == true, extra
-end
-
-local function clear()
-	for _, child in list:GetChildren() do
-		if child:IsA("GuiObject") then
-			child:Destroy()
-		end
-	end
-end
-
--- A row: title, a line under it, an optional progress bar, up to two buttons on the right
-type Action = { Text: string, Color: Color3?, OnClick: () -> () }
-local function row(order: number, title: string, sub: string, actions: { Action }?, progress: number?, height: number?): Frame
-	local frame = New("Frame", { BackgroundColor3 = C.Card, Size = UDim2.new(1, -8, 0, height or 66), LayoutOrder = order, Parent = list })
-	Theme.Corner(frame, 8)
-	local width = if actions and #actions > 0 then 130 * #actions + 10 else 10
-	Theme.Label({ Text = title, Size = UDim2.new(1, -width - 16, 0, 24), Position = UDim2.fromOffset(12, 6), TextSize = 20, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = frame })
-	Theme.Label({ Text = sub, Size = UDim2.new(1, -width - 16, 0, 30), Position = UDim2.fromOffset(12, 30), TextSize = 14, Font = Theme.Body, Color = C.SubText, Align = Enum.TextXAlignment.Left, Wrapped = true, Stroke = 1, Parent = frame })
-	if progress then
-		local back = New("Frame", { BackgroundColor3 = Color3.fromRGB(28, 28, 31), Size = UDim2.new(1, -width - 24, 0, 6), Position = UDim2.new(0, 12, 1, -10), Parent = frame })
-		Theme.Round(back)
-		local fill = New("Frame", { BackgroundColor3 = if progress >= 1 then C.Cash else C.Orange, Size = UDim2.fromScale(math.clamp(progress, 0, 1), 1), Parent = back })
-		Theme.Round(fill)
-	end
-	if actions then
-		for i, action in actions do
-			Theme.Button({
-				Text = action.Text,
-				Size = UDim2.fromOffset(122, 40),
-				Position = UDim2.new(1, -10 - (i - 1) * 130, 0.5, 0),
-				AnchorPoint = Vector2.new(1, 0.5),
-				Color = action.Color or C.Green,
-				TextSize = 17,
-				Parent = frame,
-				OnClick = action.OnClick,
-			})
-		end
-	end
-	return frame
-end
-
-local function heading(order: number, text: string)
-	Theme.Label({ Text = text, Size = UDim2.new(1, -8, 0, 28), TextSize = 22, Color = C.Gold, Align = Enum.TextXAlignment.Left, Stroke = 2, LayoutOrder = order, Parent = list })
 end
 
 local function duration(seconds: number): string
@@ -126,98 +88,95 @@ local builders: { [string]: (any) -> () } = {}
 
 builders.Missions = function(data: any)
 	local missions = if type(data.Missions) == "table" then data.Missions else {}
-	heading(0, "Chapter 1 · Flighty Courier")
+	Kit.Heading(list, "Chapter 1 · Flighty Courier", 0)
 	for i, m in missions do
 		local giver = Missions.Givers[m.Giver]
-		local icon = if giver then giver.Icon else "⭐"
-		local sub = string.format("%s · %s + %d XP%s", m.Giver, Economy.FormatCash(m.Cash), m.Xp, if m.TimeLimit then string.format(" · %s limit", duration(m.TimeLimit)) else "")
+		local sub = string.format("%s · %s + %d XP%s", if giver then giver.Title else m.Giver, Economy.FormatCash(m.Cash), m.Xp, if m.TimeLimit then string.format(" · %s limit", duration(m.TimeLimit)) else "")
 		if m.Status == "Ready" then
-			row(i, string.format("%s %s", icon, m.Name), sub .. "\n" .. tostring(m.Intro), {
+			Kit.Row(list, { Order = i, Icon = if giver then giver.Icon else "⭐", Title = m.Name, Sub = sub .. "\n\"" .. tostring(m.Intro) .. "\"", Height = 92, Accent = R.Mission, Actions = {
 				{ Text = "Start", OnClick = function()
 					act("StartMission", m.Id, true)
 				end },
-			}, nil, 88)
+			} })
 		elseif m.Status == "Done" then
-			row(i, string.format("✅ %s", m.Name), sub)
+			Kit.Row(list, { Order = i, Icon = "✅", Title = m.Name, Sub = sub, Dim = true })
 		else
-			row(i, string.format("🔒 %s", m.Name), string.format("Opens at level %d, after the one before it", m.Level))
+			Kit.Row(list, { Order = i, Icon = "🔒", Title = m.Name, Sub = string.format("Opens at level %d, after the one before it", m.Level), Dim = true })
 		end
 	end
 end
 
 builders.Jobs = function(data: any)
 	local jobs = if type(data.Jobs) == "table" then data.Jobs else {}
-	heading(0, "Flighty Courier · deliveries near you")
+	Kit.Heading(list, "Flighty Courier · deliveries near you", 0)
 	if #jobs == 0 then
-		row(1, "No jobs right now", "Ride somewhere busier, or check back in a minute")
+		Kit.Row(list, { Order = 1, Icon = "📭", Title = "No jobs right now", Sub = "Ride somewhere busier, or check back in a minute" })
 	end
 	for i, job in jobs do
-		row(i, string.format("📦 %s → %s", tostring(job.From), tostring(job.To)), string.format("%.1f km · %s%s · %s to deliver · tip for time to spare", job.Km, Economy.FormatCash(job.Pay), if job.Rush then " x2 Courier Rush!" else "", duration(job.TimeLimit)), {
+		Kit.Row(list, { Order = i, Icon = "📦", Accent = R.Job, Title = string.format("%s → %s", tostring(job.From), tostring(job.To)), Sub = string.format("%.1f km · %s%s · %s to deliver · a tip for time to spare", job.Km, Economy.FormatCash(job.Pay), if job.Rush then " x2 Courier Rush!" else "", duration(job.TimeLimit)), Actions = {
 			{ Text = "Take job", OnClick = function()
 				act("StartJob", job.Index, true)
 			end },
-		})
+		} })
 	end
 end
 
 builders.Races = function(data: any)
 	local races = if type(data.Races) == "table" then data.Races else {}
-	heading(0, "Time trials and races")
+	Kit.Heading(list, "Time trials and races", 0)
 	for i, race in races do
+		if race.Locked then
+			Kit.Row(list, { Order = i, Icon = "🔒", Title = race.Name, Sub = string.format("Opens at level %d", race.Level), Dim = true })
+			continue
+		end
 		local best = if race.Best then string.format("Best %s", Objectives.FormatTime(race.Best)) else "No time yet"
 		local sub = string.format("%.1f km · 🥇 %s  🥈 %s  🥉 %s · %s · up to %s\n%s", race.Km, Objectives.FormatTime(race.Gold), Objectives.FormatTime(race.Silver), Objectives.FormatTime(race.Bronze), best, Economy.FormatCash(race.Pay), tostring(race.Blurb))
-		if race.Locked then
-			row(i, string.format("🔒 %s", race.Name), string.format("Opens at level %d", race.Level))
-		else
-			local raceAction: Action = if race.Joined then { Text = "Leave lobby", Color = C.Red, OnClick = function()
-				act("LeaveRace")
-			end } else { Text = if race.Lobby > 0 then string.format("Race (%d in)", race.Lobby) else "Race", Color = C.Orange, OnClick = function()
-				act("JoinRace", race.Id, true)
-			end }
-			local actions: { Action } = {
-				{ Text = "Time trial", Color = Color3.fromRGB(150, 90, 230), OnClick = function()
-					act("StartTrial", race.Id, true)
-				end },
-				raceAction,
-			}
-			row(i, string.format("🏁 %s", race.Name), sub, actions, nil, 88)
-		end
+		local raceAction: Kit.Action = if race.Joined then { Text = "Leave lobby", Color = R.Negative, OnClick = function()
+			act("LeaveRace")
+		end } else { Text = if race.Lobby > 0 then string.format("Race (%d in)", race.Lobby) else "Race", Color = R.Accent, OnClick = function()
+			act("JoinRace", race.Id, true)
+		end }
+		local actions: { Kit.Action } = {
+			{ Text = "Time trial", Color = R.Trial, OnClick = function()
+				act("StartTrial", race.Id, true)
+			end },
+			raceAction,
+		}
+		Kit.Row(list, { Order = i, Icon = "🏁", Accent = R.Race, Title = race.Name, Sub = sub, Height = 92, Actions = actions })
 	end
 end
 
 builders.Daily = function(data: any)
 	local daily = if type(data.Daily) == "table" then data.Daily else {}
-	heading(0, string.format("🔥 Streak: %d day%s", daily.Streak or 0, if daily.Streak == 1 then "" else "s"))
+	Kit.Heading(list, string.format("🔥 Streak: %d day%s", daily.Streak or 0, if daily.Streak == 1 then "" else "s"), 0)
 	if daily.CanClaim then
-		row(1, string.format("🎁 Day %d reward", daily.NextStreak or 1), string.format("%s today · come back every day for more (up to %s)", Economy.FormatCash(daily.NextReward or 0), Economy.FormatCash(2500)), {
-			{ Text = "Claim", Color = C.Gold, OnClick = function()
+		Kit.Row(list, { Order = 1, Icon = "🎁", Accent = R.Warning, Title = string.format("Day %d reward", daily.NextStreak or 1), Sub = string.format("%s today · come back every day for more (up to %s)", Economy.FormatCash(daily.NextReward or 0), Economy.FormatCash(2500)), Actions = {
+			{ Text = "Claim", Color = R.Warning, OnClick = function()
 				act("ClaimStreak")
 			end },
-		})
+		} })
 	else
-		row(1, "🎁 Today's reward claimed", string.format("Next one in %s", duration(daily.DayEnds or 0)))
+		Kit.Row(list, { Order = 1, Icon = "✅", Title = "Today's reward claimed", Sub = string.format("The next one in %s", duration(daily.DayEnds or 0)), Dim = true })
 	end
-	local order = 2
 	type Section = { Name: string, Rows: { any }, Ends: number }
 	local sections: { Section } = {
 		{ Name = "Today", Rows = daily.Day or {}, Ends = daily.DayEnds or 0 },
 		{ Name = "This week", Rows = daily.Week or {}, Ends = daily.WeekEnds or 0 },
 	}
+	local order = 2
 	for _, section in sections do
-		heading(order, string.format("%s · resets in %s", section.Name, duration(section.Ends)))
+		Kit.Heading(list, string.format("%s · resets in %s", section.Name, duration(section.Ends)), order)
 		order += 1
 		for _, c in section.Rows do
 			local done = c.Progress >= c.Goal
-			local actions: { Action }? = nil
-			if c.Claimed then
-				actions = nil
-			elseif done then
-				actions = { { Text = "Claim", Color = C.Gold, OnClick = function()
+			local actions: { Kit.Action }? = nil
+			if not c.Claimed and done then
+				actions = { { Text = "Claim", Color = R.Warning, OnClick = function()
 					act("ClaimChallenge", c.Id)
 				end } }
 			end
 			local goal = if c.Goal >= 1000 and string.find(c.Text, "km") then string.format("%.1f / %.0f km", c.Progress / 1000, c.Goal / 1000) else string.format("%d / %d", math.floor(c.Progress), c.Goal)
-			row(order, string.format("%s %s", if c.Claimed then "✅" else "🎯", c.Text), string.format("%s · %s", goal, Economy.FormatCash(c.Reward)), actions, c.Progress / math.max(c.Goal, 1))
+			Kit.Row(list, { Order = order, Icon = if c.Claimed then "✅" else "🎯", Title = c.Text, Sub = string.format("%s · %s", goal, Economy.FormatCash(c.Reward)), Actions = actions, Progress = c.Progress / math.max(c.Goal, 1), Dim = c.Claimed })
 			order += 1
 		end
 	end
@@ -227,34 +186,33 @@ builders.Events = function(data: any)
 	local events = if type(data.Events) == "table" then data.Events else {}
 	local now = events.Current
 	if now then
-		heading(0, "On now")
-		row(1, string.format("%s %s", now.Icon, now.Name), string.format("%s · %s left", now.Text, duration(now.Ends)))
+		Kit.Heading(list, "On now", 0)
+		Kit.Row(list, { Order = 1, Icon = now.Icon, Accent = R.Warning, Title = now.Name, Sub = string.format("%s · %s left", now.Text, duration(now.Ends)) })
 	else
-		heading(0, "No event right now")
+		Kit.Heading(list, "No event right now", 0)
 	end
-	heading(2, "Coming up")
+	Kit.Heading(list, "Coming up", 2)
 	for i, e in events.Upcoming or {} do
-		row(2 + i, string.format("%s %s", e.Icon, e.Name), string.format("%s · in %s (10 minutes)", e.Text, duration(e.In)))
+		Kit.Row(list, { Order = 2 + i, Icon = e.Icon, Title = e.Name, Sub = string.format("%s · in %s (10 minutes)", e.Text, duration(e.In)) })
 	end
 end
 
 builders.Ranks = function(data: any)
 	local boards = if type(data.Boards) == "table" then data.Boards else {}
 	if #boards == 0 then
-		heading(0, "Leaderboards are loading")
+		Kit.Heading(list, "Leaderboards are loading", 0)
 		return
 	end
 	boardIndex = math.clamp(boardIndex, 1, #boards)
 	-- the board picker
-	local picker = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 76), LayoutOrder = 0, Parent = list })
+	local picker = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, math.ceil(#boards / 5) * 38), LayoutOrder = 0, Parent = list })
 	New("UIGridLayout", { CellSize = UDim2.fromOffset(150, 32), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = picker })
 	for i, board in boards do
-		Theme.Button({ Text = board.Name, Size = UDim2.fromOffset(150, 32), Color = if i == boardIndex then C.Orange else C.Gray, TextSize = 14, LayoutOrder = i, Parent = picker, OnClick = function()
+		Theme.Button({ Text = board.Name, Size = UDim2.fromOffset(150, 32), Color = if i == boardIndex then R.Accent else C.Gray, TextSize = 14, LayoutOrder = i, Parent = picker, OnClick = function()
 			boardIndex = i
 			refresh()
 		end })
 	end
-	picker.Size = UDim2.new(1, -8, 0, math.ceil(#boards / 4) * 38)
 	local board = boards[boardIndex]
 	local function format(value: number): string
 		if board.Unit == "$" then
@@ -268,25 +226,23 @@ builders.Ranks = function(data: any)
 		end
 		return tostring(math.floor(value))
 	end
-	heading(1, board.Name .. (if board.Mine then " · you: " .. format(board.Mine) else ""))
+	Kit.Heading(list, board.Name .. (if board.Mine then " · you: " .. format(board.Mine) else ""), 1)
 	if #board.Top == 0 then
-		row(2, "Nobody yet", "Be the first on this board")
+		Kit.Row(list, { Order = 2, Icon = "🏆", Title = "Nobody yet", Sub = "Be the first on this board" })
 	end
 	for i, entry in board.Top do
 		local medal = if i == 1 then "🥇" elseif i == 2 then "🥈" elseif i == 3 then "🥉" else string.format("%d.", i)
-		row(1 + i, string.format("%s %s", medal, tostring(entry.Name)), format(entry.Value), nil, nil, 50)
+		Kit.Row(list, { Order = 1 + i, Icon = medal, Title = tostring(entry.Name), Sub = format(entry.Value), Height = 54 })
 	end
 end
 
 refresh = function()
 	task.spawn(function()
 		local ok, data = call("Overview")
-		clear()
-		for name, button in tabButtons do
-			button.BackgroundColor3 = if name == current then C.Orange else C.Gray
-		end
+		Kit.Clear(list)
+		tabs.Set(current)
 		if not ok or type(data) ~= "table" then
-			heading(0, "Can't reach the server: try again in a moment")
+			Kit.Heading(list, "Can't reach the server: try again in a moment", 0)
 			return
 		end
 		local builder = builders[current]
@@ -296,32 +252,22 @@ refresh = function()
 		local active = data.Active
 		cancelButton.Visible = active ~= nil
 		footer.Text = if active then string.format("Doing: %s", tostring(active.Title)) else ""
+		local fetched = Activities.Fetched
+		if fetched then
+			fetched(data)
+		end
 	end)
 end
 
 function Activities.new(gui: Instance): Panel.Panel
 	panel = Panel.new(gui, "Activities", "PLAY", Vector2.new(820, 560))
-	local tabs = New("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), Parent = panel.Body })
-	Theme.List(tabs, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Center)
-	for i, name in TABS do
-		tabButtons[name] = Theme.Button({ Text = TAB_ICONS[name] .. " " .. name, Size = UDim2.fromOffset(124, 36), Color = C.Gray, TextSize = 17, LayoutOrder = i, Parent = tabs, OnClick = function()
-			current = name
-			refresh()
-		end })
-	end
-	list = New("ScrollingFrame", {
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 1, -96),
-		Position = UDim2.fromOffset(0, 48),
-		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		ScrollBarThickness = 6,
-		Parent = panel.Body,
-	})
-	Theme.List(list, Enum.FillDirection.Vertical, 6)
-	footer = Theme.Label({ Text = "", Size = UDim2.new(1, -170, 0, 36), Position = UDim2.new(0, 0, 1, -38), TextSize = 18, Color = C.SubText, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = panel.Body })
-	cancelButton = Theme.Button({ Text = "Give up", Size = UDim2.fromOffset(150, 36), Position = UDim2.new(1, 0, 1, -38), AnchorPoint = Vector2.new(1, 0), Color = C.Red, TextSize = 18, Parent = panel.Body, OnClick = function()
+	tabs = Kit.Tabs(panel.Body, TABS, TAB_LABELS, function(name: string)
+		current = name
+		refresh()
+	end)
+	list = Kit.List(panel.Body, UDim2.new(1, 0, 1, -96), UDim2.fromOffset(0, 48), 6)
+	footer = Theme.Label({ Text = "", Size = UDim2.new(1, -170, 0, 36), Position = UDim2.new(0, 0, 1, -38), TextSize = 18, Color = R.Muted, Align = Enum.TextXAlignment.Left, Stroke = 2, Parent = panel.Body })
+	cancelButton = Theme.Button({ Text = "Give up", Size = UDim2.fromOffset(150, 36), Position = UDim2.new(1, 0, 1, -38), AnchorPoint = Vector2.new(1, 0), Color = R.Negative, TextSize = 18, Parent = panel.Body, OnClick = function()
 		act("Cancel")
 	end })
 	cancelButton.Visible = false

@@ -329,7 +329,7 @@ function World:InstallHooks()
 	Sim.Setters.AnimationConstraint = { C0 = readOnly("C0"), C1 = readOnly("C1"), Part0 = readOnly("Part0"), Part1 = readOnly("Part1") }
 	Sim.Getters.Camera = {
 		ViewportSize = function()
-			return Vector2.new(1280, 720)
+			return Sim.Viewport
 		end,
 	}
 	Sim.Getters.Humanoid = {

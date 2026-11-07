@@ -60,8 +60,24 @@ function DailyService.Add(player: Player, stat: string, amount: number)
 	end
 	local daily = data.Daily
 	roll(daily)
-	daily.Progress[stat] = (daily.Progress[stat] or 0) + amount
-	daily.WeekProgress[stat] = (daily.WeekProgress[stat] or 0) + amount
+	local before, beforeWeek = daily.Progress[stat] or 0, daily.WeekProgress[stat] or 0
+	daily.Progress[stat] = before + amount
+	daily.WeekProgress[stat] = beforeWeek + amount
+	-- a challenge just finished: say so, and send the profile (the phone's badge counts it)
+	local t = DailyService.Clock()
+	type Section = { List: { Dailies.Challenge }, Was: number, Now: number }
+	local sections: { Section } = {
+		{ List = Dailies.ForDay(Dailies.Day(t)), Was = before, Now = daily.Progress[stat] },
+		{ List = Dailies.ForWeek(Dailies.Week(t)), Was = beforeWeek, Now = daily.WeekProgress[stat] },
+	}
+	for _, section in sections do
+		for _, challenge in section.List do
+			if challenge.Stat == stat and section.Was < challenge.Goal and section.Now >= challenge.Goal and not daily.Claimed[challenge.Id] then
+				Remotes.Event("Message"):FireClient(player, "Daily", string.format("🎯 Challenge done: %s! Claim $%d on your phone (Play > Daily)", challenge.Text, challenge.Reward))
+				DataService.Changed(player)
+			end
+		end
+	end
 end
 
 local function today(): ({ Dailies.Challenge }, { Dailies.Challenge })
@@ -185,7 +201,7 @@ function DailyService.Init()
 		if data and data.Daily.LastLogin ~= Dailies.Day(DailyService.Clock()) then
 			task.delay(8, function()
 				if player.Parent then
-					Remotes.Event("Notify"):FireClient(player, "Info", "🎁 Your daily reward is waiting: phone > Play > Daily")
+					Remotes.Event("Message"):FireClient(player, "Daily", string.format("🎁 Your day %d reward is waiting: phone > Play > Daily", if data.Daily.LastLogin == Dailies.Day(DailyService.Clock()) - 1 then data.Daily.Streak + 1 else 1))
 				end
 			end)
 		end

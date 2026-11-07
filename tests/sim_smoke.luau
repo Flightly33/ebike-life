@@ -12,7 +12,7 @@ local roblox = require("@lune/roblox")
 local World = require("../tools/sim/World")
 local Sim = require("../tools/sim/Instance")
 
-local CFrame, Vector3, Color3 = roblox.CFrame, roblox.Vector3, roblox.Color3
+local CFrame, Vector3, Vector2, Color3 = roblox.CFrame, roblox.Vector3, roblox.Vector2, roblox.Color3
 
 local root = process.cwd
 if string.sub(root, -1) ~= "/" then
@@ -29,7 +29,7 @@ local WS = world.Services.Workspace
 local GuiExport = require("../tools/lune/gui_export")
 local guiShots: { any } = {}
 local guiPlayer: any = nil
-local function shot(name: string)
+local function shot(name: string, w: number?, h: number?)
 	if not process.env.SIM_GUI or not guiPlayer then
 		return
 	end
@@ -44,7 +44,7 @@ local function shot(name: string)
 	end)
 	local ok, tree = pcall(GuiExport.Screens, screens)
 	if ok then
-		table.insert(guiShots, { name = name, w = 1280, h = 720, bg = "#6b8fb0", tree = tree })
+		table.insert(guiShots, { name = name, w = w or 1280, h = h or 720, bg = "#6b8fb0", tree = tree })
 	else
 		print("[gui] " .. tostring(tree))
 	end
@@ -164,7 +164,73 @@ check(moved > 34 * Config.STUDS_PER_METER, string.format("the bike moved (%.0f m
 check(ride ~= nil and ride.State.Kmh > 20, "the server gets the rider's state")
 check((player:GetAttribute("Cash") :: number) > cashBefore, string.format("riding pays (%s -> %s)", tostring(cashBefore), tostring(player:GetAttribute("Cash"))))
 check(payouts > 0, "+$ pops reach the client")
+
+-- SIM_GUI: the screen at a PC's, a tablet's and a phone's size (touch on the last two), each
+-- device's shots taken by `take(tag, w, h)`; then back to the 1280 x 720 keyboard screen
+local function onDevices(take: (string, number, number) -> ())
+	if not process.env.SIM_GUI then
+		return
+	end
+	local uis = Sim.States[world.Services.UserInputService].Props
+	local State = client.Require(Client:WaitForChild("State"))
+	local touch = player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeHUD"):FindFirstChild("TouchControls")
+	-- a new screen size: the camera's ViewportSize and every screen gui's AbsoluteSize change
+	local function resize(size: any)
+		Sim.Viewport = size
+		local targets = { WS.CurrentCamera }
+		for _, sg in player:FindFirstChild("PlayerGui"):GetChildren() do
+			if sg.ClassName == "ScreenGui" then
+				table.insert(targets, sg)
+			end
+		end
+		for _, inst in targets do
+			local signals = Sim.States[inst].PropSignals
+			local changed = signals.ViewportSize or signals.AbsoluteSize
+			if changed then
+				changed:Fire()
+			end
+		end
+	end
+	for _, d in { { "pc", 1920, 1080, false }, { "tablet", 1180, 820, true }, { "phone", 844, 390, true } } do
+		resize(Vector2.new(d[2], d[3]))
+		uis.TouchEnabled = d[4]
+		uis.KeyboardEnabled = not d[4]
+		if touch then
+			touch.Visible = d[4] and BikeController.Active
+		end
+		State.SetSettings(State.Settings(), false)
+		world:Run(0.2)
+		take(d[1], d[2], d[3])
+	end
+	resize(Vector2.new(1280, 720))
+	uis.TouchEnabled = false
+	uis.KeyboardEnabled = true
+	if touch then
+		touch.Visible = false
+	end
+	State.SetSettings(State.Settings(), false)
+	world:Run(0.2)
+end
+-- a new rider gets the tutorial a few seconds after joining: on the bike and up to speed already
+check(player:GetAttribute("TutorialStarted") == true and player:GetAttribute("ObjTitle") == "Welcome to Flighty" and (player:GetAttribute("ObjStep") or 0) >= 3, "a new rider gets the tutorial, and riding off moved it on (step " .. tostring(player:GetAttribute("ObjStep")) .. ")")
+do
+	-- the tracker writes the player's own key into "hold {Wheelie}", and Nina's call is in Messages
+	local card = player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeHUD"):FindFirstChild("Objective")
+	local text = ""
+	for _, d in card and card:GetDescendants() or {} do
+		if d.ClassName == "TextLabel" and string.find(d.Text, "wheelie", 1, true) then
+			text = d.Text
+		end
+	end
+	check(string.find(text, "Shift", 1, true) ~= nil and string.find(text, "{", 1, true) == nil, "the tracker names the bound key (" .. text .. ")")
+	local Inbox = client.Require(Client:WaitForChild("UI"):WaitForChild("Inbox"))
+	local first = Inbox.All()[#Inbox.All()]
+	check(first ~= nil and first.From == "Nina" and first.Kind == "Call", "Nina's call is kept in the phone's Messages")
+end
 shot("hud_riding")
+onDevices(function(device, w, h)
+	shot("device_" .. device .. "_riding", w, h)
+end)
 
 --------------------------------------------------------------------------------
 print("== wheelie in front of a cop")
@@ -604,6 +670,25 @@ do
 	check(saved.Missions.m01_first_ride == true and player:GetAttribute("ObjKind") == nil, "back at Flighty Mechanics: the mission's done and saved")
 	check(player:GetAttribute("Cash") - cash0 >= 400, "and paid")
 	shot("objective_done")
+	-- Nina texts when it's done, and the next regular when there's more work: the phone's Messages
+	world:Run(5)
+	local Inbox = client.Require(Client:WaitForChild("UI"):WaitForChild("Inbox"))
+	local fromNina, fromJet = false, false
+	for _, m in Inbox.All() do
+		fromNina = fromNina or (m.From == "Nina" and m.Kind == "Text")
+		fromJet = fromJet or (m.From == "Jet" and string.find(m.Text, "Wynwood", 1, true) ~= nil)
+	end
+	check(fromNina and fromJet, "Nina's thanks and Jet's next job arrive as texts")
+	local hud = player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeHUD")
+	local phoneTile = hud:FindFirstChild("Menu"):FindFirstChild("Phone")
+	local badge = phoneTile and phoneTile:FindFirstChild("Badge")
+	check(Inbox.Unread() >= 2 and badge ~= nil and badge.Visible == true, "unread texts badge the phone (" .. Inbox.Unread() .. ")")
+	shot("hud_message")
+	UI.Open("Messages")
+	world:Run(0.3)
+	check(Inbox.Unread() == 0, "opening Messages reads them")
+	shot("menu_Messages")
+	UI.Open("Messages")
 	-- a delivery: to the counter, then the house, inside the time limit
 	ok, overview = invoke(Activity, "Overview")
 	local jobs = if ok and type(overview) == "table" then overview.Jobs or {} else {}
@@ -652,6 +737,98 @@ do
 	world:Run(0.6)
 	shot("menu_Activities")
 	UI.Open("Activities")
+	onDevices(function(device, w, h)
+		shot("device_" .. device .. "_hud", w, h)
+		for _, name in { "Phone", "Activities", "Map" } do
+			UI.Open(name)
+			world:Run(0.5)
+			shot("device_" .. device .. "_" .. name, w, h)
+			UI.Open(name)
+		end
+	end)
+end
+
+--------------------------------------------------------------------------------
+print("== settings and controls")
+do
+	local Input = client.Require(Client:WaitForChild("Input"))
+	local State = client.Require(Client:WaitForChild("State"))
+	local Hud = client.Require(Client:WaitForChild("UI"):WaitForChild("Hud"))
+	local saved = ServerData.Get(player)
+	for key in world.Keys do
+		world.Keys[key] = false
+	end
+	-- rebind the gas to I: I drives, W doesn't, the hints say I, and the server keeps it
+	local settings = table.clone(State.Settings())
+	settings.Keys = { Gas = "I" }
+	State.SetSettings(settings, true)
+	world:Run(0.5)
+	world.Keys.I = true
+	local withI = Input.Read().Throttle
+	world.Keys.I = false
+	world.Keys.W = true
+	local withW = Input.Read().Throttle
+	world.Keys.W = false
+	world.Keys.Up = true
+	local withUp = Input.Read().Throttle
+	world.Keys.Up = false
+	check(withI == 1 and withW == 0 and withUp == 1, string.format("gas rebound to I: I %s, W %s, the arrow still works %s", tostring(withI), tostring(withW), tostring(withUp)))
+	check(saved.Settings.Keys.Gas == "I", "the save keeps the new key")
+	local hints = player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeHUD"):FindFirstChild("Hints")
+	local showsI = false
+	for _, d in hints and hints:GetDescendants() or {} do
+		if d.ClassName == "TextLabel" and d.Text == "I" then
+			showsI = true
+		end
+	end
+	check(showsI, "the key hints show the new key")
+	-- the HUD's size and layout follow the settings
+	local hudScale = player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeHUD"):FindFirstChildOfClass("UIScale")
+	local before = hudScale and hudScale.Scale or 0
+	settings = table.clone(State.Settings())
+	settings.HudScale = 1.2
+	settings.HudLayout = "Compact"
+	State.SetSettings(settings, true)
+	world:Run(0.5)
+	local menuTile = player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeHUD"):FindFirstChild("Menu"):FindFirstChild("Menus")
+	check(hudScale ~= nil and math.abs(hudScale.Scale - before * 1.2) < 0.01, string.format("HUD size 120%% scales the HUD (%.2f -> %.2f)", before, hudScale and hudScale.Scale or 0))
+	check(Hud.Compact() and menuTile ~= nil and menuTile.Visible == false, "the compact layout leaves the menu tiles to the phone")
+	shot("hud_compact")
+	UI.Open("Menus")
+	world:Run(0.3)
+	shot("menu_Menus")
+	-- the Settings and Controls tabs (their tab buttons, clicked)
+	local menusPanel = player:FindFirstChild("PlayerGui"):FindFirstChild("EbikeMenus"):FindFirstChild("Menus")
+	local function clickTab(label: string): boolean
+		for _, d in menusPanel and menusPanel:GetDescendants() or {} do
+			if d.ClassName == "TextButton" and d.Text == label then
+				Sim.Fire(d, "Activated")
+				world:Run(0.3)
+				return true
+			end
+		end
+		return false
+	end
+	check(clickTab("⚙️ Settings"), "the menu has a Settings tab")
+	shot("menu_Settings")
+	check(clickTab("⌨️ Controls"), "and a Controls tab")
+	local listsKey = false
+	for _, d in menusPanel:GetDescendants() do
+		if d.ClassName == "TextButton" and d.Text == "Shift" then
+			listsKey = true
+		end
+	end
+	check(listsKey, "the Controls tab shows each control's key")
+	shot("menu_Controls")
+	UI.Open("Menus")
+	-- back to the defaults
+	settings = table.clone(State.Settings())
+	settings.Keys = {}
+	settings.HudScale = 1
+	settings.HudLayout = "Auto"
+	State.SetSettings(settings, true)
+	world:Run(0.5)
+	check(next(saved.Settings.Keys) == nil and saved.Settings.HudLayout == "Auto", "settings back to the defaults")
 end
 
 --------------------------------------------------------------------------------

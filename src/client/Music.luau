@@ -109,7 +109,7 @@ function Music.Toggle()
 end
 
 function Music.Init()
-	State.Changed:Connect(function()
+	State.SettingsChanged:Connect(function()
 		local sound = current
 		if sound and sound.IsPlaying then
 			sound.Volume = volume()
