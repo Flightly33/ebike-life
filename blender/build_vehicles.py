@@ -1367,13 +1367,16 @@ def main():
     # three imports, each small enough for Studio's importer: the bikes and cars, the city kit
     # (facade, street furniture, trees) and the realism pack's texture swatches. The owner imports
     # all three into one VehicleMeshes model (MeshKit and SetupRealism search all of it).
-    groups = {"Vehicles": [], "CityKit": [], "Textures": []}
+    groups = {"Vehicles": [], "CityKit": [], "Textures": [], "CityKitRound2": []}
     for ob in bpy.data.objects:
         if ob.parent is None and ob.type == "EMPTY":
             if ob.name == "Realism_Swatches":
                 groups["Textures"].append(ob)
             elif ob.name.startswith("Kit_") or ob.name.startswith("Gear_"):
                 groups["CityKit"].append(ob)
+                if ob.name in facadekit.ROUND2:
+                    # (the Phase 4 kits again on their own: an add-on import next to CityKit's)
+                    groups["CityKitRound2"].append(ob)
             else:
                 groups["Vehicles"].append(ob)
     for name, roots in groups.items():

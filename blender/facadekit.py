@@ -609,6 +609,10 @@ def signal_head():
 
 # ---------------------------------------------------------------------------------- round 2
 
+# (also written on their own to CityKitRound2.fbx, for an owner whose CityKit import is in already:
+# re-importing all of CityKit.fbx would replace the trees SetupRealism textured)
+ROUND2 = ("Kit_RollUpDoor", "Kit_GlassRail", "Kit_BusShelter", "Kit_GasCanopy")
+
 
 def roll_up_door():
     """A roll-up loading door: the slatted steel curtain (a ridge at every slat joint), the guide
