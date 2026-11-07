@@ -729,7 +729,9 @@ def asphalt_worn(n, x, y, S, tile):
     oil = smoothstep(0.5, 0.75, n.fbm(x + 0.71, y + 0.2, 7, 4)) * smoothstep(0.0, 0.3, n.fbm(x, y, 2, 2))
     lum = lum * (1 - 0.4 * oil)
     rough = 0.92 - 0.15 * tar - 0.4 * oil - 0.06 * patch
-    return {"color": gray(lum), "height": height, "rough": rough}
+    # (a little lighter than the fresh asphalt's map on average, 0.5 against 0.4: older, not another
+    # material, since both multiply the same road colour)
+    return {"color": gray(lum * 0.78), "height": height, "rough": rough}
 
 
 @material("ConcreteDeck", "Concrete", 6.0, "Regular", (186, 184, 178), named=True, rnd=2)

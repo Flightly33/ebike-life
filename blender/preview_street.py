@@ -76,24 +76,31 @@ def srgb_to_linear(c):
 
 
 def load_textures():
+    """The library by base material (what overrides it) and by variant name ("Real<Name>", the named
+    materials a part wears through its MaterialVariant, turned copies included)."""
     path = os.path.join(TEX, "manifest.json")
     if not os.path.exists(path):
-        return {}
+        return {}, {}
     manifest = json.load(open(path))
     by_base = {}
+    by_name = {}
     for m in manifest.get("Materials", []):
-        if m.get("Livery") or m.get("Turned"):
+        if m.get("Livery"):
+            continue
+        by_name["Real" + m["Name"]] = m
+        if m.get("Turned") or m.get("Named"):
             continue
         by_base.setdefault(m["Base"], m)
-    return by_base
+    return by_base, by_name
 
 
 TEXTURES = {}
+NAMED = {}
 MATS = {}
 
 
-def material(color, mat_name, transparency=0.0, slot=None):
-    key = (tuple(round(c, 3) for c in color), mat_name, round(transparency, 2), slot)
+def material(color, mat_name, transparency=0.0, slot=None, variant=None):
+    key = (tuple(round(c, 3) for c in color), mat_name, round(transparency, 2), slot, variant)
     if key in MATS:
         return MATS[key]
     m = bpy.data.materials.new(f"{mat_name}_{len(MATS)}")
@@ -121,7 +128,8 @@ def material(color, mat_name, transparency=0.0, slot=None):
         bsdf.inputs["Base Color"].default_value = (*(c * 0.5 for c in lin), 1)
     if transparency > 0:
         bsdf.inputs["Alpha"].default_value = max(0.05, 1 - transparency)
-    tex = TEXTURES.get(mat_name)
+    tex = NAMED.get(variant) if variant else None
+    tex = tex or TEXTURES.get(mat_name)
     if tex and slot is None:
         # box-projected maps at the tile's real size, multiplied by the part's colour
         coords = nt.nodes.new("ShaderNodeTexCoord")
@@ -227,12 +235,21 @@ def main():
     args = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else sys.argv[1:]
     data = json.load(open(args[0]))
     out_dir = args[1]
-    views = args[2].split(",") if len(args) > 2 and args[2] else list(VIEWS)
+    if len(args) > 2 and args[2].endswith(".json"):
+        # (custom views: {"name": [[x, y, z], [x, y, z], lens], ...} in Roblox design coordinates)
+        custom = json.load(open(args[2]))
+        VIEWS.clear()
+        VIEWS.update({k: (tuple(v[0]), tuple(v[1]), v[2]) for k, v in custom.items()})
+        views = list(VIEWS)
+    else:
+        views = args[2].split(",") if len(args) > 2 and args[2] else list(VIEWS)
     samples = int(args[3]) if len(args) > 3 else 48
     os.makedirs(out_dir, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
-    TEXTURES.update(load_textures())
+    by_base, by_name = load_textures()
+    TEXTURES.update(by_base)
+    NAMED.update(by_name)
 
     # the kit's meshes, built as for Vehicles.fbx
     citykit.build_all()
@@ -256,7 +273,7 @@ def main():
         me = bpy.data.meshes.new(p["name"])
         bm.to_mesh(me)
         bm.free()
-        me.materials.append(material(p["color"], p["material"], p.get("transparency", 0)))
+        me.materials.append(material(p["color"], p["material"], p.get("transparency", 0), None, p.get("variant") or None))
         ob = bpy.data.objects.new(p["name"], me)
         coll.objects.link(ob)
     # kit meshes: a linked copy of the source, at the CFrame, scaled to the size CityKit gave it

@@ -274,6 +274,9 @@ Config.Weather = {
 -- slope instead of across it, planks across a boardwalk)
 Config.Realism = {
 	Turned = {} :: { [string]: boolean }, -- e.g. { ClayRoofTiles = true }
+	-- the same for the named materials with a turned copy (PartKit.TURNABLE): e.g. { RealWoodSiding =
+	-- true } if siding boards stand on end in Studio
+	TurnedNamed = {} :: { [string]: boolean },
 }
 
 Config.Graphics = {

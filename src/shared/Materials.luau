@@ -18,6 +18,7 @@ local MaterialService = game:GetService("MaterialService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(script.Parent.Config)
+local PartKit = require(script.Parent.PartKit)
 
 local Materials = {}
 
@@ -25,12 +26,13 @@ local Materials = {}
 -- of: the builders give a share of walls one by name (PartKit.Facade) so a street isn't all one
 -- texture. Without the pack (or before the owner re-imports it) those walls keep their base
 -- material's look.
-Materials.Facade = {
-	RealStucco = Enum.Material.Plaster,
-	RealBrickOld = Enum.Material.Brick,
-	RealConcreteBoard = Enum.Material.Concrete,
-	RealCorrugated = Enum.Material.Metal,
-} :: { [string]: Enum.Material }
+Materials.Facade = {} :: { [string]: Enum.Material }
+for name, base in PartKit.NAMED do
+	Materials.Facade[name] = base
+	if PartKit.TURNABLE[name] then
+		Materials.Facade[name .. "90"] = base
+	end
+end
 
 -- The pack's variants (nil without the import)
 function Materials.Pack(): Instance?

@@ -4,6 +4,9 @@
 	Works under Lune as well (the city is baked offline), so it only sets plain properties.
 ]]
 
+local Config = require(script.Parent.Config)
+local Surfaces = require(script.Parent.Surfaces)
+
 local PartKit = {}
 
 export type Opts = {
@@ -80,6 +83,71 @@ end
 function PartKit.FacadeFor(at: Vector3, variant: string, share: number): string?
 	local h = math.abs(math.sin(at.X * 12.9898 + at.Z * 78.233) * 43758.5453) % 1
 	return if h < share then variant else nil
+end
+
+-- The realism pack's named materials (blender/textures.py, `named`) and the base material each is a
+-- variant of: a part shows one only while its own material is that base (PartKit.Dress sets both)
+PartKit.NAMED = {
+	RealStucco = Enum.Material.Plaster,
+	RealBrickOld = Enum.Material.Brick,
+	RealConcreteBoard = Enum.Material.Concrete,
+	RealCorrugated = Enum.Material.Metal,
+	-- the detail pass (Textures2.fbx)
+	RealAsphaltWorn = Enum.Material.Asphalt,
+	RealConcreteDeck = Enum.Material.Concrete,
+	RealRoadPaint = Enum.Material.SmoothPlastic,
+	RealBrickPavers = Enum.Material.Brick,
+	RealCoralStone = Enum.Material.Limestone,
+	RealCoralRubble = Enum.Material.Limestone,
+	RealStuccoStreaked = Enum.Material.Plaster,
+	RealPaintedBlock = Enum.Material.Concrete,
+	RealWoodSiding = Enum.Material.Wood,
+	RealGraniteCladding = Enum.Material.Granite,
+	RealPoolTile = Enum.Material.CeramicTiles,
+	RealTerrazzo = Enum.Material.Marble,
+	RealRoofMembrane = Enum.Material.SmoothPlastic,
+	RealGravel = Enum.Material.Pebble,
+	RealMetalRoof = Enum.Material.Metal,
+	RealMulch = Enum.Material.Ground,
+	RealWetSand = Enum.Material.Sand,
+	RealRustySteel = Enum.Material.CorrodedMetal,
+	RealContainerPaint = Enum.Material.Metal,
+	RealMarineConcrete = Enum.Material.Concrete,
+	RealHedge = Enum.Material.Grass,
+	RealPlanksWeathered = Enum.Material.WoodPlanks,
+	RealTactilePaving = Enum.Material.SmoothPlastic,
+} :: { [string]: Enum.Material }
+-- the ones with a quarter-turned copy ("<Name>90": boards, seams, corrugations run the other way)
+PartKit.TURNABLE = { RealWoodSiding = true, RealMetalRoof = true, RealContainerPaint = true, RealPlanksWeathered = true } :: { [string]: boolean }
+
+-- Dresses a part in a named material: its base material and the variant's name (the turned copy if
+-- `turned`, flipped again where Config.Realism.TurnedNamed says the pattern runs the wrong way in
+-- Studio), and a colour if given. The part keeps the kind of ground it was to the bike and the
+-- police (Shared/Surfaces): if the new material would change that, its "Surface" attribute holds
+-- the old one. Without the pack the part just shows its base material. Returns the part.
+function PartKit.Dress<T>(part: T, name: string, color: Color3?, turned: boolean?): T
+	local p = part :: any
+	local base = PartKit.NAMED[name]
+	if not base then
+		return part
+	end
+	local before = Surfaces.Of(p)
+	p.Material = base
+	local flip = (turned == true) ~= (Config.Realism.TurnedNamed[name] == true)
+	p.MaterialVariant = if flip and PartKit.TURNABLE[name] then name .. "90" else name
+	if color then
+		p.Color = color
+	end
+	if Surfaces.Of(p) ~= before then
+		p:SetAttribute("Surface", before)
+	end
+	return part
+end
+
+-- A stable 0..1 number for a spot (x, z), from a salt: picks without touching the random streams
+function PartKit.Hash(at: Vector3, salt: number?): number
+	local s = salt or 0
+	return math.abs(math.sin(at.X * 12.9898 + at.Z * 78.233 + s * 37.719) * 43758.5453) % 1
 end
 
 -- Puts a named material (PartKit.FacadeFor) on parts; their base material shows where it's not

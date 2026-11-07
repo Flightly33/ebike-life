@@ -26,33 +26,8 @@ sweepParams.FilterType = Enum.RaycastFilterType.Exclude
 sweepParams.RespectCanCollide = true
 sweepParams.IgnoreWater = true
 
-local MATERIALS: { [Enum.Material]: string } = {
-	[Enum.Material.Asphalt] = "Road",
-	[Enum.Material.Pavement] = "Sidewalk",
-	[Enum.Material.Concrete] = "Sidewalk",
-	[Enum.Material.Cobblestone] = "Sidewalk",
-	[Enum.Material.Brick] = "Sidewalk",
-	[Enum.Material.Marble] = "Sidewalk",
-	[Enum.Material.Granite] = "Sidewalk",
-	[Enum.Material.Slate] = "Sidewalk",
-	[Enum.Material.Grass] = "Grass",
-	[Enum.Material.LeafyGrass] = "Grass",
-	[Enum.Material.Ground] = "Dirt",
-	[Enum.Material.Mud] = "Mud",
-	[Enum.Material.Sand] = "Sand",
-	[Enum.Material.WoodPlanks] = "Ramp",
-	[Enum.Material.Wood] = "Ramp",
-	[Enum.Material.DiamondPlate] = "Ramp",
-	[Enum.Material.Metal] = "Ramp",
-}
-
-local function surfaceOf(part: BasePart): string
-	local tagged = part:GetAttribute("Surface")
-	if type(tagged) == "string" then
-		return tagged
-	end
-	return MATERIALS[part.Material] or "Road"
-end
+local Surfaces = require(Shared.Surfaces)
+local surfaceOf = Surfaces.Of
 World.SurfaceOf = surfaceOf
 
 -- What a sweep hit: "Cop" / "Car" for vehicles, "Wall" for everything else

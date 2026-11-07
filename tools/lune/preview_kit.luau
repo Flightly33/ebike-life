@@ -109,6 +109,7 @@ for _, d in street:GetDescendants() do
 			material = if d.Material then d.Material.Name else "SmoothPlastic",
 			transparency = d.Transparency,
 			name = d.Name,
+			variant = if d:IsA("BasePart") and d.MaterialVariant ~= "" then d.MaterialVariant else nil,
 		}
 		if d:IsA("MeshPart") then
 			entry.source = d:GetAttribute("Source")

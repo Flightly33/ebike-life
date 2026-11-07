@@ -10,6 +10,7 @@ local Props = require(script.Parent.Props)
 local Roads = require(script.Parent.Roads)
 local Buildings = require(script.Parent.Buildings)
 local Landmarks = require(script.Parent.Landmarks)
+local Dressing = require(script.Parent.Dressing)
 local Countryside = require(script.Parent.Countryside)
 local Detail = require(script.Parent.Detail)
 local Freeways = require(script.Parent.Freeways)
@@ -563,8 +564,16 @@ function Builder.Build(): Model
 	Countryside.Build(city, rng)
 	billboards(city, rng)
 	spawnPoint(city)
-	-- real-world materials by role (roofs, tyres, glass...)
+	-- real-world materials by role (roofs, tyres, glass...), then the detail pass's named
+	-- materials by role and district (worn streets, concrete decks, pavers, roofs, docks...)
 	Realism.Apply(city)
+	local dressed, byVariant = Dressing.Apply(city)
+	local parts = {}
+	for name, n in byVariant do
+		table.insert(parts, string.format("%s %d", name, n))
+	end
+	table.sort(parts)
+	print(string.format("[Builder] dressed %d parts: %s", dressed, table.concat(parts, ", ")))
 	-- Built at Roblox's standard scale; scaled to the one the game runs at
 	PartKit.Scale(city, Config.WORLD_SCALE)
 	-- long slabs (runways, decks, the ground, kerbs) in pieces Roblox will stream and won't cap
