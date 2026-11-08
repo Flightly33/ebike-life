@@ -193,6 +193,8 @@ end
 -- the client's detail (Client/CityDetail), built offline in a client context
 local CityDetail: any = nil
 if withDetail then
+	-- (the client's modules wait for the remotes the server's Remotes module makes)
+	server.Require(Shared:WaitForChild("Remotes"))
 	local viewer = world:AddPlayer("Viewer", 1, true)
 	local client = world:Context("client", false, viewer)
 	CityDetail = client.Require(world.Services.StarterPlayer.StarterPlayerScripts:WaitForChild("Client"):WaitForChild("CityDetail"))

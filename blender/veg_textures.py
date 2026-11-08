@@ -535,7 +535,7 @@ def sea_grape_leaves(n, x, y, w, h):
                 px, py = ccx + r * math.cos(a), ccy + r * math.sin(a)
                 la = a + rng.uniform(-0.6, 0.6)
                 tone = rng.random()
-                base = (0.22, 0.38, 0.13) if tone < 0.72 else ((0.50, 0.28, 0.13) if tone < 0.88 else (0.34, 0.46, 0.17))
+                base = (0.22, 0.38, 0.13) if tone < 0.8 else ((0.50, 0.28, 0.13) if tone < 0.9 else (0.34, 0.46, 0.17))
                 L = rng.uniform(120, 170)
                 sx, sy = px - math.cos(la) * L * 0.5, py - math.sin(la) * L * 0.5
                 cv.stroke([(sx - math.cos(la) * 16, sy - math.sin(la) * 16), (sx + math.cos(la) * 6, sy + math.sin(la) * 6)], [2.6, 2.2], [(0.62, 0.20, 0.18), (0.62, 0.20, 0.18)], rough=0.6)

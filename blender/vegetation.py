@@ -621,8 +621,9 @@ def sea_grape(seed=53):
         tip = Vector((math.cos(a) * 1.1, math.sin(a) * 1.1, H * rng.uniform(0.45, 0.6)))
         lp = stem(bark, Vector((math.cos(a) * 0.1, math.sin(a) * 0.1, 0)), tip, 0.11, rng, seg=6, points=5, bend=0.18)
         stem(bark, lp[2], lp[2] + Vector((math.cos(a + 0.8) * 0.8, math.sin(a + 0.8) * 0.8, 0.9)), 0.05, rng, seg=5, points=3)
-    for c, rx, rz, n in ((Vector((0.0, 0.0, H * 0.62)), 1.6, 1.15, 70), (Vector((0.7, 0.4, H * 0.5)), 1.1, 0.85, 30), (Vector((-0.6, -0.5, H * 0.48)), 1.0, 0.8, 26)):
-        crown_cards(leaves, rng, c, rx, rz, n, 1.0, lambda nrm: rng.randint(0, 3), low=-0.35, up_bias=0.3, inner=0.1)
+    # (mounds of leaves from head height down to the sand: a dune's sea grape is a bush)
+    for c, rx, rz, n in ((Vector((0.0, 0.0, H * 0.58)), 1.6, 1.15, 66), (Vector((0.7, 0.4, H * 0.42)), 1.1, 0.9, 30), (Vector((-0.6, -0.5, H * 0.38)), 1.0, 0.85, 26), (Vector((0.1, -0.2, H * 0.22)), 1.3, 0.6, 24)):
+        crown_cards(leaves, rng, c, rx, rz, n, 1.0, lambda nrm: rng.randint(0, 3), low=-0.5, up_bias=0.3, inner=0.1)
     return {"SeaGrapeBark": bark, "SeaGrapeLeaves": leaves}
 
 

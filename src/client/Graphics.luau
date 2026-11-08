@@ -71,7 +71,7 @@ local function depthOfField(on: boolean)
 end
 
 -- Performance hides the city kit's finest detail on this device (Models/CityKit tags it: cornices,
--- string courses, rails, shutters, eyebrows, tower fins, rooftop AC units)
+-- string courses, rails, shutters, eyebrows, tower fins, rooftop AC units, shrubs and ground cover)
 local FINE_TAG = "KitFine"
 local function fineDetail(part: Instance, show: boolean)
 	if part:IsA("BasePart") then

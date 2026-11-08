@@ -381,7 +381,7 @@ local M: { [string]: { Entry } } = {
 	},
 	["Kit_Shrub_SeaGrape"] = {
 		{ Name = "Kit_Shrub_SeaGrape__Main__SeaGrapeBark", Group = "Main", Slot = "SeaGrapeBark", Center = Vector3.new(-0.1473, 1.0252, -0.0738), Size = Vector3.new(2.5539, 2.1916, 2.4433) },
-		{ Name = "Kit_Shrub_SeaGrape__Main__SeaGrapeLeaves", Group = "Main", Slot = "SeaGrapeLeaves", Center = Vector3.new(0.0227, 2.0556, 0.0012), Size = Vector3.new(3.9583, 2.8596, 3.6243) },
+		{ Name = "Kit_Shrub_SeaGrape__Main__SeaGrapeLeaves", Group = "Main", Slot = "SeaGrapeLeaves", Center = Vector3.new(0.0774, 1.5388, -0.0061), Size = Vector3.new(3.9754, 3.6216, 3.6221) },
 	},
 	["Kit_Shutter"] = {
 		{ Name = "Kit_Shutter__Main__Paint", Group = "Main", Slot = "Paint", Center = Vector3.new(0.0000, 0.0000, -0.0000), Size = Vector3.new(1.6000, 5.0000, 0.3000) },

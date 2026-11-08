@@ -752,7 +752,8 @@ local function buildHome(unit: Unit): Model?
 	-- rocking chairs and a potted plant on a bungalow's porch
 	if kind == "Bungalow" then
 		for _, x in { -w * 0.3, w * 0.22 } do
-			local chair = at(x, -d / 2 - 1.6 * M, 1.5, math.pi + rng:NextNumber(-0.3, 0.3))
+			-- (facing the street: a chair's back is on its +Z)
+			local chair = at(x, -d / 2 - 1.6 * M, 1.5, rng:NextNumber(-0.3, 0.3))
 			local wood = rgb(250, 250, 246)
 			PartKit.Box(model, "ChairSeat", Vector3.new(0.5, 0.05, 0.48) * M, chair * CFrame.new(0, 0.45 * M, 0), wood, SMOOTH, OPTS)
 			PartKit.Box(model, "ChairBack", Vector3.new(0.5, 0.7, 0.05) * M, chair * CFrame.new(0, 0.82 * M, 0.26 * M) * CFrame.Angles(math.rad(-12), 0, 0), wood, SMOOTH, OPTS)
