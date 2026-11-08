@@ -268,7 +268,7 @@ local function updateLampLights(focus: Vector3)
 		end)
 	end
 	local keep: { [BasePart]: boolean } = {}
-	for i = 1, math.min(#near, Graphics.Current().LampLights) do
+	for i = 1, math.min(#near, math.max(2, math.floor(Graphics.Current().LampLights * Graphics.Scale() + 0.5))) do
 		local part = near[i].Part
 		keep[part] = true
 		if not lampLights[part] then

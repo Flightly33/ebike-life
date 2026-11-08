@@ -269,6 +269,12 @@ function MainMenu.new(gui: Instance, close: () -> ()): Panel.Panel
 				Graphics.Apply()
 			end, 120)
 		end)
+		Kit.Setting(list, "Performance stats", "Frame rate, memory and detail at the top of the screen", nextOrder(), function(holder)
+			Kit.Toggle(holder, current.Stats == true, function(on)
+				current.Stats = on
+				apply(true)
+			end)
+		end)
 	end
 
 	-- the keyboard controls: one row per control, its key on a button; click it and press a key

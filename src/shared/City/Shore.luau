@@ -34,8 +34,9 @@ local DECK_WOOD = Color3.fromRGB(150, 116, 80)
 local MAX_PART = 2000
 local S = Layout.SPREAD -- plan positions are spread (City/Layout)
 
--- Boxes covering a rect, split into pieces no bigger than MAX_PART (the part size limit)
-local function tiles(parent: Instance, name: string, rect: LayoutModule.Rect, top: number, thickness: number, color: Color3, material: Enum.Material, surface: string?)
+-- Boxes covering a rect, split into pieces no bigger than MAX_PART (the part size limit); returns them
+local function tiles(parent: Instance, name: string, rect: LayoutModule.Rect, top: number, thickness: number, color: Color3, material: Enum.Material, surface: string?): { BasePart }
+	local made: { BasePart } = {}
 	local w, d = rect.MaxX - rect.MinX, rect.MaxZ - rect.MinZ
 	local nx, nz = math.ceil(w / MAX_PART), math.ceil(d / MAX_PART)
 	for i = 0, nx - 1 do
@@ -46,8 +47,10 @@ local function tiles(parent: Instance, name: string, rect: LayoutModule.Rect, to
 			if surface then
 				p:SetAttribute("Surface", surface)
 			end
+			table.insert(made, p)
 		end
 	end
+	return made
 end
 
 -- A rock slope from the ground edge at `top` (y = 0) out and down to the bay floor, facing `out`,
@@ -216,10 +219,9 @@ function Shore.Build(city: Instance, rng: Random)
 	local open = PartKit.Folder(ground, "Open")
 	for _, g in Layout.OpenGround do
 		local marsh = g.Kind == "Marsh"
-		local before = #open:GetChildren()
-		tiles(open, "OpenGround", g, 0, 4, if marsh then Color3.fromRGB(96, 104, 62) else C.Grass, if marsh then Enum.Material.Mud else Enum.Material.Grass, if marsh then "Mud" else "Grass")
-		for k = before + 1, #open:GetChildren() do
-			open:GetChildren()[k]:SetAttribute("Terrain", g.Kind)
+		-- (tagged with the land they cover: GetChildren's order isn't promised to follow creation)
+		for _, tile in tiles(open, "OpenGround", g, 0, 4, if marsh then Color3.fromRGB(96, 104, 62) else C.Grass, if marsh then Enum.Material.Mud else Enum.Material.Grass, if marsh then "Mud" else "Grass") do
+			tile:SetAttribute("Terrain", g.Kind)
 		end
 	end
 	-- the bay and ocean floor; lake beds with banks sloping in

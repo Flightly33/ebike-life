@@ -859,7 +859,7 @@ local function driveUnits(dt: number)
 				continue
 			end
 		end
-		CarDriver.Step(driver, dt, if unit.Target then {} else people)
+		CarDriver.StepFor(driver, dt, people, if unit.Target then {} else people)
 	end
 end
 

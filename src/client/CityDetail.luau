@@ -889,17 +889,31 @@ end
 -- Streaming the detail in and out round the camera
 --------------------------------------------------------------------------------
 
+-- What to build next, nearest first (refreshed by update), and how far along it the builder is
+local queue: { Unit } = {}
+local queueHead = 1
+
+local function build(unit: Unit)
+	local model = if unit.Kind == "Road" then buildRoad(unit) elseif unit.Kind == "Home" then buildHome(unit) else buildBuilding(unit)
+	if model then
+		model.Parent = folder
+		built[unit] = model
+	end
+end
+
+-- Every quarter second: drop what's far, and queue what's near and not built, nearest first
 local function update()
 	local camera = Workspace.CurrentCamera
 	if not camera then
 		return
 	end
 	local ultra = Graphics.Current().Shadows
-	local roadRange = (if ultra then 700 else 380) * MAP
-	local buildingRange = (if ultra then 450 else 240) * MAP
+	-- (the frame budget trims the ranges when frames run long: Client/Graphics)
+	local scale = Graphics.Scale()
+	local roadRange = (if ultra then 700 else 380) * MAP * scale
+	local buildingRange = (if ultra then 450 else 240) * MAP * scale
 	local from = camera.CFrame.Position
 	local reach = math.max(roadRange, buildingRange)
-	local budget = if ultra then 10 else 5
 	-- drop what's far
 	for unit, model in built do
 		local range = if unit.Kind == "Road" then roadRange else buildingRange
@@ -908,7 +922,7 @@ local function update()
 			built[unit] = nil
 		end
 	end
-	-- build what's near, nearest first
+	-- queue what's near, nearest first
 	local want: { { Unit: Unit, D: number } } = {}
 	local c0x, c0z = math.floor((from.X - reach) / CELL), math.floor((from.Z - reach) / CELL)
 	local c1x, c1z = math.floor((from.X + reach) / CELL), math.floor((from.Z + reach) / CELL)
@@ -930,12 +944,30 @@ local function update()
 	table.sort(want, function(x, y)
 		return x.D < y.D
 	end)
-	for i = 1, math.min(#want, budget) do
-		local unit = want[i].Unit
-		local model = if unit.Kind == "Road" then buildRoad(unit) elseif unit.Kind == "Home" then buildHome(unit) else buildBuilding(unit)
-		if model then
-			model.Parent = folder
-			built[unit] = model
+	queue = {}
+	queueHead = 1
+	for _, w in want do
+		table.insert(queue, w.Unit)
+	end
+end
+
+-- Every frame: build from the queue until this frame's share of time is spent (at least one, so
+-- it keeps up), so riding into a new street spreads its detail over frames instead of a hitch
+local BUILD_MS = { Ultra = 1.6, Performance = 0.8 }
+local function buildSome()
+	if queueHead > #queue then
+		return
+	end
+	local limit = (if Graphics.Current().Shadows then BUILD_MS.Ultra else BUILD_MS.Performance) / 1000
+	local t0 = os.clock()
+	while queueHead <= #queue do
+		local unit = queue[queueHead]
+		queueHead += 1
+		if not built[unit] then
+			build(unit)
+			if os.clock() - t0 > limit then
+				break
+			end
 		end
 	end
 end
@@ -958,6 +990,7 @@ function CityDetail.Init()
 			since = 0
 			update()
 		end
+		buildSome()
 	end)
 end
 

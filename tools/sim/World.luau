@@ -55,6 +55,7 @@ local SERVICES = {
 	"MarketplaceService",
 	"ProximityPromptService",
 	"GuiService",
+	"Stats",
 }
 
 local RIG = {
@@ -481,6 +482,12 @@ function World:InstallHooks()
 					callback(id, if ok then roblox.Enum.AssetFetchStatus.Success else roblox.Enum.AssetFetchStatus.Failure)
 				end
 			end
+		end,
+	}
+	-- the performance figures (UI/PerfStats reads them): fixed stand-ins
+	M.Stats = {
+		GetTotalMemoryUsageMb = function(_s)
+			return 512
 		end,
 	}
 	M.DataStoreService = {

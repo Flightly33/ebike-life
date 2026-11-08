@@ -70,11 +70,35 @@ function Signal:Fire(...)
 	end
 end
 
+-- Set to a table to time every frame-event handler (tools/lune/tour.luau): key "source:line
+-- [signal]" -> { Time = seconds, Calls = n }
+Signal.Profile = nil :: { [string]: { Time: number, Calls: number } }?
+
 -- Synchronous fire (frame events): runs handlers in order, errors propagate to the caller.
 function Signal:FireSync(...)
+	local profile = Signal.Profile
 	for _, c in table.clone(self._handlers) do
 		if c.Connected then
-			guarded(c._fn, ...)
+			if profile then
+				local t0 = os.clock()
+				guarded(c._fn, ...)
+				local spent = os.clock() - t0
+				local key = c._key
+				if not key then
+					local src, line = debug.info(c._fn, "sl")
+					key = string.format("%s:%d [%s]", tostring(src), line or 0, self._name)
+					c._key = key
+				end
+				local entry = profile[key]
+				if not entry then
+					entry = { Time = 0, Calls = 0 }
+					profile[key] = entry
+				end
+				entry.Time += spent
+				entry.Calls += 1
+			else
+				guarded(c._fn, ...)
+			end
 		end
 	end
 end

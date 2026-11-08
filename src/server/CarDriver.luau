@@ -75,6 +75,9 @@ export type Driver = {
 	Stops: { Vector3 }?,
 	StopUntil: number,
 	LastStop: number,
+	-- the step rate by distance (CarDriver.StepFor): frames counted, and time since the last step
+	Tick: number,
+	Pending: number,
 }
 
 CarDriver.All = {} :: { Driver }
@@ -154,6 +157,8 @@ function CarDriver.new(model: Model, kind: CarModel.Kind, start: CFrame, rng: Ra
 		Stops = nil,
 		StopUntil = 0,
 		LastStop = 0,
+		Tick = rng:NextInteger(0, 3), -- (staggered, so the far cars don't all step on one frame)
+		Pending = 0,
 	}, CarDriver) :: any
 	table.insert(CarDriver.All, self)
 	return self
@@ -628,6 +633,33 @@ function CarDriver.Step(self: Driver, dt: number, people: { Vector3 })
 	self.Model:PivotTo(cf)
 	self.Root.AssemblyLinearVelocity = dir * (self.Speed * STUDS)
 	self.Root.AssemblyAngularVelocity = Vector3.zero
+end
+
+-- How often a car is stepped, by how far it is from the nearest player: every frame within
+-- LOD_NEAR studs, every other frame within LOD_FAR, every fourth beyond. Each step takes the time
+-- since the car's last, so it covers the same ground; in between, its velocity and the anti-gravity
+-- force carry it smoothly (on the server and in what clients see).
+CarDriver.LOD_NEAR = 450 * Config.MAP_SCALE / 1.25
+CarDriver.LOD_FAR = 1100 * Config.MAP_SCALE / 1.25
+
+-- Step a car at its rate (`players`: where the players are; `people`: who a cruising car stops for)
+function CarDriver.StepFor(self: Driver, dt: number, players: { Vector3 }, people: { Vector3 })
+	self.Pending += dt
+	self.Tick += 1
+	local nearest = math.huge
+	for _, p in players do
+		local d = (p - self.Position).Magnitude
+		if d < nearest then
+			nearest = d
+		end
+	end
+	local every = if nearest < CarDriver.LOD_NEAR then 1 elseif nearest < CarDriver.LOD_FAR then 2 else 4
+	if self.Tick % every ~= 0 then
+		return
+	end
+	local step = math.min(self.Pending, 0.25)
+	self.Pending = 0
+	CarDriver.Step(self, step, people)
 end
 
 -- Stop and stay put (a roadblock, or officers getting out)

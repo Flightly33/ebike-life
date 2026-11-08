@@ -293,6 +293,9 @@ Config.Graphics = {
 		ShopRange = 170, -- studs from the camera a shop is fitted out
 		FineDetail = true, -- the city kit's finest pieces (cornices, rails, shutters...: Models/CityKit)
 	},
+	-- the frame budget (Client/Graphics): frames averaging over SlowMs for SlowFor seconds turn the
+	-- client's detail scale down a Step (not below MinScale); under QuickMs for QuickFor seconds, up
+	Budget = { SlowMs = 30, SlowFor = 3, QuickMs = 20, QuickFor = 8, Step = 0.15, MinScale = 0.4 },
 	Performance = {
 		Shadows = false,
 		Clouds = false,

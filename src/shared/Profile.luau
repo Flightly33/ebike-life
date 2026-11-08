@@ -58,6 +58,7 @@ export type Settings = {
 	HudScale: number, -- 0.7..1.3, times the screen's own fit
 	HudLayout: string, -- "Auto" (compact on touch screens), "Full" or "Compact"
 	Keys: { [string]: string }, -- rebound keyboard controls: action id -> KeyCode name (Shared/Controls)
+	Stats: boolean, -- the performance readout (UI/PerfStats)
 }
 
 -- Rider gear (Shared/Gear): what's owned, and what's worn in each slot ("Helmet" -> item id)
@@ -102,7 +103,7 @@ function Profile.Default(): Data
 		Modes = Modes.Sanitize(nil),
 		Mode = "TOUR",
 		Stats = { BestWheelie = 0, LongestAir = 0, Distance = 0, Escapes = 0, Busts = 0, Flips = 0, MaxStars = 0, Earned = 0, TopSpeed = 0, Deliveries = 0, Races = 0, Wins = 0, Missions = 0, Challenges = 0 },
-		Settings = { Units = "kmh", Music = 0.5, Sounds = 0.8, Hints = true, Fov = 90, Graphics = "", HudScale = 1, HudLayout = "Auto", Keys = {} },
+		Settings = { Units = "kmh", Music = 0.5, Sounds = 0.8, Hints = true, Fov = 90, Graphics = "", HudScale = 1, HudLayout = "Auto", Keys = {}, Stats = false },
 		BoostUntil = 0,
 		Achievements = {},
 		Missions = {},
@@ -192,6 +193,7 @@ function Profile.Sanitize(saved: any): Data
 		data.Settings.Graphics = if s.Graphics == "Ultra" or s.Graphics == "Performance" then s.Graphics else ""
 		data.Settings.HudScale = num(s.HudScale, 1, 0.7, 1.3)
 		data.Settings.HudLayout = if s.HudLayout == "Full" or s.HudLayout == "Compact" then s.HudLayout else "Auto"
+		data.Settings.Stats = s.Stats == true
 		if type(s.Keys) == "table" then
 			for action, key in s.Keys do
 				if type(action) == "string" and Controls.Get(action) and type(key) == "string" and Controls.ValidKey(key) then

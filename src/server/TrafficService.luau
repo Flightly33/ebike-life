@@ -254,7 +254,7 @@ function TrafficService.Init()
 		end
 		for _, car in cars do
 			local driver = car.Driver
-			CarDriver.Step(driver, dt, people)
+			CarDriver.StepFor(driver, dt, people, people)
 			-- a car that hasn't moved for a minute (jammed) goes somewhere else
 			if math.abs(driver.Speed) < 0.3 then
 				car.StillFor += dt

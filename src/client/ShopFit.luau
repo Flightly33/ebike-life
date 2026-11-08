@@ -1480,7 +1480,7 @@ local function choose()
 	end
 	local g = Graphics.Current()
 	local from = camera.CFrame.Position
-	local range: number = g.ShopRange
+	local range: number = g.ShopRange * math.max(0.6, Graphics.Scale())
 	local want: { { Interior: Model, D: number } } = {}
 	for interior in known do
 		if interior.Parent == nil then

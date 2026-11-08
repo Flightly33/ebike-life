@@ -276,9 +276,12 @@ type Walker = {
 	Until: number,
 	Seat: BasePart?, -- sitting: where, and on which place along it
 	Place: number,
+	Tick: number, -- frames counted, for posing far walkers less often
 }
 local walkers: { Walker } = {}
 local walkRng = Random.new()
+local POSE_NEAR = 120 * K -- studs from the camera within which people are posed every frame
+local POSE_FAR = 260 * K
 
 local function buildWalker(): Walker
 	local shirt = SHIRTS[walkRng:NextInteger(1, #SHIRTS)]
@@ -353,6 +356,7 @@ local function buildWalker(): Walker
 		Until = 0,
 		Seat = nil,
 		Place = 1,
+		Tick = walkRng:NextInteger(0, 3),
 	}
 end
 
@@ -580,7 +584,7 @@ local function poseWalker(walker: Walker, now: number)
 end
 
 local function updateWalkers(dt: number, now: number)
-	local want = Graphics.Current().Pedestrians
+	local want = math.floor(Graphics.Current().Pedestrians * Graphics.Scale() + 0.5)
 	seatClock -= dt
 	if seatClock <= 0 then
 		seatClock = 4
@@ -635,7 +639,14 @@ local function updateWalkers(dt: number, now: number)
 				setLeg(walker, walker.From, walker.To, "Cross")
 			end
 		end
-		poseWalker(walker, now)
+		-- (people near the camera are posed every frame, further ones every second or fourth: their
+		-- walk is still worked out every frame, so they don't fall behind)
+		walker.Tick += 1
+		local d = (at - focus).Magnitude
+		local every = if d < POSE_NEAR then 1 elseif d < POSE_FAR then 2 else 4
+		if walker.Tick % every == 0 or walker.State == "Gone" then
+			poseWalker(walker, now)
+		end
 	end
 end
 
