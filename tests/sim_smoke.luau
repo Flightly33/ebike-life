@@ -316,7 +316,22 @@ for _, d in CarDriver.All do
 		d.Position = Vector3.new(1500, 0.2, 1500) -- far away (and teleported out of sight)
 	end
 end
-BikeController.Physics.Position = Vector3.new(-1500, 0.2, -1500)
+-- (the spot furthest from every police car, pursuing or patrolling, so no patrol that happens to
+-- be about can see the rider arrive: out of sight whatever the cars' random routes)
+local escapeSpot, escapeGap = Vector3.new(-1500, 0.2, -1500), -1
+for _, spot in { Vector3.new(-1500, 0.2, -1500), Vector3.new(-1500, 0.2, 1500), Vector3.new(-2600, 0.2, 0), Vector3.new(0, 0.2, -2600) } do
+	local gap = math.huge
+	for _, d in CarDriver.All do
+		local kind = d.Model.Name
+		if kind == "Police" or kind == "PoliceMoto" then
+			gap = math.min(gap, (d.Position - spot).Magnitude)
+		end
+	end
+	if gap > escapeGap then
+		escapeSpot, escapeGap = spot, gap
+	end
+end
+BikeController.Physics.Position = escapeSpot
 world:Run(25)
 if table.find(policeEvents, "Escaped") == nil then
 	for _, d in CarDriver.All do

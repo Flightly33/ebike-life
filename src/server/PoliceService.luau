@@ -81,6 +81,8 @@ type Watch = {
 	Inside: number?, -- intersection node the player is crossing
 	MaxStarsThisChase: number,
 	RoadblockAt: number,
+	LastTrue: Vector3?, -- where they really were when the police last asked (believedAt), and when
+	LastTrueAt: number,
 }
 
 local units: { Unit } = {}
@@ -94,7 +96,7 @@ losParams.RespectCanCollide = true
 local function watch(player: Player): Watch
 	local w = watches[player]
 	if not w then
-		w = { Heat = Heat.new(), SeenAt = -math.huge, LastSeen = nil, LastVelocity = Vector3.zero, Seen = false, Spotted = false, Inside = nil, MaxStarsThisChase = 0, RoadblockAt = -math.huge }
+		w = { Heat = Heat.new(), SeenAt = -math.huge, LastSeen = nil, LastVelocity = Vector3.zero, Seen = false, Spotted = false, Inside = nil, MaxStarsThisChase = 0, RoadblockAt = -math.huge, LastTrue = nil, LastTrueAt = -math.huge }
 		watches[player] = w
 	end
 	return w
@@ -133,10 +135,23 @@ end
 -- moment ago, C.Memory), otherwise where they were last seen, carried on the way they were going.
 -- Lose them and that's where the cars go and search (they used to drive at the rider wherever they
 -- were, which only stayed escapable while far-off cars never arrived: CarDriver.PlanStart)
+-- (a jump further than any ride covers between two looks: a respawn or a teleport)
+local JUMP_SPEED = 200 -- studs a second
+local JUMP_MIN = 60 -- studs
+
 local function believedAt(player: Player, w: Watch): (Vector3?, Vector3)
 	local position, velocity = whereIs(player)
+	local now = os.clock()
+	-- a rider who jumps somewhere (a respawn, an admin teleport) isn't followed there: the police
+	-- don't learn where they went, only a cop seeing them there tells them (sighted)
+	local before = w.LastTrue
+	if position and before and (position - before).Magnitude > math.max(JUMP_MIN, JUMP_SPEED * (now - w.LastTrueAt)) then
+		w.SeenAt = math.min(w.SeenAt, now - C.Memory - 1e-3)
+	end
+	w.LastTrue = position
+	w.LastTrueAt = now
 	local last = w.LastSeen
-	if os.clock() - w.SeenAt <= C.Memory or not last then
+	if now - w.SeenAt <= C.Memory or not last then
 		return position, velocity
 	end
 	return last + Vector3.new(w.LastVelocity.X, 0, w.LastVelocity.Z) * C.Memory, Vector3.zero
