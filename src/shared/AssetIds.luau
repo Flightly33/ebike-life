@@ -36,10 +36,27 @@ AssetIds.Sounds = {
 	AmbientNight = "", -- loop: crickets and night insects
 	Jet = "", -- loop: an airliner's engines (landing and taking off at the airport)
 	Gulls = "", -- seagull calls over the beach
+	-- stings (Client/Sound.Sting)
+	Countdown = "", -- a race's 3, 2, 1
+	RaceGo = "", -- GO!
+	Checkpoint = "", -- a step of a mission, job or race done
+	Finish = "", -- crossing a race's line
+	JobPickup = "", -- a delivery taken
+	JobDeliver = "", -- a delivery handed over
+	MissionStart = "", -- the mission giver's call
+	MissionComplete = "",
+	MissionFail = "",
+	StarUp = "", -- a wanted star more
+	Achievement = "", -- an achievement or a reward to claim
+	Message = "", -- a text on the phone
+	EventStart = "", -- a city event starting
 }
 
 -- Background music ids (a shuffled playlist). Empty: the server searches the library.
 AssetIds.Music = {} :: { string }
+-- pinned tracks per radio station (Shared/AudioCatalog.Moods), e.g. Havana = { "123", "456" }; a
+-- station with none here uses what the server's search found
+AssetIds.MusicByMood = {} :: { [string]: { string } }
 
 -- Billboard images (uploaded decals or images: Creator Dashboard -> Development Items -> Decals).
 -- Each entry is an ad of your own that the billboards, rooftop boards, LED screens and bus shelter

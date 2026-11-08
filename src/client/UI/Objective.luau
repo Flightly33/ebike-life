@@ -138,7 +138,7 @@ local function showCall(giver: string?, text: string)
 	callCard.Visible = true
 	callCard.Position = UDim2.fromOffset(-440, 106)
 	TweenService:Create(callCard, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.fromOffset(12, 106) }):Play()
-	Sound.Play("Cash", nil, 1.4, 0.4)
+	Sound.Sting("MissionStart")
 	local shown = callText.Text
 	task.delay(9, function()
 		if callText.Text == shown then
@@ -181,18 +181,24 @@ function Objective.Init(gui: ScreenGui)
 				Inbox.Add(if type(info.Giver) == "string" then info.Giver else "Flighty", info.Intro, "Call")
 			end
 			Toasts.Banner(string.upper(tostring(info.Title or "")), if info.Kind == "Job" then "Delivery job" elseif info.Kind == "Trial" then "Time trial: ride to the start" elseif info.Kind == "Race" then "Race!" else "Mission", KIND_COLORS[info.Kind] or C.Text, 2.2)
+			if info.Kind == "Job" then
+				Sound.Sting("JobPickup")
+			end
 		elseif kind == "Step" then
-			Sound.Play("Cash", nil, 1.6, 0.35)
+			Sound.Sting("Checkpoint")
 		elseif kind == "Done" then
 			local sub = if type(info.Cash) == "number" then "+" .. Economy.FormatCash(info.Cash) else nil
 			if info.Kind == "Mission" then
 				Toasts.Banner("MISSION COMPLETE", sub or tostring(info.Title or ""), C.Gold, 3.5)
-				Sound.Play("LevelUp")
+				Sound.Sting("MissionComplete")
+			elseif info.Kind == "Job" then
+				Sound.Sting("JobDeliver")
 			end
 		elseif kind == "Failed" then
 			local reason = tostring(info.Reason or "")
 			if reason ~= "Replaced" and reason ~= "Race over" and reason ~= "Left" then
 				Toasts.Banner("FAILED", tostring(info.Title or "") .. (if reason ~= "" then ": " .. reason else ""), Color3.fromRGB(255, 90, 80), 3)
+				Sound.Sting("MissionFail")
 			end
 		end
 	end)
@@ -206,12 +212,12 @@ function Objective.Init(gui: ScreenGui)
 			lobby = nil
 			Route.LobbyStart = nil
 			Toasts.Banner("GO!", tostring(info.Name or ""), C.Cash, 1.5)
-			Sound.Play("LevelUp")
+			Sound.Sting("RaceGo")
 		elseif kind == "Finished" then
 			local place = tonumber(info.Place) or 0
 			local suffix = if place == 1 then "st" elseif place == 2 then "nd" elseif place == 3 then "rd" else "th"
 			Toasts.Banner(string.format("%d%s PLACE", place, suffix), string.format("%s  ·  +%s", Objectives.FormatTime(tonumber(info.Time) or 0), Economy.FormatCash(tonumber(info.Cash) or 0)), if place == 1 then C.Gold else C.Text, 4)
-			Sound.Play(if place == 1 then "Escaped" else "Cash")
+			Sound.Sting("Finish", if place == 1 then 1 else 0.92, if place == 1 then 1 else 0.8)
 		elseif kind == "Results" then
 			lobby = nil
 			Route.LobbyStart = nil
@@ -219,7 +225,7 @@ function Objective.Init(gui: ScreenGui)
 				local medal = tostring(info.Medal or "None")
 				local icon = if medal == "Gold" then "🥇" elseif medal == "Silver" then "🥈" elseif medal == "Bronze" then "🥉" else "🏁"
 				Toasts.Banner(string.format("%s %s", icon, Objectives.FormatTime(tonumber(info.Time) or 0)), (if info.NewBest then "New best! " else "") .. "+" .. Economy.FormatCash(tonumber(info.Cash) or 0), if medal == "Gold" then C.Gold else C.Text, 4)
-				Sound.Play(if info.NewBest then "LevelUp" else "Cash")
+				Sound.Sting(if info.NewBest then "Achievement" else "Finish")
 			elseif type(info.Results) == "table" then
 				local lines = {}
 				for _, r in info.Results do
@@ -230,6 +236,8 @@ function Objective.Init(gui: ScreenGui)
 		end
 	end)
 end
+
+local lastBeep = -1
 
 function Objective.Update()
 	local player = Players.LocalPlayer
@@ -277,6 +285,11 @@ function Objective.Update()
 		if l.State == "Countdown" then
 			local left = math.max(0, math.ceil((tonumber(l.StartAt) or t) - t))
 			lobbyLabel.Text = string.format("🏁 %s: %d riders · GO in %ds · get to the start line!", tostring(l.Name), racers, left)
+			-- the beeps: 3, 2, 1 (GO! comes with the server's Go)
+			if left >= 1 and left <= 3 and left ~= lastBeep then
+				Sound.Sting("Countdown")
+			end
+			lastBeep = left
 		else
 			lobbyLabel.Text = string.format("🏁 %s lobby: %d rider · waiting for someone to join", tostring(l.Name), racers)
 		end

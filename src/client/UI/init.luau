@@ -24,6 +24,7 @@ local Remotes = require(Shared.Remotes)
 
 local BikeCamera = require(script.Parent.BikeCamera)
 local BikeController = require(script.Parent.BikeController)
+local Music = require(script.Parent.Music)
 local Sound = require(script.Parent.Sound)
 local State = require(script.Parent.State)
 local Hud = require(script.Hud)
@@ -306,7 +307,7 @@ function UI.Init()
 		if kind == "Event" then
 			-- a city event starting: a banner as well as the message, and it's kept in Messages
 			Toasts.Banner("EVENT!", text, Theme.Colors.Gold, 4)
-			Sound.Play("LevelUp")
+			Sound.Sting("EventStart")
 			Inbox.Add("Events", text)
 		end
 		Toasts.Message(if kind == "Event" then "Cash" else kind, text)
@@ -322,7 +323,7 @@ function UI.Init()
 			return
 		end
 		Inbox.Add(from, text)
-		Sound.Play("Cash", nil, 1.8, 0.35)
+		Sound.Sting("Message")
 	end)
 	Remotes.Event("Payout").OnClientEvent:Connect(function(amount: any, label: any)
 		if type(amount) ~= "number" then
@@ -343,12 +344,13 @@ function UI.Init()
 				return
 			end
 			Toasts.Banner(string.rep("★", stars), if stars == 1 then "The cops saw that! Lose them!" else "More cops are coming!", Color3.fromRGB(255, 255, 255), 2)
+			Sound.Sting("StarUp")
 		elseif kind == "Busted" then
 			Toasts.Banner("BUSTED!", "Fined " .. Economy.FormatCash(tonumber(info.Fine) or 0), Color3.fromRGB(255, 70, 60), 3.5)
-			Sound.Play("Busted")
+			Sound.Sting("Busted")
 		elseif kind == "Escaped" then
 			Toasts.Banner("ESCAPED!", "+" .. Economy.FormatCash(tonumber(info.Reward) or 0) .. string.format("  (%.0fs chase)", tonumber(info.Time) or 0), Theme.Colors.Cash, 3.5)
-			Sound.Play("Escaped")
+			Sound.Sting("Escaped")
 		elseif kind == "Spotted" then
 			Toasts.Message("Police", "👮 A cop is watching. Wheelies here will start a chase!")
 		end
@@ -379,11 +381,25 @@ function UI.Init()
 		BikeCamera.BodyCamFov = State.Settings().Fov or 90
 	end)
 
-	-- the badges: what's waiting on Play and on the phone
+	-- the badges: what's waiting on Play and on the phone (a sting when an achievement comes up)
+	local lastAchievements: number? = nil
 	local function badges()
 		local c = counts()
 		Hud.SetBadges(c.Activities, c.Activities + c.Stats + c.Messages)
+		if lastAchievements and c.Stats > lastAchievements then
+			Toasts.Message("Cash", "🏆 Achievement unlocked! Claim it in Stats")
+			Sound.Sting("Achievement")
+		end
+		lastAchievements = c.Stats
 	end
+	-- the radio: its station's name when it retunes, and the garage's own station
+	Music.Tuned:Connect(function(station: string)
+		Toasts.Message("Info", "📻 " .. station)
+	end)
+	Music.SetSceneSource(function(): string?
+		local garage = panels.Garage
+		return if garage and garage.Frame.Visible then "Garage" else nil
+	end)
 	State.Changed:Connect(badges)
 	State.Changed:Connect(markRegulars)
 	Inbox.Changed:Connect(badges)

@@ -99,6 +99,36 @@ print("== booting client")
 client.Run(world.Services.StarterPlayer.StarterPlayerScripts:WaitForChild("Client"))
 world:Run(4)
 
+-- the radio: each part of the city has its station (Client/Music)
+do
+	local Music = client.Require(world.Services.StarterPlayer.StarterPlayerScripts:WaitForChild("Client"):WaitForChild("Music"))
+	local AudioCatalog = client.Require(Shared:WaitForChild("AudioCatalog"))
+	local expect = {
+		Downtown = "Downtown",
+		Wynwood = "Wynwood",
+		LittleHavana = "Havana",
+		Beach = "Beach",
+		CoralGables = "Suburbs",
+		RaceHub = "Race",
+		JumpPark = "Stunt",
+		Everglades = "Open",
+		Airport = "Open",
+		Port = "Open",
+	}
+	local wrong = {}
+	for place, mood in expect do
+		local got = Music.PlaceMood(Layout.Places[place])
+		if got ~= mood then
+			table.insert(wrong, string.format("%s: %s (wanted %s)", place, got, mood))
+		end
+	end
+	local named = true
+	for _, mood in AudioCatalog.Moods do
+		named = named and type(mood.Station) == "string" and #mood.Keywords > 0
+	end
+	check(#wrong == 0 and named, "the radio's station follows the district" .. (if #wrong > 0 then " (" .. table.concat(wrong, ", ") .. ")" else ""))
+end
+
 local ServerData = server.Require(SSS.Server:WaitForChild("DataService"))
 local BikeService = server.Require(SSS.Server:WaitForChild("BikeService"))
 local PoliceService = server.Require(SSS.Server:WaitForChild("PoliceService"))

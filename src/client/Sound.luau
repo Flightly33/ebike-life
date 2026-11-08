@@ -4,7 +4,9 @@
 	Each named sound resolves, in order, to: an id set in Shared/AssetIds.Sounds, a sound the server
 	found in Roblox's audio library (ReplicatedStorage.Audio attributes, see Server/AudioService), or
 	one of the few built-in sounds every client ships with. Library sounds are preloaded and only
-	used once they load. Loops with nothing to play stay silent until something resolves.
+	used once they load. Loops with nothing to play stay silent until something resolves. Stings
+	(Sound.Sting: a race's countdown, a mission done...) also fire Sound.Stung, which Client/Music
+	ducks under.
 ]]
 
 local ContentProvider = game:GetService("ContentProvider")
@@ -14,8 +16,11 @@ local SoundService = game:GetService("SoundService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local AssetIds = require(Shared.AssetIds)
 local AudioCatalog = require(Shared.AudioCatalog)
+local Signal = require(Shared.Signal)
 
 local Sound = {}
+
+Sound.Stung = Signal.new() -- (name): a sting played
 
 type Def = { Id: string, Pitch: number, Volume: number, Library: boolean }
 
@@ -31,6 +36,20 @@ local BUILTIN: { [string]: Def } = {
 	CrateOpen = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 0.8, Volume = 0.5, Library = false },
 	Charge = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.3, Volume = 0.4, Library = false },
 	Escaped = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.2, Volume = 0.5, Library = false },
+	-- the stings' fallbacks: the ping at different pitches, a click, a thud
+	Countdown = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 0.9, Volume = 0.55, Library = false },
+	RaceGo = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.7, Volume = 0.65, Library = false },
+	Checkpoint = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.9, Volume = 0.4, Library = false },
+	Finish = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.35, Volume = 0.6, Library = false },
+	JobPickup = { Id = "rbxasset://sounds/button.wav", Pitch = 1.2, Volume = 0.5, Library = false },
+	JobDeliver = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.45, Volume = 0.5, Library = false },
+	MissionStart = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.15, Volume = 0.45, Library = false },
+	MissionComplete = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.0, Volume = 0.6, Library = false },
+	MissionFail = { Id = "rbxasset://sounds/action_jump_land.mp3", Pitch = 0.55, Volume = 0.7, Library = false },
+	StarUp = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 0.7, Volume = 0.5, Library = false },
+	Achievement = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.55, Volume = 0.5, Library = false },
+	Message = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.8, Volume = 0.35, Library = false },
+	EventStart = { Id = "rbxasset://sounds/electronicpingshort.wav", Pitch = 1.1, Volume = 0.55, Library = false },
 }
 
 local status: { [string]: boolean | string } = {}
@@ -168,6 +187,12 @@ function Sound.Play(name: string, position: Vector3?, pitch: number?, volume: nu
 		holder:Destroy()
 	end)
 	sound:Play()
+end
+
+-- A sting: a one-shot on the listener for a moment of the ride; the music ducks under it
+function Sound.Sting(name: string, pitch: number?, volume: number?)
+	Sound.Play(name, nil, pitch, volume)
+	Sound.Stung:Fire(name)
 end
 
 -- A looping sound on `parent` (3D) that starts as soon as its name resolves. Caller sets volume and
