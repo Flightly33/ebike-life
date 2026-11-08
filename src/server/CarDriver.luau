@@ -157,7 +157,9 @@ function CarDriver.new(model: Model, kind: CarModel.Kind, start: CFrame, rng: Ra
 		Stops = nil,
 		StopUntil = 0,
 		LastStop = 0,
-		Tick = rng:NextInteger(0, 3), -- (staggered, so the far cars don't all step on one frame)
+		-- (staggered by count, so the far cars don't all step on one frame; no random draw, so the
+		-- cars' random streams stay as they were)
+		Tick = #CarDriver.All % 4,
 		Pending = 0,
 	}, CarDriver) :: any
 	table.insert(CarDriver.All, self)
