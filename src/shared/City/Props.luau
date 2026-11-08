@@ -230,6 +230,46 @@ function Props.Signal(parent: Instance, nodeId: number, axis: string, base: Vect
 	return model
 end
 
+-- A wooden utility pole (a kit stand-in) with its crossarm across the line (along Z) and three
+-- insulators (trim the kit draws itself), and a transformer if asked. Its crossarm stands
+-- POLE_HEIGHT - 1.5 above the base.
+Props.POLE_HEIGHT = 34
+function Props.UtilityPole(parent: Instance, base: Vector3, transformer: boolean?): Model
+	local WOOD = Color3.fromRGB(112, 92, 72)
+	local H = Props.POLE_HEIGHT
+	local model = PartKit.Model(parent, "UtilityPole")
+	PartKit.Kit(PartKit.Post(model, "Pole", 1.1, H, base, WOOD, Enum.Material.Wood), "UtilityPole", "+X")
+	PartKit.KitDrop(PartKit.Box(model, "Crossarm", Vector3.new(0.5, 0.5, 9), CFrame.new(base + Vector3.new(0, H - 1.5, 0)), WOOD, Enum.Material.Wood, DECOR), "UtilityPole")
+	for _, oz in { -4, 0, 4 } do
+		PartKit.KitDrop(PartKit.Post(model, "Insulator", 0.4, 0.9, base + Vector3.new(0, H - 1.25, oz), Color3.fromRGB(226, 222, 214), SMOOTH, DECOR), "UtilityPole")
+	end
+	if transformer then
+		PartKit.Kit(PartKit.Cylinder(model, "Transformer", 2.2, 3.4, CFrame.new(base + Vector3.new(0, H - 6.5, 1.3)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(130, 134, 132), METAL, DECOR), "PoleTransformer", "+X")
+	end
+	return model
+end
+
+-- A stop sign on its pole at `foot`, its face toward `facing` (the traffic it stops): the plate is a
+-- kit stand-in that keeps its STOP lettering
+function Props.StopSign(parent: Instance, foot: Vector3, facing: Vector3): Model
+	local model = PartKit.Model(parent, "StopSign")
+	PartKit.Kit(PartKit.Post(model, "Pole", 0.3, 8.6, foot, Color3.fromRGB(150, 154, 158), METAL), "LightPole", "+X")
+	local plateAt = foot + Vector3.new(0, 7.6, 0)
+	local plate = PartKit.Box(model, "StopPlate", Vector3.new(2.5, 2.5, 0.1), CFrame.lookAt(plateAt, plateAt + facing), Color3.fromRGB(196, 24, 30), SMOOTH, DECOR)
+	PartKit.Kit(plate, "StopSign")
+	PartKit.Sign(plate, Enum.NormalId.Front, "STOP", Color3.fromRGB(250, 250, 250), nil, Enum.Font.GothamBlack, 30)
+	return model
+end
+
+-- A signal controller's cabinet on its plinth, its doors toward `facing`
+function Props.SignalCabinet(parent: Instance, foot: Vector3, facing: Vector3): Model
+	local model = PartKit.Model(parent, "SignalCabinet")
+	local at = foot + Vector3.new(0, 2.7 + 0.5, 0)
+	PartKit.Kit(PartKit.Box(model, "Cabinet", Vector3.new(3.4, 5.4, 2.4), CFrame.lookAt(at, at + facing), Color3.fromRGB(150, 156, 150), METAL), "SignalCabinet")
+	PartKit.Box(model, "CabinetPlinth", Vector3.new(3.8, 0.5, 2.8), CFrame.lookAt(foot + Vector3.new(0, 0.25, 0), foot + Vector3.new(0, 0.25, 0) + facing), Color3.fromRGB(176, 176, 170), Enum.Material.Concrete, DECOR)
+	return model
+end
+
 -- Charging station kiosk with a prompt (the server listens to every ChargerPrompt)
 function Props.Charger(parent: Instance, base: Vector3, facing: Vector3)
 	local model = PartKit.Model(parent, "Charger")

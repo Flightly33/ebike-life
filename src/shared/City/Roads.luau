@@ -22,7 +22,6 @@ local THICK = 0.6 -- asphalt slab thickness
 local MARK_Y = Layout.ROAD_Y + 0.025
 local PATCH = Color3.fromRGB(72, 74, 78) -- repaired asphalt, darker than the road
 local TACTILE = Color3.fromRGB(232, 196, 40)
-local CABINET = Color3.fromRGB(150, 156, 150)
 -- the districts whose quiet crossings are four-way stops (no lights): the leafy ones
 local LEAFY: { [string]: boolean } = { Suburb = true, Gables = true, Grove = true, KeyHomes = true, Mansion = true }
 local SIGN_GREEN = Color3.fromRGB(28, 104, 62)
@@ -146,12 +145,7 @@ local function fourWayStop(marks: Instance, signs: Instance, node: LayoutModule.
 		local mid = (from + to) / 2
 		PartKit.Dress(PartKit.Box(marks, "StopLine", Vector3.new((to - from).Magnitude, 0.05, 1.2), CFrame.lookAt(Vector3.new(mid.X, MARK_Y, mid.Z), Vector3.new(mid.X, MARK_Y, mid.Z) + d), C.White, SMOOTH, MARK), "RealRoadPaint")
 		local foot = Vector3.new(stopAt.X, Layout.CURB_Y, stopAt.Z) + right * (edge.Width / 2 + 2.6)
-		local model = PartKit.Model(signs, "StopSign")
-		PartKit.Kit(PartKit.Post(model, "Pole", 0.3, 8.6, foot, Color3.fromRGB(150, 154, 158), Enum.Material.Metal), "LightPole", "+X")
-		local plateAt = foot + Vector3.new(0, 7.6, 0)
-		local plate = PartKit.Box(model, "StopPlate", Vector3.new(2.5, 2.5, 0.1), CFrame.lookAt(plateAt, plateAt - d), Color3.fromRGB(196, 24, 30), SMOOTH, MARK)
-		PartKit.Kit(plate, "StopSign")
-		PartKit.Sign(plate, Enum.NormalId.Front, "STOP", Color3.fromRGB(250, 250, 250), nil, Enum.Font.GothamBlack, 30)
+		Props.StopSign(signs, foot, -d)
 	end
 end
 
@@ -281,9 +275,7 @@ function Roads.Build(city: Instance)
 		end
 		if Layout.HasLights(node) then
 			-- the signal controller's cabinet on one corner (a kit stand-in), behind the pole
-			local cab = node.Position + Vector3.new(wx / 2 + 7, Layout.CURB_Y - Layout.ROAD_Y + 2.7, wz / 2 + 4)
-			PartKit.Kit(PartKit.Box(signals, "SignalCabinet", Vector3.new(3.4, 5.4, 2.4), CFrame.lookAt(cab, cab + Vector3.new(0, 0, 1)), CABINET, Enum.Material.Metal), "SignalCabinet")
-			PartKit.Box(signals, "CabinetPlinth", Vector3.new(3.8, 0.5, 2.8), CFrame.new(cab - Vector3.new(0, 2.85, 0)), Color3.fromRGB(176, 176, 170), Enum.Material.Concrete, MARK)
+			Props.SignalCabinet(signs, node.Position + Vector3.new(wx / 2 + 7, Layout.CURB_Y - Layout.ROAD_Y, wz / 2 + 4), Vector3.new(0, 0, 1))
 			-- corner signals: SE and NW control traffic along Z, NE and SW along X
 			local corners = {
 				{ sx = 1, sz = 1, axis = "Z", facing = Vector3.new(0, 0, 1) },

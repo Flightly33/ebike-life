@@ -86,6 +86,9 @@ local function pool(parent: Instance, cf: CFrame, w: number, d: number)
 	for k = 0, 1 do
 		PartKit.Box(parent, "Lounger", Vector3.new(2.2, 1, 6), cf * CFrame.new(-w / 2 + 3 + k * 4, 0.7, d / 2 + 3), Color3.fromRGB(250, 250, 248), SMOOTH, DECOR)
 	end
+	if PartKit.Hash(cf.Position, 5) < 0.45 then
+		Detail.PoolCage(parent, cf * CFrame.new(0, 0.36, 0), w + 8, d + 8)
+	end
 end
 
 -- A low-pitched hip roof of four slabs over a box `w` x `d` with its eaves at `eave` (in `cf`)

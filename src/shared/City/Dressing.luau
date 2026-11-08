@@ -203,6 +203,10 @@ local function dress(part: BasePart, folder: string): boolean
 		-- (coral keystone round the pools, the Miami way)
 		PartKit.Dress(part, "RealCoralStone", KEYSTONE)
 		return true
+	elseif (name == "Paving" or name == "Terrace" or name == "Step") and material == Enum.Material.Pavement and ownerName(part) == "Plaza" then
+		-- the City Plaza: terrazzo underfoot, the Miami way
+		PartKit.Dress(part, "RealTerrazzo", if name == "Paving" then Color3.fromRGB(226, 216, 200) else TERRAZZO)
+		return true
 	elseif name == "Terrace" and material == Enum.Material.Pavement and ownerName(part) == "Hotel" then
 		PartKit.Dress(part, "RealTerrazzo", TERRAZZO)
 		return true

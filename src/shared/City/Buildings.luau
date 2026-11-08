@@ -1621,6 +1621,10 @@ local function suburbBlock(folder: Instance, block: LayoutModule.Block, rng: Ran
 				for k = 0, 1 do
 					PartKit.Box(folder, "Lounger", Vector3.new(2.2, 1, 6), CFrame.new(px - pw / 2 + 3 + k * 4, Y + 1, yardZ + side * (pd / 2 + 2.5)), Color3.fromRGB(250, 250, 248), SMOOTH, DECOR)
 				end
+				-- a screened pool cage over a good share of them (Florida's way with mosquitoes)
+				if PartKit.Hash(Vector3.new(px, 0, yardZ), 5) < 0.45 then
+					Detail.PoolCage(folder, CFrame.new(px, Y + 0.62, yardZ), pw + 8, pd + 8)
+				end
 			elseif rng:NextNumber() < 0.5 then
 				Props.Tree(folder, Vector3.new(hx, Y + 0.3, yardZ), rng)
 			end

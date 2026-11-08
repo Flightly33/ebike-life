@@ -351,6 +351,52 @@ function Detail.Hedge(parent: Instance, a: Vector3, b: Vector3, height: number)
 	PartKit.Box(parent, "Hedge", Vector3.new(2.6, height, length), cf, Color3.fromRGB(58, 104, 50), Enum.Material.Grass, SOLID_DECOR)
 end
 
+-- A Florida pool cage over a pool deck (`cf` on the deck at its middle, `w` along its X, `d` along
+-- its Z): aluminium posts and rails in white or bronze, a low roof frame, dark insect screening all
+-- round and over the top. Nothing collides (it's a back-yard backdrop). Colour picked by where it is.
+function Detail.PoolCage(parent: Instance, cf: CFrame, w: number, d: number)
+	local model = PartKit.Model(parent, "PoolCage")
+	local bronze = PartKit.Hash(cf.Position, 11) < 0.4
+	local frame = if bronze then Color3.fromRGB(72, 60, 50) else Color3.fromRGB(238, 238, 234)
+	local screen = Color3.fromRGB(38, 40, 44)
+	local NO = { Collide = false, Query = false, Touch = false, Shadow = false }
+	local H, RISE = 13, 3
+	local hw, hd = w / 2, d / 2
+	-- posts: the corners and every ~8 studs down the long sides
+	local along = if w >= d then "X" else "Z"
+	local long = math.max(w, d)
+	local bays = math.max(1, math.floor(long / 8))
+	for i = 0, bays do
+		local t = -long / 2 + long * i / bays
+		for _, s in { -1, 1 } do
+			local p = if along == "X" then Vector3.new(t, 0, s * hd) else Vector3.new(s * hw, 0, t)
+			PartKit.Box(model, "CagePost", Vector3.new(0.35, H, 0.35), cf * CFrame.new(p + Vector3.new(0, H / 2, 0)), frame, Enum.Material.Metal, NO)
+		end
+	end
+	for _, s in { -1, 1 } do
+		PartKit.Box(model, "CageRail", Vector3.new(w + 0.3, 0.4, 0.35), cf * CFrame.new(0, H, s * hd), frame, Enum.Material.Metal, NO)
+		PartKit.Box(model, "CageRail", Vector3.new(0.35, 0.4, d + 0.3), cf * CFrame.new(s * hw, H, 0), frame, Enum.Material.Metal, NO)
+		PartKit.Box(model, "CageKick", Vector3.new(w, 1.6, 0.25), cf * CFrame.new(0, 0.8, s * hd), frame, Enum.Material.Metal, NO)
+		PartKit.Box(model, "CageKick", Vector3.new(0.25, 1.6, d), cf * CFrame.new(s * hw, 0.8, 0), frame, Enum.Material.Metal, NO)
+	end
+	-- a hip roof's frame: the ridge along the long side, rafters down to the corners
+	local inset = math.min(hw, hd) * 0.7
+	local r0 = if along == "X" then Vector3.new(-hw + inset, H + RISE, 0) else Vector3.new(0, H + RISE, -hd + inset)
+	local r1 = if along == "X" then Vector3.new(hw - inset, H + RISE, 0) else Vector3.new(0, H + RISE, hd - inset)
+	PartKit.Bar(model, "CageRidge", (cf * CFrame.new(r0)).Position, (cf * CFrame.new(r1)).Position, 0.35, 0.4, frame, Enum.Material.Metal, NO)
+	for _, c in { Vector3.new(-hw, H, -hd), Vector3.new(hw, H, -hd), Vector3.new(-hw, H, hd), Vector3.new(hw, H, hd) } do
+		local near = if along == "X" then (if c.X < 0 then r0 else r1) else (if c.Z < 0 then r0 else r1)
+		PartKit.Bar(model, "CageRafter", (cf * CFrame.new(c)).Position, (cf * CFrame.new(near)).Position, 0.3, 0.35, frame, Enum.Material.Metal, NO)
+	end
+	-- the screens: four walls and the roof (laid flat over the top: it reads as screening at a glance)
+	for _, s in { -1, 1 } do
+		PartKit.Box(model, "Screen", Vector3.new(w, H - 1.6, 0.05), cf * CFrame.new(0, 1.6 + (H - 1.6) / 2, s * hd), screen, Enum.Material.SmoothPlastic, NO).Transparency = 0.8
+		PartKit.Box(model, "Screen", Vector3.new(0.05, H - 1.6, d), cf * CFrame.new(s * hw, 1.6 + (H - 1.6) / 2, 0), screen, Enum.Material.SmoothPlastic, NO).Transparency = 0.8
+	end
+	PartKit.Box(model, "Screen", Vector3.new(w, 0.05, d), cf * CFrame.new(0, H + RISE * 0.5, 0), screen, Enum.Material.SmoothPlastic, NO).Transparency = 0.82
+	return model
+end
+
 function Detail.FlowerBed(parent: Instance, cf: CFrame, length: number, rng: Random)
 	PartKit.Box(parent, "Bed", Vector3.new(length, 0.5, 2.4), cf * CFrame.new(0, 0.25, 0), Color3.fromRGB(90, 62, 42), Enum.Material.Ground, DECOR)
 	local colors = { Color3.fromRGB(230, 60, 90), Color3.fromRGB(250, 210, 60), Color3.fromRGB(150, 80, 220), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 130, 40) }

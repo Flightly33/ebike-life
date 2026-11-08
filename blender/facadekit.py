@@ -696,6 +696,101 @@ def gas_canopy():
             put("Alu", box(x, y, -H / 2 - 0.01, 7.6, 4.8, 0.04))
 
 
+
+# ---------------------------------------------------------------------------------- round 3
+# The detail pass's street kits (also written on their own to CityKitDetail.fbx: K.detail)
+
+
+def ped_signal():
+    """A pedestrian signal head: a housing round the two lamps (the stand-in's PedStop / PedWalk
+    parts stay: Visuals lights them), an egg-crate hood over each, a clamp back to the pole."""
+    put = kit(K.detail("Kit_PedSignal"), (1.3, 2.5, 0.9), uv=4.0, paint=(0.9, 0.75, 0.12))
+    put("Paint", box(0, -0.05, 0, 1.3, 0.8, 2.5, 0.08))
+    for zc in (0.58, -0.58):
+        # (the hood: a top and two cheeks round each lamp, open below)
+        put("Black", box(0, 0.62, zc + 0.5, 1.12, 0.36, 0.06))
+        for sx in (-1, 1):
+            put("Black", box(sx * 0.53, 0.62, zc + 0.1, 0.05, 0.36, 0.86))
+        put("Black", box(0, 0.44, zc, 1.06, 0.03, 1.02))
+    put("Dark", box(0, -0.55, 0.9, 0.5, 0.3, 0.25))
+    put("Dark", box(0, -0.55, -0.9, 0.5, 0.3, 0.25))
+
+
+def signal_cabinet():
+    """A traffic signal controller's cabinet on the corner: a rain cap, two doors with seams and a
+    handle, louvred vents down the sides, a base flange on its plinth."""
+    put = kit(K.detail("Kit_SignalCabinet"), (3.4, 5.4, 2.4), uv=4.0, paint=(0.59, 0.61, 0.59))
+    W, H, D = 3.4, 5.4, 2.4
+    put("Paint", box(0, 0, -0.05, W, D, H - 0.1, 0.05))
+    put("Paint", box(0, 0, H / 2 - 0.05, W + 0.2, D + 0.2, 0.2, 0.06))
+    put("Paint", box(0, 0, H / 2 + 0.1, W - 0.4, D - 0.4, 0.1, 0.04))
+    put("Dark", box(0, D / 2 + 0.01, 0, 0.04, 0.02, H - 0.6))
+    for sx in (-1, 1):
+        put("Dark", box(sx * (W / 2 - 0.12), D / 2 + 0.01, 0, 0.03, 0.02, H - 0.5))
+        put("Metal", box(sx * 0.35, D / 2 + 0.05, 0.2, 0.12, 0.08, 0.5, 0.02))
+        for k in range(6):
+            put("Dark", box(sx * (W / 2 + 0.01), 0, -H / 2 + 0.9 + k * 0.22, 0.03, D * 0.6, 0.06))
+    put("Dark", box(0, 0, -H / 2 + 0.06, W + 0.15, D + 0.15, 0.12))
+
+
+def utility_pole():
+    """A wooden utility pole (stand-in: PartKit.Post on its X axis): a tapered, checked pole, the
+    crossarm across the line with braces and three pin insulators, step bolts and a tag, the
+    ground wire down the side."""
+    put = kit(K.detail("Kit_UtilityPole"), (1.1, 34, 1.1), uv=4.0, paint=(0.44, 0.36, 0.28))
+    H = 34.0
+    z0 = -H / 2
+    put("Paint", K.cyl(Vector((0, 0, z0)), Vector((0, 0, H / 2 - 0.2)), 0.6, 0.42, 12))
+    put("Paint", K.lathe(Vector((0, 0, H / 2 - 0.2)), Z, [(0, 0.42), (0.12, 0.38), (0.2, 0.0)], 12))
+    arm = H / 2 - 1.5
+    put("Paint", box(0, 0, arm, 0.45, 9.0, 0.45, 0.04))
+    for sy in (-1, 1):
+        put("Metal", K.cyl(Vector((0, 0.42 * sy, arm - 2.4)), Vector((0, 2.4 * sy, arm - 0.2)), 0.07, 0.07, 6))
+    for y in (-4.0, 0.0, 4.0):
+        put("Metal", K.cyl(Vector((0, y, arm + 0.2)), Vector((0, y, arm + 0.5)), 0.06, 0.06, 6))
+        for k in range(3):
+            put("White", K.cyl(Vector((0, y, arm + 0.5 + k * 0.18)), Vector((0, y, arm + 0.62 + k * 0.18)), 0.2 - k * 0.03, 0.2 - k * 0.03, 10))
+    for k in range(9):
+        a = math.radians(90 + 180 * (k % 2))
+        z = z0 + 8 + k * 2.2
+        put("Metal", K.cyl(Vector((0.5 * math.cos(a), 0.5 * math.sin(a), z)), Vector((0.85 * math.cos(a), 0.85 * math.sin(a), z)), 0.05, 0.05, 6))
+    put("Metal", box(0, 0.6, z0 + 6, 0.36, 0.03, 0.24))
+    put("Dark", box(0.55, 0, 0, 0.05, 0.05, H - 2))
+
+
+def pole_transformer():
+    """A pole-top transformer can (stand-in: a cylinder on its X axis): a domed lid, two bushings
+    up top, a hanger bracket to the pole."""
+    put = kit(K.detail("Kit_PoleTransformer"), (2.2, 3.4, 2.2), uv=4.0, paint=(0.51, 0.53, 0.52))
+    put("Paint", K.cyl(Vector((0, 0, -1.6)), Vector((0, 0, 1.4)), 1.08, 1.08, 18))
+    put("Paint", K.lathe(Vector((0, 0, 1.4)), Z, [(0, 1.12), (0.12, 1.06), (0.26, 0.6), (0.3, 0.0)], 18))
+    put("Paint", box(0, 0, -1.65, 1.6, 1.6, 0.15, 0.05))
+    for x in (-0.45, 0.45):
+        for k in range(3):
+            put("White", K.cyl(Vector((x, 0, 1.55 + k * 0.16)), Vector((x, 0, 1.66 + k * 0.16)), 0.16 - k * 0.02, 0.16 - k * 0.02, 10))
+    put("Dark", box(0, -1.2, 0.3, 0.6, 0.5, 2.6, 0.04))
+
+
+def stop_sign():
+    """A stop sign's octagonal plate with its white border, a grey back and two clamps to the pole
+    (the STOP lettering stays on the hidden stand-in: CityKit keeps a stand-in that carries a sign)."""
+    put = kit(K.detail("Kit_StopSign"), (2.5, 2.5, 0.1), uv=2.0, paint=(0.77, 0.09, 0.12))
+    R = 1.25 / math.cos(math.radians(22.5))
+
+    def octagon(r):
+        return [(r * math.cos(math.radians(22.5 + 45 * k)), r * math.sin(math.radians(22.5 + 45 * k))) for k in range(8)]
+
+    put("Paint", K.prism(octagon(R * 0.9), 0.05, Vector((0, -0.02, 0)), X, Z, Y))
+    outer, inner = octagon(R), octagon(R * 0.9)
+    for k in range(8):
+        a, b = outer[k], outer[(k + 1) % 8]
+        c, d = inner[(k + 1) % 8], inner[k]
+        put("White", K.prism([a, b, c, d], 0.05, Vector((0, -0.02, 0)), X, Z, Y))
+    put("Metal", K.prism(octagon(R), 0.03, Vector((0, -0.06, 0)), X, Z, Y))
+    for z in (0.55, -0.55):
+        put("Dark", box(0, -0.12, z, 0.5, 0.12, 0.14))
+
+
 def build_all():
     shop_mullion()
     shop_transom()
@@ -729,6 +824,11 @@ def build_all():
     glass_rail()
     bus_shelter()
     gas_canopy()
+    ped_signal()
+    signal_cabinet()
+    utility_pole()
+    pole_transformer()
+    stop_sign()
     return SPECS
 
 
