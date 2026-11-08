@@ -310,6 +310,60 @@ local function streetscape(city: Instance, rng: Random)
 	Props.Streetscape(folder, Vector3.new(westAve - 3, Y, isl.MinZ + tip), Vector3.new(westAve - 3, Y, isl.MaxZ - tip), rng, "Palm", Vector3.new(1, 0, 0))
 end
 
+-- Overhead power lines along the leafy streets: wooden poles (kit stand-ins) every ~30 m on the
+-- street north of each block, set back behind the lamps and trees, three conductors on the
+-- crossarm and a cable lower down, sagging between the poles; a transformer on every third pole.
+-- Fixed spacing, nothing drawn from the random streams.
+local POWER_DISTRICTS: { [string]: boolean } = { Suburb = true, Gables = true, Grove = true, KeyHomes = true, Havana = true }
+local function powerLines(city: Instance)
+	local SMOOTH = Enum.Material.SmoothPlastic
+	local folder = PartKit.Folder(city, "PowerLines")
+	local WOOD = Color3.fromRGB(112, 92, 72)
+	local WIRE = Color3.fromRGB(28, 28, 30)
+	local NO = { Collide = false, Query = false, Touch = false, Shadow = false }
+	local H = 34 -- pole height (about 9.5 m)
+	for _, block in Layout.Blocks do
+		if not POWER_DISTRICTS[block.District] then
+			continue
+		end
+		local z = block.MinZ + 6.5
+		local x0, x1 = block.MinX + 24, block.MaxX - 24
+		local length = x1 - x0
+		if length < 80 then
+			continue
+		end
+		local count = math.max(2, math.floor(length / 110) + 1)
+		local tops: { Vector3 } = {}
+		for i = 0, count - 1 do
+			local x = x0 + length * i / (count - 1)
+			local base = Vector3.new(x, Y, z)
+			local model = PartKit.Model(folder, "UtilityPole")
+			PartKit.Kit(PartKit.Post(model, "Pole", 1.1, H, base, WOOD, Enum.Material.Wood), "UtilityPole", "+X")
+			-- (the crossarm and insulators the kit draws itself)
+			PartKit.KitDrop(PartKit.Box(model, "Crossarm", Vector3.new(9, 0.5, 0.5), CFrame.new(base + Vector3.new(0, H - 1.5, 0)), WOOD, Enum.Material.Wood, NO), "UtilityPole")
+			for _, ox in { -4, 0, 4 } do
+				PartKit.KitDrop(PartKit.Post(model, "Insulator", 0.4, 0.9, base + Vector3.new(ox, H - 1.25, 0), Color3.fromRGB(226, 222, 214), SMOOTH, NO), "UtilityPole")
+			end
+			if i % 3 == 1 then
+				PartKit.Kit(PartKit.Cylinder(model, "Transformer", 2.2, 3.4, CFrame.new(base + Vector3.new(0, H - 6.5, 1.3)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(130, 134, 132), Enum.Material.Metal, NO), "PoleTransformer", "+X")
+			end
+			table.insert(tops, base)
+		end
+		for i = 1, #tops - 1 do
+			local a, b = tops[i], tops[i + 1]
+			local span = (b - a).Magnitude
+			for _, wire in { { -4, H - 0.75, 1.6 }, { 0, H - 0.75, 1.6 }, { 4, H - 0.75, 1.6 }, { 0, H - 9, 2.2 } } do
+				local p0 = a + Vector3.new(wire[1], wire[2], 0)
+				local p1 = b + Vector3.new(wire[1], wire[2], 0)
+				-- (sagging: two runs meeting a little low in the middle, more on a long span)
+				local mid = (p0 + p1) / 2 - Vector3.new(0, wire[3] * span / 110, 0)
+				PartKit.Bar(folder, "Wire", p0, mid, 0.13, 0.13, WIRE, SMOOTH, NO)
+				PartKit.Bar(folder, "Wire", mid, p1, 0.13, 0.13, WIRE, SMOOTH, NO)
+			end
+		end
+	end
+end
+
 local BUSY: { [string]: boolean } = { Downtown = true, Brickell = true, Edgewater = true, Midtown = true, Plaza = true, Dealership = true, Police = true, ArtDeco = true, Condo = true, Havana = true, HavanaPark = true, Depot = true, RaceHub = true }
 
 -- Benches, bins, racks, meters, news boxes and bollards along the pavements; bus stops on the
@@ -555,6 +609,7 @@ function Builder.Build(): Model
 		end
 	end
 	streetscape(city, rng)
+	powerLines(city)
 	furniture(city, rng)
 	islandEnds(city, rng)
 	chargers(city)

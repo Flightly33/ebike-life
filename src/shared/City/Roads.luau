@@ -21,6 +21,10 @@ local MARK = { Collide = false, Query = false, Touch = false, Shadow = false }
 local THICK = 0.6 -- asphalt slab thickness
 local MARK_Y = Layout.ROAD_Y + 0.025
 local PATCH = Color3.fromRGB(72, 74, 78) -- repaired asphalt, darker than the road
+local TACTILE = Color3.fromRGB(232, 196, 40)
+local CABINET = Color3.fromRGB(150, 156, 150)
+-- the districts whose quiet crossings are four-way stops (no lights): the leafy ones
+local LEAFY: { [string]: boolean } = { Suburb = true, Gables = true, Grove = true, KeyHomes = true, Mansion = true }
 local SIGN_GREEN = Color3.fromRGB(28, 104, 62)
 -- broken lines as painted in the US: 10 ft dashes, 30 ft gaps
 local DASH, GAP = 10.9, 32.7
@@ -106,6 +110,48 @@ local function crosswalk(parent: Instance, a: Vector3, b: Vector3, at: number, w
 		local o = -span / 2 + 2.1 + i * 4.2
 		local p = center + right * o
 		PartKit.Box(parent, "Crosswalk", Vector3.new(2.2, 0.05, 9), CFrame.lookAt(p, p + dir), C.White, SMOOTH, MARK)
+	end
+	-- the yellow warning pads at both ends, up on the pavement where the kerb is dropped
+	for _, side in { -1, 1 } do
+		local p = Vector3.new(center.X, Layout.CURB_Y + 0.02, center.Z) + right * side * (width / 2 + 1.4)
+		PartKit.Dress(PartKit.Box(parent, "Tactile", Vector3.new(2.4, 0.04, 8.5), CFrame.lookAt(p, p + dir), TACTILE, SMOOTH, MARK), "RealTactilePaving")
+	end
+end
+
+-- The block a point stands in (design units), any grid
+local function blockAt(p: Vector3): LayoutModule.Block?
+	for _, block in Layout.Blocks do
+		if p.X >= block.MinX and p.X <= block.MaxX and p.Z >= block.MinZ and p.Z <= block.MaxZ then
+			return block
+		end
+	end
+	return nil
+end
+
+-- A four-way stop at a quiet crossing: a stop sign on the right of every road coming in, facing the
+-- traffic, and a stop bar across its lanes
+local function fourWayStop(marks: Instance, signs: Instance, node: LayoutModule.Node)
+	for _, edgeId in node.Edges do
+		local edge = Layout.Edges[edgeId]
+		local other = Layout.Nodes[Layout.OtherEnd(edge, node.Id)]
+		local toward = Vector3.new(node.Position.X - other.Position.X, 0, node.Position.Z - other.Position.Z)
+		if toward.Magnitude < 1 then
+			continue
+		end
+		local d = toward.Unit
+		local right = Vector3.new(-d.Z, 0, d.X)
+		local clear = Layout.NodeClearance(node.Id, edge.Axis)
+		local stopAt = node.Position - d * (clear + 2.5)
+		local from, to = stopAt + right * 0.6, stopAt + right * (edge.Width / 2 - 0.6)
+		local mid = (from + to) / 2
+		PartKit.Dress(PartKit.Box(marks, "StopLine", Vector3.new((to - from).Magnitude, 0.05, 1.2), CFrame.lookAt(Vector3.new(mid.X, MARK_Y, mid.Z), Vector3.new(mid.X, MARK_Y, mid.Z) + d), C.White, SMOOTH, MARK), "RealRoadPaint")
+		local foot = Vector3.new(stopAt.X, Layout.CURB_Y, stopAt.Z) + right * (edge.Width / 2 + 2.6)
+		local model = PartKit.Model(signs, "StopSign")
+		PartKit.Kit(PartKit.Post(model, "Pole", 0.3, 8.6, foot, Color3.fromRGB(150, 154, 158), Enum.Material.Metal), "LightPole", "+X")
+		local plateAt = foot + Vector3.new(0, 7.6, 0)
+		local plate = PartKit.Box(model, "StopPlate", Vector3.new(2.5, 2.5, 0.1), CFrame.lookAt(plateAt, plateAt - d), Color3.fromRGB(196, 24, 30), SMOOTH, MARK)
+		PartKit.Kit(plate, "StopSign")
+		PartKit.Sign(plate, Enum.NormalId.Front, "STOP", Color3.fromRGB(250, 250, 250), nil, Enum.Font.GothamBlack, 30)
 	end
 end
 
@@ -220,7 +266,24 @@ function Roads.Build(city: Instance)
 				PartKit.Sign(part, face, blade.Name, Color3.fromRGB(245, 245, 240), nil, Enum.Font.GothamBold, 24)
 			end
 		end
+		if not Layout.HasLights(node) then
+			-- a quiet crossing among houses: a four-way stop
+			local leafy = 0
+			for _, c in { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } } do
+				local block = blockAt(node.Position + Vector3.new(c[1] * (wx / 2 + 12), 0, c[2] * (wz / 2 + 12)))
+				if block and LEAFY[block.District] then
+					leafy += 1
+				end
+			end
+			if leafy >= 2 and #node.Edges >= 3 then
+				fourWayStop(marks, signs, node)
+			end
+		end
 		if Layout.HasLights(node) then
+			-- the signal controller's cabinet on one corner (a kit stand-in), behind the pole
+			local cab = node.Position + Vector3.new(wx / 2 + 7, Layout.CURB_Y - Layout.ROAD_Y + 2.7, wz / 2 + 4)
+			PartKit.Kit(PartKit.Box(signals, "SignalCabinet", Vector3.new(3.4, 5.4, 2.4), CFrame.lookAt(cab, cab + Vector3.new(0, 0, 1)), CABINET, Enum.Material.Metal), "SignalCabinet")
+			PartKit.Box(signals, "CabinetPlinth", Vector3.new(3.8, 0.5, 2.8), CFrame.new(cab - Vector3.new(0, 2.85, 0)), Color3.fromRGB(176, 176, 170), Enum.Material.Concrete, MARK)
 			-- corner signals: SE and NW control traffic along Z, NE and SW along X
 			local corners = {
 				{ sx = 1, sz = 1, axis = "Z", facing = Vector3.new(0, 0, 1) },
@@ -231,7 +294,8 @@ function Roads.Build(city: Instance)
 			for _, corner in corners do
 				local base = node.Position + Vector3.new(corner.sx * (wx / 2 + 3), Layout.CURB_Y - Layout.ROAD_Y, corner.sz * (wz / 2 + 3))
 				local over = if corner.axis == "Z" then wx / 4 + 3 else wz / 4 + 3
-				Props.Signal(signals, node.Id, corner.axis, base, corner.facing, over)
+				-- (traffic along Z is crossing the road along X, and the other way round)
+				Props.Signal(signals, node.Id, corner.axis, base, corner.facing, over, if corner.axis == "Z" then alongX else alongZ)
 			end
 		end
 	end

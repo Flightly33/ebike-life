@@ -192,8 +192,11 @@ function Props.Bin(parent: Instance, base: Vector3)
 end
 
 -- One signal head on a pole at an intersection corner, facing the traffic it controls.
--- The head carries attributes Node and Axis; its lamps are named Red / Yellow / Green.
-function Props.Signal(parent: Instance, nodeId: number, axis: string, base: Vector3, facing: Vector3, overRoad: number)
+-- The head carries attributes Node and Axis; its lamps are named Red / Yellow / Green. Under it
+-- on the pole, a pedestrian signal (lamps PedStop / PedWalk: Client/Visuals lights the walking
+-- figure while this head is green, the hand otherwise, flashing on amber), and on the mast arm the
+-- name of the street the traffic is crossing (`streetName`).
+function Props.Signal(parent: Instance, nodeId: number, axis: string, base: Vector3, facing: Vector3, overRoad: number, streetName: string?)
 	local model = PartKit.Model(parent, "Signal")
 	model:SetAttribute("Node", nodeId)
 	model:SetAttribute("Axis", axis)
@@ -211,6 +214,19 @@ function Props.Signal(parent: Instance, nodeId: number, axis: string, base: Vect
 	end
 	-- pedestrian push box and a small sign
 	PartKit.Box(model, "PushBox", Vector3.new(0.6, 0.9, 0.5), CFrame.new(base + Vector3.new(0, 4, 0)), Color3.fromRGB(230, 190, 30), SMOOTH, NO_COLLIDE)
+	-- the pedestrian signal: a hand over a walking figure, in a hooded housing (a kit stand-in)
+	local pedAt = base + Vector3.new(0, 9.6, 0) + facing * 0.75
+	local pcf = CFrame.lookAt(pedAt, pedAt + facing)
+	PartKit.Kit(PartKit.Box(model, "PedHead", Vector3.new(1.3, 2.5, 0.9), pcf, Color3.fromRGB(230, 190, 30), SMOOTH, NO_COLLIDE), "PedSignal")
+	PartKit.Box(model, "PedStop", Vector3.new(0.95, 0.95, 0.1), pcf * CFrame.new(0, 0.58, -0.47), Color3.fromRGB(40, 40, 40), SMOOTH, DECOR)
+	PartKit.Box(model, "PedWalk", Vector3.new(0.95, 0.95, 0.1), pcf * CFrame.new(0, -0.58, -0.47), Color3.fromRGB(40, 40, 40), SMOOTH, DECOR)
+	-- the cross street's name, hung from the arm over the lanes
+	if streetName and streetName ~= "" then
+		local at = base + Vector3.new(0, 14.6, 0) + right * (overRoad * 0.55)
+		local blade = PartKit.Box(model, "ArmSign", Vector3.new(7.5, 1.3, 0.15), CFrame.lookAt(at, at + facing), Color3.fromRGB(22, 112, 62), SMOOTH, DECOR)
+		PartKit.Sign(blade, Enum.NormalId.Front, streetName, Color3.fromRGB(245, 245, 240), nil, Enum.Font.GothamBold, 20)
+		PartKit.Box(model, "ArmSignHanger", Vector3.new(0.15, 0.9, 0.15), CFrame.new(at + Vector3.new(0, 1.1, 0)), Color3.fromRGB(70, 74, 78), METAL, DECOR)
+	end
 	return model
 end
 

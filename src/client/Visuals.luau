@@ -388,12 +388,14 @@ local function updateCars(dt: number)
 end
 
 -- Traffic lights
-type SignalHead = { Node: number, Axis: string, Red: BasePart, Yellow: BasePart, Green: BasePart }
+type SignalHead = { Node: number, Axis: string, Red: BasePart, Yellow: BasePart, Green: BasePart, Walk: BasePart?, Stop: BasePart? }
 local signals: { SignalHead } = {}
 local RED = Color3.fromRGB(255, 40, 40)
 local YELLOW = Color3.fromRGB(255, 200, 30)
 local GREEN = Color3.fromRGB(40, 255, 110)
 local OFF = Color3.fromRGB(40, 40, 40)
+local WALK = Color3.fromRGB(235, 245, 255)
+local HAND = Color3.fromRGB(255, 120, 30)
 
 local function collectSignals()
 	signals = {}
@@ -406,7 +408,16 @@ local function collectSignals()
 		local node, axis = model:GetAttribute("Node"), model:GetAttribute("Axis")
 		local red, yellow, green = model:FindFirstChild("Red"), model:FindFirstChild("Yellow"), model:FindFirstChild("Green")
 		if type(node) == "number" and type(axis) == "string" and red and yellow and green and red:IsA("BasePart") and yellow:IsA("BasePart") and green:IsA("BasePart") then
-			table.insert(signals, { Node = node, Axis = axis, Red = red, Yellow = yellow, Green = green })
+			local walk, stop = model:FindFirstChild("PedWalk"), model:FindFirstChild("PedStop")
+			table.insert(signals, {
+				Node = node,
+				Axis = axis,
+				Red = red,
+				Yellow = yellow,
+				Green = green,
+				Walk = if walk and walk:IsA("BasePart") then walk else nil,
+				Stop = if stop and stop:IsA("BasePart") then stop else nil,
+			})
 		end
 	end
 end
@@ -430,6 +441,12 @@ local function updateSignals()
 		lamp(head.Red, state == "Red", RED)
 		lamp(head.Yellow, state == "Yellow", YELLOW)
 		lamp(head.Green, state == "Green", GREEN)
+		-- people cross alongside the green traffic; the hand flashes while it's amber
+		local walk, stop = head.Walk, head.Stop
+		if walk and stop then
+			lamp(walk, state == "Green", WALK)
+			lamp(stop, state == "Red" or (state == "Yellow" and math.floor(now * 2) % 2 == 0), HAND)
+		end
 	end
 end
 
