@@ -311,7 +311,8 @@ do
 					top = math.max(top, part.Position.Y + part.Size.Y / 2)
 				end
 			end
-			table.insert(palms, { Model = d, Foot = lo, Lean = Vector3.new(hi.X - lo.X, 0, hi.Z - lo.Z), Top = top, Royal = d:GetAttribute("Species") == "Royal" })
+			local kind = d:GetAttribute("Species")
+			table.insert(palms, { Model = d, Foot = lo, Lean = Vector3.new(hi.X - lo.X, 0, hi.Z - lo.Z), Top = top, Royal = kind == "Royal" or kind == "Date" })
 		end
 	end
 	local placed = CityKit.Apply(street)
@@ -324,7 +325,7 @@ do
 		for _, part in palm.Model:GetChildren() do
 			if part:IsA("MeshPart") then
 				top = math.max(top, part.Position.Y + part.Size.Y / 2)
-				if part.Name == "Kit_PalmBark" or part.Name == "Kit_RoyalTrunk" then
+				if part.Name == "Kit_PalmBark" or part.Name == "Kit_RoyalTrunk" or part.Name == "Kit_SabalTrunk" or part.Name == "Kit_DateTrunk" then
 					bark = part
 				end
 			end
@@ -384,9 +385,54 @@ do
 	street:Destroy()
 end
 
+-- Shrubs and ground cover (Props.Shrub): each species' kit stands on the placeholder's foot, as
+-- tall as it, the placeholder gone, its meshes tagged as fine detail
+do
+	local CityKit = server.Require(Models:WaitForChild("CityKit"))
+	local Props = server.Require(Shared:WaitForChild("City"):WaitForChild("Props"))
+	local street = Sim.New("Model")
+	street.Name = "City"
+	local want = {}
+	local i = 0
+	for species, spec in Props.SHRUBS do
+		i += 1
+		local foot = Vector3.new(i * 20, 0.3, 0)
+		table.insert(want, { Model = Props.Shrub(street, foot, species, 1), Foot = foot, Height = spec.Size.Y, Species = species })
+	end
+	CityKit.Apply(street)
+	local tagged = {}
+	for _, t in world.Services.CollectionService:GetTagged(CityKit.FINE_TAG) do
+		tagged[t] = true
+	end
+	local ok, fine = true, true
+	for _, w in want do
+		local lo, hi, meshes, parts = math.huge, -math.huge, 0, 0
+		for _, d in w.Model:GetChildren() do
+			if d:IsA("MeshPart") then
+				meshes += 1
+				lo = math.min(lo, d.Position.Y - d.Size.Y / 2)
+				hi = math.max(hi, d.Position.Y + d.Size.Y / 2)
+				if not tagged[d] then
+					fine = false
+				end
+			elseif d:IsA("BasePart") then
+				parts += 1
+			end
+		end
+		if meshes == 0 or parts > 0 or math.abs(hi - w.Foot.Y - w.Height) > w.Height * 0.08 or lo < w.Foot.Y - w.Height * 0.1 then
+			ok = false
+			print(string.format("[test]   %s: %d meshes, %d parts left, from %.2f to %.2f (foot %.2f, want %.2f tall)", w.Species, meshes, parts, lo, hi, w.Foot.Y, w.Height))
+		end
+	end
+	check(i == 8 and ok, string.format("every shrub species (%d) swaps for its kit, on its foot and as tall as its placeholder", i))
+	check(fine, "shrub meshes are tagged as fine detail (Performance hides them)")
+	street:Destroy()
+end
+
 -- The facade and street kits on their stand-ins (PartKit.Kit): a stucco midrise with its shopfront
--- and roof, a house, a villa, a bungalow, a street light and a traffic signal; a warehouse (roll-up
--- doors), a condo tower (glass balcony rails), a gas station (its canopy) and a bus shelter
+-- and roof, a house, a villa, a bungalow, a street light and a traffic signal (with its walk signal);
+-- a warehouse (roll-up doors), a condo tower (glass balcony rails), a gas station (its canopy) and a
+-- bus shelter; a utility pole with its transformer, a stop sign and a signal cabinet
 do
 	local CityKit = server.Require(Models:WaitForChild("CityKit"))
 	local KitSpec = server.Require(Models:WaitForChild("KitSpec"))
@@ -420,6 +466,9 @@ do
 	Buildings.CondoTower(street, 900, 0, 50, 50, 90, 0, rng)
 	Buildings.GasStation(street, 1000, 1110, -40, 40, Vector3.new(0, 0, -1), rng)
 	Detail.BusStop(street, CFrame.lookAt(Vector3.new(90, 0, -60), Vector3.new(90, 0, -61)), "1")
+	Props.UtilityPole(street, Vector3.new(130, 0, -70), true)
+	Props.StopSign(street, Vector3.new(150, 0, -60), Vector3.new(0, 0, -1))
+	Props.SignalCabinet(street, Vector3.new(165, 0, -60), Vector3.new(1, 0, 0))
 	-- a plain awning 30 wide: ten 3-wide modules
 	local awnings = Sim.New("Model")
 	awnings.Name = "Awnings"

@@ -352,48 +352,65 @@ function Detail.Hedge(parent: Instance, a: Vector3, b: Vector3, height: number)
 end
 
 -- A Florida pool cage over a pool deck (`cf` on the deck at its middle, `w` along its X, `d` along
--- its Z): aluminium posts and rails in white or bronze, a low roof frame, dark insect screening all
--- round and over the top. Nothing collides (it's a back-yard backdrop). Colour picked by where it is.
+-- its Z): aluminium posts every bay round all four sides, a kick panel and a chair rail, a hip
+-- roof frame with purlins, dark insect screening all round and over the top. Nothing collides
+-- (it's a back-yard backdrop). White or bronze, picked by where it is.
 function Detail.PoolCage(parent: Instance, cf: CFrame, w: number, d: number)
 	local model = PartKit.Model(parent, "PoolCage")
 	local bronze = PartKit.Hash(cf.Position, 11) < 0.4
 	local frame = if bronze then Color3.fromRGB(72, 60, 50) else Color3.fromRGB(238, 238, 234)
-	local screen = Color3.fromRGB(38, 40, 44)
+	local screen = Color3.fromRGB(40, 42, 46)
 	local NO = { Collide = false, Query = false, Touch = false, Shadow = false }
+	local METAL = Enum.Material.Metal
 	local H, RISE = 13, 3
 	local hw, hd = w / 2, d / 2
-	-- posts: the corners and every ~8 studs down the long sides
-	local along = if w >= d then "X" else "Z"
-	local long = math.max(w, d)
-	local bays = math.max(1, math.floor(long / 8))
-	for i = 0, bays do
-		local t = -long / 2 + long * i / bays
-		for _, s in { -1, 1 } do
-			local p = if along == "X" then Vector3.new(t, 0, s * hd) else Vector3.new(s * hw, 0, t)
-			PartKit.Box(model, "CagePost", Vector3.new(0.35, H, 0.35), cf * CFrame.new(p + Vector3.new(0, H / 2, 0)), frame, Enum.Material.Metal, NO)
+	-- posts: the corners and every ~8 studs along every side
+	for _, side in { { Length = w, Along = Vector3.new(1, 0, 0), Out = Vector3.new(0, 0, hd) }, { Length = d, Along = Vector3.new(0, 0, 1), Out = Vector3.new(hw, 0, 0) } } do
+		local bays = math.max(1, math.floor(side.Length / 8))
+		for i = 0, bays do
+			-- (the corners once: the second pair of sides skips its ends)
+			if side.Length == d and side.Along.Z == 1 and (i == 0 or i == bays) then
+				continue
+			end
+			local t = -side.Length / 2 + side.Length * i / bays
+			for _, s in { -1, 1 } do
+				local p = side.Along * t + side.Out * s
+				PartKit.Box(model, "CagePost", Vector3.new(0.35, H, 0.35), cf * CFrame.new(p + Vector3.new(0, H / 2, 0)), frame, METAL, NO)
+			end
 		end
 	end
 	for _, s in { -1, 1 } do
-		PartKit.Box(model, "CageRail", Vector3.new(w + 0.3, 0.4, 0.35), cf * CFrame.new(0, H, s * hd), frame, Enum.Material.Metal, NO)
-		PartKit.Box(model, "CageRail", Vector3.new(0.35, 0.4, d + 0.3), cf * CFrame.new(s * hw, H, 0), frame, Enum.Material.Metal, NO)
-		PartKit.Box(model, "CageKick", Vector3.new(w, 1.6, 0.25), cf * CFrame.new(0, 0.8, s * hd), frame, Enum.Material.Metal, NO)
-		PartKit.Box(model, "CageKick", Vector3.new(0.25, 1.6, d), cf * CFrame.new(s * hw, 0.8, 0), frame, Enum.Material.Metal, NO)
+		PartKit.Box(model, "CageRail", Vector3.new(w + 0.3, 0.4, 0.35), cf * CFrame.new(0, H, s * hd), frame, METAL, NO)
+		PartKit.Box(model, "CageRail", Vector3.new(0.35, 0.4, d + 0.3), cf * CFrame.new(s * hw, H, 0), frame, METAL, NO)
+		PartKit.Box(model, "ChairRail", Vector3.new(w, 0.3, 0.3), cf * CFrame.new(0, 4.2, s * hd), frame, METAL, NO)
+		PartKit.Box(model, "ChairRail", Vector3.new(0.3, 0.3, d), cf * CFrame.new(s * hw, 4.2, 0), frame, METAL, NO)
+		PartKit.Box(model, "CageKick", Vector3.new(w, 1.6, 0.25), cf * CFrame.new(0, 0.8, s * hd), frame, METAL, NO)
+		PartKit.Box(model, "CageKick", Vector3.new(0.25, 1.6, d), cf * CFrame.new(s * hw, 0.8, 0), frame, METAL, NO)
 	end
-	-- a hip roof's frame: the ridge along the long side, rafters down to the corners
+	-- a hip roof's frame: the ridge along the long side, rafters down to the corners, a purlin
+	-- half way up each long slope
+	local alongX = w >= d
 	local inset = math.min(hw, hd) * 0.7
-	local r0 = if along == "X" then Vector3.new(-hw + inset, H + RISE, 0) else Vector3.new(0, H + RISE, -hd + inset)
-	local r1 = if along == "X" then Vector3.new(hw - inset, H + RISE, 0) else Vector3.new(0, H + RISE, hd - inset)
-	PartKit.Bar(model, "CageRidge", (cf * CFrame.new(r0)).Position, (cf * CFrame.new(r1)).Position, 0.35, 0.4, frame, Enum.Material.Metal, NO)
+	local r0 = if alongX then Vector3.new(-hw + inset, H + RISE, 0) else Vector3.new(0, H + RISE, -hd + inset)
+	local r1 = if alongX then Vector3.new(hw - inset, H + RISE, 0) else Vector3.new(0, H + RISE, hd - inset)
+	PartKit.Bar(model, "CageRidge", (cf * CFrame.new(r0)).Position, (cf * CFrame.new(r1)).Position, 0.35, 0.4, frame, METAL, NO)
 	for _, c in { Vector3.new(-hw, H, -hd), Vector3.new(hw, H, -hd), Vector3.new(-hw, H, hd), Vector3.new(hw, H, hd) } do
-		local near = if along == "X" then (if c.X < 0 then r0 else r1) else (if c.Z < 0 then r0 else r1)
-		PartKit.Bar(model, "CageRafter", (cf * CFrame.new(c)).Position, (cf * CFrame.new(near)).Position, 0.3, 0.35, frame, Enum.Material.Metal, NO)
+		local near = if alongX then (if c.X < 0 then r0 else r1) else (if c.Z < 0 then r0 else r1)
+		PartKit.Bar(model, "CageRafter", (cf * CFrame.new(c)).Position, (cf * CFrame.new(near)).Position, 0.3, 0.35, frame, METAL, NO)
 	end
-	-- the screens: four walls and the roof (laid flat over the top: it reads as screening at a glance)
 	for _, s in { -1, 1 } do
-		PartKit.Box(model, "Screen", Vector3.new(w, H - 1.6, 0.05), cf * CFrame.new(0, 1.6 + (H - 1.6) / 2, s * hd), screen, Enum.Material.SmoothPlastic, NO).Transparency = 0.8
-		PartKit.Box(model, "Screen", Vector3.new(0.05, H - 1.6, d), cf * CFrame.new(s * hw, 1.6 + (H - 1.6) / 2, 0), screen, Enum.Material.SmoothPlastic, NO).Transparency = 0.8
+		local a = if alongX then Vector3.new(-hw * 0.6, H + RISE / 2, s * hd / 2) else Vector3.new(s * hw / 2, H + RISE / 2, -hd * 0.6)
+		local b = if alongX then Vector3.new(hw * 0.6, H + RISE / 2, s * hd / 2) else Vector3.new(s * hw / 2, H + RISE / 2, hd * 0.6)
+		PartKit.Bar(model, "CagePurlin", (cf * CFrame.new(a)).Position, (cf * CFrame.new(b)).Position, 0.25, 0.3, frame, METAL, NO)
 	end
-	PartKit.Box(model, "Screen", Vector3.new(w, 0.05, d), cf * CFrame.new(0, H + RISE * 0.5, 0), screen, Enum.Material.SmoothPlastic, NO).Transparency = 0.82
+	-- the screens: four walls and the roof (laid flat over the top: it reads as screening at a
+	-- glance); fabric, so they read as mesh rather than glass
+	local FABRIC = Enum.Material.Fabric
+	for _, s in { -1, 1 } do
+		PartKit.Box(model, "Screen", Vector3.new(w, H - 1.6, 0.05), cf * CFrame.new(0, 1.6 + (H - 1.6) / 2, s * hd), screen, FABRIC, NO).Transparency = 0.72
+		PartKit.Box(model, "Screen", Vector3.new(0.05, H - 1.6, d), cf * CFrame.new(s * hw, 1.6 + (H - 1.6) / 2, 0), screen, FABRIC, NO).Transparency = 0.72
+	end
+	PartKit.Box(model, "Screen", Vector3.new(w, 0.05, d), cf * CFrame.new(0, H + RISE * 0.5, 0), screen, FABRIC, NO).Transparency = 0.76
 	return model
 end
 

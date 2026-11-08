@@ -303,6 +303,7 @@ def main():
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = samples
+    scene.cycles.transparent_max_bounces = 64
     scene.cycles.use_denoising = True
     scene.render.resolution_x = 1280
     scene.render.resolution_y = 720

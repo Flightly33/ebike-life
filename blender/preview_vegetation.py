@@ -2,7 +2,7 @@
 Renders the vegetation kits (blender/vegetation.py) with their textures in Cycles, each on a
 patch of grass under a sun and sky: blender/out/renders/veg_<Kit>.png and vegetation.png.
 
-  /root/tools/blendenv/bin/python blender/preview_vegetation.py
+  /root/tools/blendenv/bin/python blender/preview_vegetation.py [Kit,Kit...]   (only those)
 """
 
 import json
@@ -70,7 +70,10 @@ def main():
         manifest = json.load(f)
     os.makedirs(OUT, exist_ok=True)
     shots = []
-    for kit in V.KITS:
+    only = sys.argv[1].split(",") if len(sys.argv) > 1 and sys.argv[1] else None
+    for kit in list(V.KITS):
+        if only is not None and kit not in only:
+            continue
         scene = PM.reset()
         scene.render.resolution_x = 480
         scene.render.resolution_y = 640

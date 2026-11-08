@@ -6,7 +6,8 @@
 	them) and every kit mesh, scaled back to design units, plus a camera view per spot.
 
 	rojo sourcemap default.project.json -o sourcemap.json
-	lune run tools/lune/preview_area.luau <area.json> <views.json> [spot,spot...]
+	lune run tools/lune/preview_area.luau <area.json> <views.json> [spot,spot...] [detail]
+	(`detail`: the client's street, building and home detail too, Client/CityDetail)
 	/root/tools/blendenv/bin/python blender/preview_street.py <area.json> <outdir> <views.json> [samples]
 ]]
 local fs = require("@lune/fs")
@@ -19,6 +20,7 @@ local Vector3, CFrame = roblox.Vector3, roblox.CFrame
 
 local out, viewsOut = process.args[1], process.args[2]
 local only = process.args[3]
+local withDetail = process.args[4] == "detail"
 local root = process.cwd
 if string.sub(root, -1) ~= "/" then
 	root ..= "/"
@@ -57,7 +59,7 @@ local function line(i: number): number
 	return Layout.Line(i)
 end
 -- the spots, in the game's studs: where to stand, where to look, how far round to take
-local SPOTS = {
+local SPOTS: { [string]: any } = {
 	brickell = { At = Vector3.new(line(6) - 30, 6, (line(6) + line(7)) / 2 + 60), Look = Vector3.new(line(6) - 30, 30, (line(6) + line(7)) / 2 - 200), Radius = 520 },
 	suburb = { At = Vector3.new(line(1) + 20, 6, (line(1) + line(2)) / 2 + 80), Look = Vector3.new(line(1) - 20, 10, (line(1) + line(2)) / 2 - 150), Radius = 420 },
 	downtown = { At = Vector3.new(line(5) + 60, 7, line(4) + 40), Look = Vector3.new(line(6), 25, line(4) - 120), Radius = 520 },
@@ -70,6 +72,80 @@ local SPOTS = {
 
 print("== building the city")
 local city = Builder.Build()
+
+-- close-ups found in the built city: the first pole with a transformer, a stop sign, a signal
+-- cabinet (with its corner's signals) and a pool cage
+local function first(folderName: string, test: (any) -> boolean): any?
+	local f = city:FindFirstChild(folderName)
+	if f then
+		for _, d in f:GetDescendants() do
+			if test(d) then
+				return d
+			end
+		end
+	end
+	return nil
+end
+local pole = first("PowerLines", function(d)
+	return d.Name == "Transformer"
+end)
+if pole then
+	local base = pole.Parent:FindFirstChild("Pole").CFrame.Position
+	local foot = Vector3.new(base.X, base.Y - pole.Parent:FindFirstChild("Pole").Size.X / 2, base.Z)
+	SPOTS.pole = { At = foot + Vector3.new(-26 * K, 5 * K, 16 * K), Look = foot + Vector3.new(0, 20 * K, 0), Radius = 160, Lens = 28 }
+end
+local stop = first("StreetSigns", function(d)
+	return d.Name == "StopPlate"
+end)
+if stop then
+	local at = stop.CFrame.Position
+	local facing = stop.CFrame.LookVector
+	SPOTS.stop = { At = at + facing * 16 * K + stop.CFrame.RightVector * 7 * K - Vector3.new(0, 2.5 * K, 0), Look = at - Vector3.new(0, 3 * K, 0), Radius = 140, Lens = 30 }
+end
+local cabinet = first("StreetSigns", function(d)
+	return d.Name == "Cabinet"
+end)
+if cabinet then
+	local at = cabinet.CFrame.Position
+	SPOTS.corner = { At = at + Vector3.new(14 * K, 3 * K, 22 * K), Look = at + Vector3.new(-10 * K, 8 * K, -12 * K), Radius = 160, Lens = 24 }
+end
+-- homes: in front of the first house, villa, bungalow and mansion; the beach's dune line
+local function home(kind: string, bodyName: string, spot: string)
+	local walls: any = nil
+	for _, d in city:GetDescendants() do
+		if d.Name == bodyName and d.Parent and d.Parent.Name == kind and d:IsA("BasePart") then
+			walls = d
+			break
+		end
+	end
+	if walls then
+		local cf, size = walls.CFrame, walls.Size
+		SPOTS[spot] = {
+			At = (cf * CFrame.new(size.X * 0.42, -size.Y / 2 + 5.5 * K, -size.Z / 2 - 30 * K)).Position,
+			Look = (cf * CFrame.new(-size.X * 0.05, -size.Y / 2 + 4 * K, -size.Z / 2)).Position,
+			Radius = 200,
+			Lens = 24,
+		}
+	end
+end
+home("House", "Walls", "house")
+home("Villa", "Walls", "villa")
+home("Bungalow", "Walls", "bungalow")
+home("Mansion", "Ground", "mansion")
+for _, d in city:GetDescendants() do
+	if d.Name == "Shrub" and d:GetAttribute("Species") == "SeaGrape" then
+		local p = (d:FindFirstChild("Leaves") :: any).CFrame.Position
+		SPOTS.dune = { At = p + Vector3.new(26 * K, 4 * K, 22 * K), Look = p + Vector3.new(-4 * K, 2 * K, -8 * K), Radius = 180, Lens = 26 }
+		break
+	end
+end
+local cage = first("Blocks", function(d)
+	return d.Name == "PoolCage"
+end)
+if cage then
+	local at = (cage:FindFirstChild("CageRidge") :: any).CFrame.Position
+	SPOTS.cage = { At = at + Vector3.new(34 * K, 6 * K, 30 * K), Look = at - Vector3.new(0, 8 * K, 0), Radius = 150, Lens = 26 }
+end
 
 local wanted: { string } = {}
 for name in SPOTS do
@@ -114,6 +190,14 @@ local function gather(source: any, into: any, centre: Vector3, radius: number)
 	end
 end
 
+-- the client's detail (Client/CityDetail), built offline in a client context
+local CityDetail: any = nil
+if withDetail then
+	local viewer = world:AddPlayer("Viewer", 1, true)
+	local client = world:Context("client", false, viewer)
+	CityDetail = client.Require(world.Services.StarterPlayer.StarterPlayerScripts:WaitForChild("Client"):WaitForChild("CityDetail"))
+end
+
 local views: { [string]: any } = {}
 local parts, meshes = {}, {}
 local function color(c: any): { number }
@@ -124,6 +208,12 @@ for _, name in wanted do
 	local area = Sim.New("Model")
 	area.Name = "City"
 	gather(city, area, spot.At, spot.Radius)
+	if CityDetail then
+		local detail = Sim.New("Model")
+		detail.Name = "Detail"
+		detail.Parent = area
+		print(string.format("%s: %d detail units", name, CityDetail.BuildAround(area, detail, spot.At, spot.Radius)))
+	end
 	PartKit.Scale(area, 1 / K)
 	local placed = CityKit.Apply(area)
 	local np, nm = 0, 0
@@ -156,7 +246,7 @@ for _, name in wanted do
 		end
 	end
 	local at, look = spot.At / K, spot.Look / K
-	views[name] = { { at.X, at.Y, at.Z }, { look.X, look.Y, look.Z }, 24 }
+	views[name] = { { at.X, at.Y, at.Z }, { look.X, look.Y, look.Z }, spot.Lens or 24 }
 	print(string.format("%s: %d parts, %d kit meshes (%d stand-ins swapped)", name, np, nm, placed))
 	area:Destroy()
 end

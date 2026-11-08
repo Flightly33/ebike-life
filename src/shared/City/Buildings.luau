@@ -437,8 +437,28 @@ function Buildings.House(parent: Instance, center: Vector3, front: Vector3, setb
 	-- the garden out front: flower bed under the windows, a fence or hedge with gaps for the drive
 	-- and path, a mailbox at the end of the drive, sometimes a car on the drive or a hoop
 	local lot = lotWidth or (w + 30)
-	if rng:NextNumber() < 0.6 then
+	local bed = rng:NextNumber() < 0.6
+	if bed then
 		Detail.FlowerBed(model, look * CFrame.new(w * 0.25, 0, -d / 2 - 2), 14, rng)
+	end
+	-- foundation planting along the front: crotons or hibiscus either side of the porch (not over
+	-- the flower bed), ferns by the door, now and then a bougainvillea at the corner; picked by
+	-- where the house stands, so the random streams (and the street) stay as they were
+	local kinds = if PartKit.Hash(center, 21) < 0.5 then { "Croton", "Croton", "Hibiscus" } else { "Hibiscus", "Croton" }
+	local function plantRow(x0: number, x1: number)
+		if x1 - x0 > 3 then
+			Props.ShrubRow(model, (look * CFrame.new(x0, 0, -d / 2 - 2.4)).Position, (look * CFrame.new(x1, 0, -d / 2 - 2.4)).Position, 5, kinds, 0.7)
+		end
+	end
+	plantRow(-w / 2 + 1.5, porchX - 6.2)
+	plantRow(if bed then w * 0.25 + 7.8 else porchX + 6.2, w / 2 - 1.5)
+	if PartKit.Hash(center, 22) < 0.5 then
+		for _, sx in { -1, 1 } do
+			Props.Shrub(model, (look * CFrame.new(porchX + sx * 4.6, 0, -d / 2 - 1.6)).Position, "Fern", 0.6)
+		end
+	end
+	if PartKit.Hash(center, 23) < 0.4 then
+		Props.Shrub(model, (look * CFrame.new(-w / 2 - 3.5, 0, -d / 2 + 4)).Position, "Bougainvillea", 0.85)
 	end
 	local fz = -(setback - 1.5)
 	local function at(x: number): Vector3
@@ -738,6 +758,9 @@ function Buildings.Podium(parent: Instance, cx: number, cz: number, w: number, d
 	end
 	for _, sx in { -1, 1 } do
 		Props.Palm(model, Vector3.new(px, top + 0.3, cz + sx * d * 0.4), rng, 0.7)
+		-- (an agave and a clump of fountain grass at each palm's foot)
+		Props.Shrub(model, Vector3.new(px - 5, top + 0.3, cz + sx * d * 0.4), "Agave", 0.7)
+		Props.Shrub(model, Vector3.new(px + 5, top + 0.3, cz + sx * d * 0.4), "FountainGrass", 0.9)
 	end
 	return top
 end
@@ -1623,7 +1646,7 @@ local function suburbBlock(folder: Instance, block: LayoutModule.Block, rng: Ran
 				end
 				-- a screened pool cage over a good share of them (Florida's way with mosquitoes)
 				if PartKit.Hash(Vector3.new(px, 0, yardZ), 5) < 0.45 then
-					Detail.PoolCage(folder, CFrame.new(px, Y + 0.62, yardZ), pw + 8, pd + 8)
+					Detail.PoolCage(folder, CFrame.new(px, Y + 0.62, yardZ + side * 2), pw + 8, pd + 12)
 				end
 			elseif rng:NextNumber() < 0.5 then
 				Props.Tree(folder, Vector3.new(hx, Y + 0.3, yardZ), rng)

@@ -86,8 +86,9 @@ local function pool(parent: Instance, cf: CFrame, w: number, d: number)
 	for k = 0, 1 do
 		PartKit.Box(parent, "Lounger", Vector3.new(2.2, 1, 6), cf * CFrame.new(-w / 2 + 3 + k * 4, 0.7, d / 2 + 3), Color3.fromRGB(250, 250, 248), SMOOTH, DECOR)
 	end
-	if PartKit.Hash(cf.Position, 5) < 0.45 then
-		Detail.PoolCage(parent, cf * CFrame.new(0, 0.36, 0), w + 8, d + 8)
+	-- (a cage over a good share of the home-sized ones: deeper on the loungers' side to take them in)
+	if w <= 40 and PartKit.Hash(cf.Position, 5) < 0.45 then
+		Detail.PoolCage(parent, cf * CFrame.new(0, 0.36, 2), w + 8, d + 12)
 	end
 end
 
@@ -154,6 +155,14 @@ function Neighborhoods.Villa(parent: Instance, center: Vector3, front: Vector3, 
 	PartKit.Box(model, "Driveway", Vector3.new(12, 0.1, 30), look * CFrame.new(w / 2 + 4, 0.05, -d / 2 - 15), Color3.fromRGB(196, 180, 160), Enum.Material.Cobblestone, DECOR)
 	Detail.Hedge(model, (look * CFrame.new(-lotWidth / 2 + 2, 0, -d / 2 - 28)).Position, (look * CFrame.new(w / 2 - 4, 0, -d / 2 - 28)).Position, 4)
 	Props.Palm(model, (look * CFrame.new(-w / 2 - 4, 0, -d / 2 - 8)).Position, rng, 0.9)
+	-- planting (by where it stands, no random draws): bougainvillea at the loggia's end, crotons
+	-- between it and the door, hibiscus on to the drive
+	local lx0, lx1 = -w * 0.18 - lw / 2, -w * 0.18 + lw / 2
+	Props.Shrub(model, (look * CFrame.new(lx0 - 3.5, 0, -d / 2 - 2.8)).Position, "Bougainvillea", 0.9)
+	if w * 0.25 - 4 - (lx1 + 2.5) > 3 then
+		Props.ShrubRow(model, (look * CFrame.new(lx1 + 2.5, 0, -d / 2 - 2.4)).Position, (look * CFrame.new(w * 0.25 - 4, 0, -d / 2 - 2.4)).Position, 4.5, { "Croton" }, 0.75)
+	end
+	Props.ShrubRow(model, (look * CFrame.new(w * 0.25 + 4, 0, -d / 2 - 2.8)).Position, (look * CFrame.new(w / 2 - 3, 0, -d / 2 - 2.8)).Position, 6, { "Hibiscus", "Hibiscus", "Croton" }, 0.8)
 	if rng:NextNumber() < 0.6 then
 		pool(model, look * CFrame.new(0, 0, d / 2 + 14), rng:NextNumber(18, 26), rng:NextNumber(10, 13))
 	end
@@ -190,6 +199,10 @@ function Neighborhoods.Mansion(parent: Instance, center: Vector3, front: Vector3
 	for _, x in { -w / 2 - 3, w / 2 + 3 } do
 		Props.Palm(model, (look * CFrame.new(x, 0, -d / 2 - 12)).Position, rng, 1.05)
 	end
+	-- modern planting along the front: agaves and fountain grass, either side of the entrance
+	local kinds = { "Agave", "FountainGrass", "FountainGrass" }
+	Props.ShrubRow(model, (look * CFrame.new(-w / 2 + 2, 0, -d / 2 - 3)).Position, (look * CFrame.new(-w * 0.32 - 8, 0, -d / 2 - 3)).Position, 5.5, kinds)
+	Props.ShrubRow(model, (look * CFrame.new(-w * 0.32 + 8, 0, -d / 2 - 3)).Position, (look * CFrame.new(w / 2 - 4, 0, -d / 2 - 3)).Position, 5.5, kinds)
 	pool(model, look * CFrame.new(-w * 0.1, 0, d / 2 + 15), w * 0.5, 12)
 	if rng:NextNumber() < 0.5 then
 		Buildings.ParkedCar(model, look * CFrame.new(w / 2 - 10, 0.1, -d / 2 - 12), rng, "SUV")
@@ -216,6 +229,12 @@ function Neighborhoods.Bungalow(parent: Instance, center: Vector3, front: Vector
 		PartKit.Kit(PartKit.Box(model, "Shutter", Vector3.new(1.6, 5, 0.3), look * CFrame.new(x - 3.4, 8, -d / 2 - 0.2), Color3.fromRGB(60, 110, 90), SMOOTH, DECOR), "Shutter")
 	end
 	PartKit.Kit(PartKit.Box(model, "Door", Vector3.new(4, 7.5, 0.3), look * CFrame.new(0, 5.25, -d / 2 - 0.12), Color3.fromRGB(150, 60, 50), Enum.Material.Wood, DECOR), "HouseDoor")
+	-- crotons and ferns along the porch, a gap at the steps (by where it stands, no random draws)
+	for _, side in { -1, 1 } do
+		local a = (look * CFrame.new(side * 3, 0, -d / 2 - 9.6)).Position
+		local b = (look * CFrame.new(side * (w / 2 - 4), 0, -d / 2 - 9.6)).Position
+		Props.ShrubRow(model, a, b, 4.5, { "Croton", "Croton", "Fern" }, 0.75)
+	end
 	return model
 end
 

@@ -44,6 +44,7 @@ Props.Leaves = {
 -- trunk with a root flare and two limbs), some birches (white bark, a tall oval crown) and some
 -- conifers (tiers narrowing to a point)
 local BIRCH_BARK = Color3.fromRGB(226, 222, 212)
+local POINCIANA_LEAVES = 6 -- (Props.Leaves' flame red)
 local CONIFER = { Color3.fromRGB(46, 92, 58), Color3.fromRGB(58, 104, 62), Color3.fromRGB(40, 80, 60) }
 
 function Props.Tree(parent: Instance, base: Vector3, rng: Random, size: number?)
@@ -85,9 +86,13 @@ function Props.Tree(parent: Instance, base: Vector3, rng: Random, size: number?)
 		local to = from + Vector3.new(math.cos(a) * 3 * s, 3.2 * s, math.sin(a) * 3 * s)
 		PartKit.Tube(model, "Limb", from, to, 0.55 * s, bark, Enum.Material.Wood, NO_COLLIDE)
 	end
-	local color = Props.Leaves[rng:NextInteger(1, #Props.Leaves)]
+	local leafIndex = rng:NextInteger(1, #Props.Leaves)
+	local color = Props.Leaves[leafIndex]
 	if birch then
 		color = color:Lerp(Color3.fromRGB(170, 190, 80), 0.5)
+	elseif leafIndex == POINCIANA_LEAVES then
+		-- (the flame-red crowns are royal poincianas: the city kit has a mesh of their own)
+		model:SetAttribute("Species", "Poinciana")
 	end
 	local light = color:Lerp(Color3.fromRGB(255, 240, 170), 0.18)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.18)
@@ -114,7 +119,12 @@ function Props.Palm(parent: Instance, base: Vector3, rng: Random, size: number?)
 	local s = size or rng:NextNumber(0.85, 1.2)
 	local model = PartKit.Model(parent, "Palm")
 	local royal = rng:NextNumber() < 0.35
-	model:SetAttribute("Species", if royal then "Royal" else "Coconut")
+	-- a share of each are cabbage (sabal) palms and Canary date palms, picked by where they stand
+	-- so the builders' random streams (and the city they make) stay as they were; the part-built
+	-- look is the coconut's or the royal's, the city kit's meshes tell them apart
+	local h = PartKit.Hash(base, 17)
+	local species = if royal then (if h < 0.3 then "Date" else "Royal") else (if h < 0.26 then "Sabal" else "Coconut")
+	model:SetAttribute("Species", species)
 	local height = (if royal then 52 else 44) * s -- ~15 m and ~12 m
 	local lean = if royal then 0 else rng:NextNumber(1.5, 5) * s
 	local yaw = rng:NextNumber(0, math.pi * 2)
@@ -148,10 +158,53 @@ function Props.Palm(parent: Instance, base: Vector3, rng: Random, size: number?)
 		local center = top + dir * 4.5 * s
 		PartKit.Ellipsoid(model, "Frond", Vector3.new(2.6 * s, 0.3, 10 * s), CFrame.lookAt(center, center + dir), color:Lerp(Color3.fromRGB(150, 190, 90), 0.3), Enum.Material.Grass, DECOR)
 	end
-	if not royal and rng:NextNumber() < 0.7 then
+	if not royal and rng:NextNumber() < 0.7 and species == "Coconut" then
 		PartKit.Ball(model, "Coconuts", 2.6 * s, top - Vector3.new(0, 1.2 * s, 0), Color3.fromRGB(120, 96, 50), Enum.Material.SmoothPlastic, DECOR)
 	end
 	return model
+end
+
+-- Shrubs and ground cover: a placeholder the city kit swaps for its species' mesh (Models/CityKit:
+-- "Shrub" models by `Species`, scaled to the placeholder's height), on its own a rounded mound in
+-- the plant's colours. Sizes in design studs (hibiscus ~2 m, croton ~1.3 m, bougainvillea ~2.6 m,
+-- sea grape ~3.4 m, saw palmetto ~1.5 m, sword fern ~0.8 m, fountain grass ~1.1 m, agave ~1.2 m).
+-- Nothing collides.
+Props.SHRUBS = {
+	Hibiscus = { Size = Vector3.new(6.4, 7, 6.4), Leaf = Color3.fromRGB(40, 86, 34), Bloom = Color3.fromRGB(196, 26, 32) },
+	Croton = { Size = Vector3.new(4, 4.6, 4), Leaf = Color3.fromRGB(120, 100, 36), Bloom = Color3.fromRGB(186, 70, 30) },
+	Bougainvillea = { Size = Vector3.new(9, 9.2, 9), Leaf = Color3.fromRGB(58, 98, 40), Bloom = Color3.fromRGB(196, 38, 124) },
+	SeaGrape = { Size = Vector3.new(12, 12, 12), Leaf = Color3.fromRGB(66, 106, 42), Bloom = nil },
+	Palmetto = { Size = Vector3.new(7.6, 5.4, 7.6), Leaf = Color3.fromRGB(110, 138, 104), Bloom = nil },
+	Fern = { Size = Vector3.new(5, 2.9, 5), Leaf = Color3.fromRGB(70, 128, 40), Bloom = nil },
+	FountainGrass = { Size = Vector3.new(3.8, 4, 3.8), Leaf = Color3.fromRGB(100, 46, 46), Bloom = Color3.fromRGB(196, 150, 140) },
+	Agave = { Size = Vector3.new(6.4, 4.2, 6.4), Leaf = Color3.fromRGB(100, 138, 138), Bloom = nil },
+} :: { [string]: { Size: Vector3, Leaf: Color3, Bloom: Color3? } }
+function Props.Shrub(parent: Instance, base: Vector3, species: string, scale: number?): Model
+	local spec = Props.SHRUBS[species]
+	local size = spec.Size * (scale or 1)
+	local model = PartKit.Model(parent, "Shrub")
+	model:SetAttribute("Species", species)
+	PartKit.Ellipsoid(model, "Leaves", size, CFrame.new(base + Vector3.new(0, size.Y / 2, 0)), spec.Leaf, Enum.Material.Grass, DECOR)
+	local bloom = spec.Bloom
+	if bloom then
+		PartKit.Ellipsoid(model, "Bloom", size * Vector3.new(0.72, 0.4, 0.72), CFrame.new(base + Vector3.new(0, size.Y * 0.8, 0)), bloom, Enum.Material.Grass, DECOR)
+	end
+	return model
+end
+
+-- Shrubs along a line from `a` to `b` about `every` studs apart (none if it's too short), the
+-- species of each from `kinds` by where it stands (PartKit.Hash, no random draws)
+function Props.ShrubRow(parent: Instance, a: Vector3, b: Vector3, every: number, kinds: { string }, scale: number?)
+	local length = (b - a).Magnitude
+	if length < every * 0.6 then
+		return
+	end
+	local n = math.max(1, math.floor(length / every + 0.5))
+	for k = 0, n - 1 do
+		local p = a:Lerp(b, (k + 0.5) / n)
+		local pick = kinds[math.floor(PartKit.Hash(p, 29) * #kinds) + 1]
+		Props.Shrub(parent, p, pick, (scale or 1) * (0.85 + 0.3 * PartKit.Hash(p, 31)))
+	end
 end
 
 -- Old-fashioned black lamp post with a white globe (as in the reference city)
@@ -254,7 +307,8 @@ end
 function Props.StopSign(parent: Instance, foot: Vector3, facing: Vector3): Model
 	local model = PartKit.Model(parent, "StopSign")
 	PartKit.Kit(PartKit.Post(model, "Pole", 0.3, 8.6, foot, Color3.fromRGB(150, 154, 158), METAL), "LightPole", "+X")
-	local plateAt = foot + Vector3.new(0, 7.6, 0)
+	-- (the plate bolted to the pole's face, not through it)
+	local plateAt = foot + Vector3.new(0, 7.6, 0) + facing.Unit * 0.22
 	local plate = PartKit.Box(model, "StopPlate", Vector3.new(2.5, 2.5, 0.1), CFrame.lookAt(plateAt, plateAt + facing), Color3.fromRGB(196, 24, 30), SMOOTH, DECOR)
 	PartKit.Kit(plate, "StopSign")
 	PartKit.Sign(plate, Enum.NormalId.Front, "STOP", Color3.fromRGB(250, 250, 250), nil, Enum.Font.GothamBlack, 30)

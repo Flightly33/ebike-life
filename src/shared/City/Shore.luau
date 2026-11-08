@@ -143,6 +143,15 @@ local function beach(folder: Instance, edges: Instance, r: LayoutModule.Rect, rn
 	local function sandAt(x: number): number
 		return (r.MaxX - x) / (r.MaxX - r.MinX) * (0 - Layout.WATER_Y) + Layout.WATER_Y
 	end
+	-- the dune line along the back of the beach: sea grape with saw palmetto among it, a gap for a
+	-- beach access every 150 studs (picked by where each stands: no random draws)
+	for z = r.MinZ + 24, r.MaxZ - 24, 15 do
+		if (z - r.MinZ) % 150 > 24 then
+			local x = r.MinX + 7 + PartKit.Hash(Vector3.new(r.MinX, 0, z), 41) * 6
+			local p = Vector3.new(x, sandAt(x), z)
+			Props.Shrub(folder, p, if PartKit.Hash(p, 43) < 0.72 then "SeaGrape" else "Palmetto", 0.7 + 0.45 * PartKit.Hash(p, 47))
+		end
+	end
 	local towers = math.max(2, math.floor(length / 380))
 	for k = 0, towers - 1 do
 		local z = r.MinZ + 180 + k * (length - 360) / math.max(1, towers - 1)

@@ -137,15 +137,14 @@ local function pine(parent: Instance, base: Vector3, rng: Random, size: number?)
 	return model
 end
 
--- A clump of saw palmetto (low fan palms under the pines)
+-- A clump of saw palmetto (low fan palms under the pines): Props.Shrub's, which the city kit swaps
+-- for its mesh. (It takes the draws the old part-built clump took, so the woods come out the same.)
 local function palmetto(parent: Instance, base: Vector3, rng: Random)
-	local tone = Color3.fromRGB(96, 128, 76):Lerp(Color3.fromRGB(130, 146, 90), rng:NextNumber(0, 1))
-	for k = 1, 4 do
-		local a = k * math.pi / 2 + rng:NextNumber(-0.4, 0.4)
-		local dir = Vector3.new(math.cos(a), 0.45, math.sin(a)).Unit
-		local center = base + dir * 2.4
-		PartKit.Ellipsoid(parent, "Palmetto", Vector3.new(3.6, 0.3, 4.4), CFrame.lookAt(center, center + dir), tone, GRASS, DECOR)
+	rng:NextNumber(0, 1)
+	for _ = 1, 4 do
+		rng:NextNumber(-0.4, 0.4)
 	end
+	Props.Shrub(parent, base, "Palmetto", 0.8 + 0.5 * PartKit.Hash(base, 53))
 end
 
 -- One tree of the woods: oaks, palms and pines (pine rockland mostly pines)

@@ -12,6 +12,11 @@
 	                 slash pines), scaled to the model's height and turned to its trunk's lean; the
 	                 trunk stays as an invisible collider. (An older import's flat-coloured trees,
 	                 "Kit_Tree_<Species>", are used if that's all there is.)
+	  Shrubs         each "Shrub" model (Props.Shrub: hibiscus, croton, bougainvillea, sea grape,
+	                 saw palmetto, fern, fountain grass, agave) becomes its species' mesh, standing
+	                 on the placeholder's foot as tall as it; the placeholder goes. Tagged as fine
+	                 detail. The detail pass's palms and poincianas (Plants.fbx) stand in as coconut
+	                 and royal palms and live oaks until it's imported.
 	  Lamps          each "Lamp" model becomes the Victorian post; the pole stays as an invisible
 	                 collider and the globe stays a part (it glows at night).
 
@@ -52,9 +57,23 @@ local AXES: { [string]: Vector3 } = {
 local TREES = { Broadleaf = "Kit_Tree_Broadleaf", Birch = "Kit_Tree_Birch", Conifer = "Kit_Tree_Conifer" }
 -- the realism pack's vegetation by model name and species ("Default" when there's no species)
 local VEGETATION: { [string]: { [string]: string } } = {
-	Tree = { Broadleaf = "Kit_Tree_Oak", Birch = "Kit_Tree_OakTall", Conifer = "Kit_Tree_Pine", Default = "Kit_Tree_Oak" },
-	Palm = { Coconut = "Kit_Palm_Coconut", Royal = "Kit_Palm_Royal", Default = "Kit_Palm_Coconut" },
+	Tree = { Broadleaf = "Kit_Tree_Oak", Birch = "Kit_Tree_OakTall", Conifer = "Kit_Tree_Pine", Poinciana = "Kit_Tree_Poinciana", Default = "Kit_Tree_Oak" },
+	Palm = { Coconut = "Kit_Palm_Coconut", Royal = "Kit_Palm_Royal", Sabal = "Kit_Palm_Sabal", Date = "Kit_Palm_Date", Default = "Kit_Palm_Coconut" },
 	Pine = { Default = "Kit_Tree_Pine" },
+}
+-- the detail pass's species stand in as the nearest first-release one until Plants.fbx is imported
+local STAND_IN: { [string]: string } = { Sabal = "Coconut", Date = "Royal", Poinciana = "Broadleaf" }
+-- shrubs and ground cover (Props.Shrub) by species: hidden on phones in Performance mode with the
+-- rest of the fine detail
+local SHRUBS: { [string]: string } = {
+	Hibiscus = "Kit_Shrub_Hibiscus",
+	Croton = "Kit_Shrub_Croton",
+	Bougainvillea = "Kit_Shrub_Bougainvillea",
+	SeaGrape = "Kit_Shrub_SeaGrape",
+	Palmetto = "Kit_Shrub_Palmetto",
+	Fern = "Kit_Fern",
+	FountainGrass = "Kit_Grass_Fountain",
+	Agave = "Kit_Agave",
 }
 
 type Piece = MeshKit.Piece
@@ -329,6 +348,27 @@ local function plant(model: Model, pieces: { Piece }, turn: number): boolean
 	return true
 end
 
+-- A shrub: the kit stands on the placeholder's foot, as tall as it, turned by where it stands;
+-- the placeholder (nothing collides) goes. Its meshes are fine detail (Performance hides them).
+local function shrub(model: Model, pieces: { Piece }, turn: number): boolean
+	local cf, size = boxIn(model, CFrame.new())
+	local kc, ks = bounds(pieces)
+	local kitTop = kc.Y + ks.Y / 2
+	if size.Y <= 0 or kitTop <= 0 then
+		return false
+	end
+	local foot = cf.Position - Vector3.new(0, size.Y / 2, 0)
+	local k = size.Y / kitTop
+	local yaw = (foot.X * 12.9898 + foot.Z * 78.233) % 6.2832
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") then
+			part:Destroy()
+		end
+	end
+	tagFine(place(pieces, model, CFrame.new(foot) * CFrame.Angles(0, yaw, 0), Vector3.zero, Vector3.new(k, k, k), Color3.new(0, 0, 0), turn))
+	return true
+end
+
 -- Apply the kit to a city (the baked map or a fresh build). Returns how many pieces it replaced.
 function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 	local step = pace or function() end
@@ -340,6 +380,7 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 	local sills: { [string]: BasePart } = {}
 	local panes: { [string]: BasePart } = {}
 	local trees: { Model } = {}
+	local shrubs: { Model } = {}
 	local lamps: { Model } = {}
 	local benches: { Model } = {}
 	local hydrants: { Model } = {}
@@ -394,6 +435,8 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 		elseif d:IsA("Model") then
 			if d.Name == "Tree" or d.Name == "Palm" or d.Name == "Pine" then
 				table.insert(trees, d)
+			elseif d.Name == "Shrub" then
+				table.insert(shrubs, d)
 			elseif d.Name == "Lamp" then
 				table.insert(lamps, d)
 			elseif d.Name == "Bench" then
@@ -456,6 +499,10 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 		local species = model:GetAttribute("Species")
 		local kinds = VEGETATION[model.Name]
 		local real = kinds and MeshKit.Pieces(kinds[if type(species) == "string" and kinds[species] then species else "Default"])
+		if not real and kinds and type(species) == "string" and STAND_IN[species] then
+			real = MeshKit.Pieces(kinds[STAND_IN[species]])
+			species = STAND_IN[species]
+		end
 		if real then
 			if plant(model, real, turn) then
 				done += 1
@@ -495,6 +542,31 @@ function CityKit.Apply(city: Instance, pace: (() -> ())?): number
 		place(pieces, model, cf, kc, scale, paint, turn)
 		done += 1
 		step()
+	end
+
+	-- shrubs and ground cover: their species' kit, or the placeholder stays
+	local shrubKits: { [string]: { Piece } } = {}
+	local noKit: { [string]: boolean } = {}
+	for _, model in shrubs do
+		local species = model:GetAttribute("Species")
+		local name = if type(species) == "string" then SHRUBS[species] else nil
+		if not name or noKit[name] then
+			continue
+		end
+		local pieces: { Piece }? = shrubKits[name]
+		if not pieces then
+			local found = MeshKit.Pieces(name)
+			if not found then
+				noKit[name] = true
+				continue
+			end
+			shrubKits[name] = found
+			pieces = found
+		end
+		if pieces and shrub(model, pieces, turn) then
+			done += 1
+			step()
+		end
 	end
 
 	local lampKit = MeshKit.Pieces("Kit_Lamp")

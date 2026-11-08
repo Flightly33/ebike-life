@@ -8,9 +8,17 @@
 	  pavements    slab joints, gum and stains, litter, dockless scooters, newspaper boxes, rubbish
 	               bags, planters, now and then a roadworks pit with cones and a sign
 	  verges       (country roads and the turnpike) reflector posts and mile markers
+	  (round 2)    weeds in the gutter and along the back of the pavement, fallen palm fronds,
+	               coconuts and leaf litter under the street's palms and trees, utility covers,
+	               spray-painted locate marks, bike racks with bikes locked to them, now and then a
+	               stray shopping cart
 	Buildings (their `Body` part, mid-rises, podiums and hotels): window AC units, balconies,
 	drainpipes, utility meters, graffiti tags at street level, satellite dishes and masts on the
 	roof, and an OPEN sign in the shop window. Faces against a neighbour get nothing.
+	Homes (houses, villas, bungalows and mansions): an AC condenser on its pad, the electric meter,
+	downspouts, wheelie bins, a hose reel, a doormat, a grill and patio chairs out back, solar panels
+	on some roofs, rocking chairs on bungalow porches, now and then a pair of pink lawn flamingos,
+	toys on the lawn, the morning paper on the drive or a security company's sign.
 
 	Each chunk and building is built once it comes within `Range` of the camera (deterministic: the
 	same detail every time, from its own seed) and dropped beyond 1.25x. All sizes are real ones at
@@ -55,7 +63,7 @@ type Unit = {
 	Width: number?,
 	Sidewalk: number?,
 	RoadKind: string?,
-	-- buildings
+	-- buildings and homes
 	Body: BasePart?,
 	Model: Model?,
 }
@@ -64,6 +72,10 @@ local units: { [number]: { Unit } } = {} -- by cell
 local built: { [Unit]: Model } = {}
 local folder: Folder
 local bodies: { [BasePart]: Unit } = {}
+-- the street's palms and trees by cell (their trunks' feet), for the litter under them
+type Plant = { Foot: Vector3, Palm: boolean }
+local plants: { [number]: { Plant } } = {}
+local trunks: { [BasePart]: Plant } = {}
 
 local function key(x: number, z: number): number
 	return math.floor(x / CELL) * 100000 + math.floor(z / CELL)
@@ -173,7 +185,59 @@ local function scooter(model: Model, base: CFrame, color: Color3)
 	PartKit.Sign(tag, Enum.NormalId.Front, "ZIP", rgb(255, 255, 255), nil, Enum.Font.GothamBlack, 200)
 end
 
+-- a parked city bike: `base` on the ground, its length along base's Z
+local function bicycle(model: Model, base: CFrame, color: Color3)
+	local r = 0.33 * M
+	for _, z in { -0.52, 0.52 } do
+		PartKit.Cylinder(model, "BikeWheel", 2 * r, 0.04 * M, base * CFrame.new(0, r, z * M), rgb(24, 24, 26), Enum.Material.Rubber, OPTS)
+	end
+	local rear, front = (base * CFrame.new(0, r, 0.52 * M)).Position, (base * CFrame.new(0, r, -0.52 * M)).Position
+	local seat = base * CFrame.new(0, 0.9 * M, 0.2 * M)
+	local head = base * CFrame.new(0, 0.94 * M, -0.36 * M)
+	local crank = (base * CFrame.new(0, 0.3 * M, 0)).Position
+	local t = 0.035 * M
+	for _, tube in { { rear, crank }, { crank, seat.Position }, { crank, head.Position }, { seat.Position, head.Position }, { head.Position, front }, { seat.Position, rear } } do
+		PartKit.Bar(model, "BikeTube", tube[1], tube[2], t, t, color, METAL, OPTS)
+	end
+	PartKit.Box(model, "BikeSaddle", Vector3.new(0.12, 0.05, 0.26) * M, seat * CFrame.new(0, 0.04 * M, 0), rgb(30, 30, 30), SMOOTH, OPTS)
+	PartKit.Box(model, "BikeBars", Vector3.new(0.56, 0.03, 0.03) * M, head * CFrame.new(0, 0.08 * M, 0.02 * M), rgb(30, 30, 30), METAL, OPTS)
+end
+
+-- a plastic lawn flamingo on its wire legs (`base` on the lawn, facing its -Z)
+local PINK = rgb(246, 120, 168)
+local function flamingo(model: Model, base: CFrame)
+	local body = base * CFrame.new(0, 0.62 * M, 0)
+	PartKit.Ellipsoid(model, "FlamingoBody", Vector3.new(0.16, 0.2, 0.36) * M, body * CFrame.Angles(math.rad(-10), 0, 0), PINK, SMOOTH, OPTS)
+	local neck = body * CFrame.new(0, 0.06 * M, -0.14 * M)
+	local head = neck * CFrame.new(0, 0.3 * M, -0.04 * M)
+	PartKit.Bar(model, "FlamingoNeck", neck.Position, head.Position, 0.035 * M, 0.035 * M, PINK, SMOOTH, OPTS)
+	PartKit.Ball(model, "FlamingoHead", 0.07 * M, head.Position, PINK, SMOOTH, OPTS)
+	PartKit.Bar(model, "FlamingoBeak", head.Position, (head * CFrame.new(0, -0.05 * M, -0.1 * M)).Position, 0.025 * M, 0.025 * M, rgb(30, 30, 30), SMOOTH, OPTS)
+	for _, x in { -0.04, 0.04 } do
+		PartKit.Bar(model, "FlamingoLeg", (body * CFrame.new(x * M, -0.06 * M, 0.02 * M)).Position, (base * CFrame.new(x * M, 0, 0.02 * M)).Position, 0.012 * M, 0.012 * M, rgb(60, 60, 64), METAL, OPTS)
+	end
+end
+
+-- the street's palms and trees near a point
+local function plantsNear(p: Vector3, radius: number): { Plant }
+	local out = {}
+	for cx = math.floor((p.X - radius) / CELL), math.floor((p.X + radius) / CELL) do
+		for cz = math.floor((p.Z - radius) / CELL), math.floor((p.Z + radius) / CELL) do
+			local list: { Plant } = plants[cx * 100000 + cz] or {}
+			for _, plant in list do
+				if (Vector3.new(plant.Foot.X - p.X, 0, plant.Foot.Z - p.Z)).Magnitude < radius then
+					table.insert(out, plant)
+				end
+			end
+		end
+	end
+	return out
+end
+
 local LITTER = { rgb(250, 250, 248), rgb(210, 40, 40), rgb(60, 140, 220), rgb(240, 200, 60), rgb(160, 120, 80) }
+local BIKES = { rgb(30, 30, 34), rgb(200, 40, 40), rgb(40, 110, 200), rgb(240, 240, 236), rgb(60, 150, 90), rgb(250, 190, 40) }
+local WEEDS = { rgb(86, 120, 50), rgb(104, 132, 56), rgb(120, 130, 60), rgb(74, 104, 46) }
+local MARKS = { rgb(255, 120, 20), rgb(40, 120, 230), rgb(250, 210, 30), rgb(60, 190, 70) }
 local SCOOTERS = { rgb(140, 220, 40), rgb(255, 120, 20), rgb(40, 180, 230) }
 
 local function buildRoad(unit: Unit): Model
@@ -340,6 +404,88 @@ local function buildRoad(unit: Unit): Model
 				PartKit.Box(model, "Planter", Vector3.new(1.0, 0.6, 1.0) * M, cf * CFrame.new(0, 0.3 * M, 0), rgb(196, 192, 184), Enum.Material.Concrete, OPTS)
 				PartKit.Ellipsoid(model, "Shrub", Vector3.new(0.9, 0.7, 0.9) * M, cf * CFrame.new(0, 0.85 * M, 0), rgb(60, 120 + rng:NextInteger(0, 40), 50), Enum.Material.Grass, OPTS)
 			end
+			-- weeds: in the gutter by the kerb and along the back of the pavement (more on the
+			-- side streets than the avenues)
+			for _ = 1, math.floor(rng:NextInteger(2, 6) * per * (if kind == "Avenue" then 0.5 else 1)) do
+				local back = rng:NextNumber() < 0.5
+				local u = if back then (sidewalk / M - 0.12) * M else -0.15 * M
+				local cf = walk(rng:NextNumber(0, len), u, rng:NextNumber(0, 6))
+				if not back then
+					-- (down in the gutter, on the road)
+					cf = cf - Vector3.new(0, Layout.CURB_Y - Layout.ROAD_Y, 0)
+				end
+				local sz = rng:NextNumber(0.18, 0.38)
+				PartKit.Ellipsoid(model, "Weed", Vector3.new(sz, sz * 0.6, sz * 0.8) * M, cf * CFrame.new(0, sz * 0.25 * M, 0), WEEDS[rng:NextInteger(1, #WEEDS)], Enum.Material.Grass, OPTS)
+			end
+			-- under the street's palms and trees: dead fronds and coconuts, leaf litter
+			local centre = a + dir * (len / 2) + right * side * (half + sidewalk / 2)
+			for _, plant in plantsNear(centre, len / 2 + sidewalk) do
+				local rel = plant.Foot - a
+				local along, across = rel:Dot(flat), rel:Dot(right) * side - half
+				if along > 0 and along < len and across > -0.5 * M and across < sidewalk + 0.5 * M then
+					if plant.Palm then
+						if rng:NextNumber() < 0.45 then
+							local cf = walk(math.clamp(along + rng:NextNumber(-2.5, 2.5) * M, 0, len), math.clamp(across + rng:NextNumber(-1, 1) * M, 0.3 * M, sidewalk - 0.3 * M), rng:NextNumber(0, 6))
+							PartKit.Ellipsoid(model, "DeadFrond", Vector3.new(0.5, 0.05, 3.2) * M, cf * CFrame.new(0, 0.02 * M, 0), rgb(176, 146, 96), Enum.Material.Grass, OPTS)
+							PartKit.Box(model, "FrondStalk", Vector3.new(0.07, 0.05, 1.4) * M, cf * CFrame.new(0, 0.03 * M, 2.0 * M), rgb(150, 124, 84), Enum.Material.Wood, OPTS)
+						end
+						if rng:NextNumber() < 0.15 then
+							for k = 1, rng:NextInteger(1, 3) do
+								local cf = walk(math.clamp(along + rng:NextNumber(-1.5, 1.5) * M, 0, len), math.clamp(across + rng:NextNumber(-1, 1) * M, 0.2 * M, sidewalk - 0.2 * M))
+								PartKit.Ball(model, "Coconut", 0.22 * M, (cf * CFrame.new(0, 0.1 * M, 0)).Position, if k == 1 then rgb(120, 96, 50) else rgb(96, 110, 50), SMOOTH, OPTS)
+							end
+						end
+					else
+						for _ = 1, rng:NextInteger(4, 9) do
+							local cf = walk(math.clamp(along + rng:NextNumber(-2.5, 2.5) * M, 0, len), math.clamp(across + rng:NextNumber(-2, 2) * M, 0.1 * M, sidewalk - 0.1 * M), rng:NextNumber(0, 6))
+							local tone = rng:NextNumber()
+							disc(model, "Leaf", rng:NextNumber(0.06, 0.12), 0.004, cf, if tone < 0.4 then rgb(150, 112, 50) elseif tone < 0.75 then rgb(120, 96, 48) else rgb(110, 128, 56))
+						end
+					end
+				end
+			end
+			-- utility covers in the pavement
+			for _ = 1, rng:NextInteger(0, 2) do
+				local cf = walk(rng:NextNumber(0, len), rng:NextNumber(0.4, sidewalk / M - 0.6) * M, if rng:NextNumber() < 0.5 then 0 else math.pi / 2)
+				decal(model, "CoverFrame", Vector3.new(0.52, 0.008, 0.78), cf, rgb(120, 120, 122), METAL)
+				decal(model, "UtilityCover", Vector3.new(0.44, 0.016, 0.7), cf, rgb(70, 70, 72), Enum.Material.DiamondPlate)
+			end
+			-- locate marks sprayed on the pavement (someone's about to dig)
+			if rng:NextNumber() < 0.08 then
+				local color = MARKS[rng:NextInteger(1, #MARKS)]
+				local s0 = rng:NextNumber(0.1, 0.8) * len
+				for k = 0, rng:NextInteger(2, 4) do
+					decal(model, "LocateMark", Vector3.new(0.05, 0.004, 0.9), walk(s0 + k * 1.1 * M, (sidewalk / M - 1.2) * M), color, SMOOTH)
+				end
+				decal(model, "LocateMark", Vector3.new(0.05, 0.004, 0.5), walk(s0 - 0.6 * M, (sidewalk / M - 1.2) * M, 0.6), color, SMOOTH)
+			end
+			-- bike racks on the wide pavements, a bike or two locked to them
+			if sidewalk / M >= 3 and rng:NextNumber() < 0.14 * per then
+				local s0 = rng:NextNumber(0.15, 0.8) * len
+				for k = 0, rng:NextInteger(2, 4) - 1 do
+					local cf = walk(s0 + k * 0.9 * M, 0.9 * M, math.pi / 2)
+					for _, z in { -0.32, 0.32 } do
+						PartKit.Box(model, "RackPost", Vector3.new(0.05, 0.85, 0.05) * M, cf * CFrame.new(0, 0.42 * M, z * M), rgb(60, 62, 66), METAL, OPTS)
+					end
+					PartKit.Box(model, "RackTop", Vector3.new(0.05, 0.05, 0.69) * M, cf * CFrame.new(0, 0.85 * M, 0), rgb(60, 62, 66), METAL, OPTS)
+					if rng:NextNumber() < 0.55 then
+						bicycle(model, cf * CFrame.new(rng:NextNumber(-0.25, 0.25) * M + 0.12 * M, 0, 0), BIKES[rng:NextInteger(1, #BIKES)])
+					end
+				end
+			end
+			-- a stray shopping cart
+			if rng:NextNumber() < 0.03 then
+				local cf = walk(rng:NextNumber(0.1, 0.9) * len, rng:NextNumber(0.6, sidewalk / M - 0.6) * M, rng:NextNumber(0, 6))
+				local basket = PartKit.Box(model, "CartBasket", Vector3.new(0.55, 0.45, 0.85) * M, cf * CFrame.new(0, 0.72 * M, 0), rgb(170, 172, 176), Enum.Material.DiamondPlate, OPTS)
+				basket.Transparency = 0.35
+				PartKit.Box(model, "CartHandle", Vector3.new(0.55, 0.04, 0.04) * M, cf * CFrame.new(0, 1.0 * M, 0.46 * M), rgb(200, 40, 40), SMOOTH, OPTS)
+				PartKit.Box(model, "CartBase", Vector3.new(0.45, 0.04, 0.8) * M, cf * CFrame.new(0, 0.2 * M, 0), rgb(150, 152, 156), METAL, OPTS)
+				for _, wx in { -0.2, 0.2 } do
+					for _, wz in { -0.36, 0.36 } do
+						PartKit.Cylinder(model, "CartWheel", 0.12 * M, 0.03 * M, cf * CFrame.new(wx * M, 0.06 * M, wz * M), rgb(30, 30, 30), SMOOTH, OPTS)
+					end
+				end
+			end
 			-- roadworks: a patch of fresh asphalt, cones and a sign
 			if rng:NextNumber() < 0.06 then
 				local s = rng:NextNumber(0.2, 0.7) * len
@@ -366,7 +512,7 @@ local TAGS = { "305", "VIBEZ", "SOL", "ZAP!", "OLA", "MIAMI", "KING", "FLY", "WA
 local TAG_COLORS = { rgb(255, 60, 140), rgb(60, 220, 255), rgb(255, 220, 40), rgb(120, 255, 80), rgb(255, 120, 30), rgb(170, 90, 255) }
 local TAG_FONTS = { Enum.Font.PermanentMarker, Enum.Font.Bangers, Enum.Font.Creepster, Enum.Font.FredokaOne }
 
-local BUILDING_MODELS: { [string]: boolean } = { Building = true, Podium = true, DecoHotel = true }
+local BUILDING_MODELS: { [string]: boolean } = { Building = true, Podium = true, Hotel = true }
 
 -- Is something solid right outside this face (a neighbour built against it)?
 local offline = false
@@ -481,7 +627,8 @@ local function buildBuilding(unit: Unit): Model?
 	local BLINDS = { rgb(236, 230, 214), rgb(214, 196, 160), rgb(180, 60, 60), rgb(70, 110, 160), rgb(240, 240, 236), rgb(120, 150, 110) }
 	local shades = 0
 	for _, pane in owner:GetChildren() do
-		if pane:IsA("BasePart") and pane.Name == "Window" and shades < 40 and rng:NextNumber() < 0.3 then
+		-- (not across a deco hotel's ribbon windows)
+		if pane:IsA("BasePart") and pane.Name == "Window" and pane.Size.X < 12 and shades < 40 and rng:NextNumber() < 0.3 then
 			shades += 1
 			local s = pane.Size
 			local drawn = rng:NextNumber(0.25, 0.7)
@@ -521,15 +668,196 @@ local function buildBuilding(unit: Unit): Model?
 	return model
 end
 
+--------------------------------------------------------------------------------
+-- Homes
+--------------------------------------------------------------------------------
+
+-- the part that is each home's body (its walls), by the home's model name
+local HOME_MODELS: { [string]: string } = { House = "Walls", Villa = "Walls", Bungalow = "Walls", Mansion = "Ground" }
+local SECURITY = { "SENTRY\nPROTECTED", "GUARDIAN\nHOME WATCH", "SAFE-T\nMONITORED" }
+
+local function buildHome(unit: Unit): Model?
+	local body = unit.Body :: BasePart
+	local owner = unit.Model :: Model
+	if body.Parent == nil then
+		return nil
+	end
+	local kind = owner.Name
+	local model = Instance.new("Model")
+	model.Name = "HomeDetail"
+	local rng = Random.new(unit.Seed)
+	local size = body.Size
+	local w, d = size.X, size.Z
+	local cf = body.CFrame
+	-- (a bungalow's walls stand on a 1.5-stud plinth)
+	local ground = cf.Position.Y - size.Y / 2 - (if kind == "Bungalow" then 1.5 else 0)
+	local base = CFrame.new(cf.Position.X, ground, cf.Position.Z) * cf.Rotation
+	-- a frame on the ground at (x, z) in the home's own frame (-Z toward the street), turned `yaw`
+	local function at(x: number, z: number, y: number?, yaw: number?): CFrame
+		return base * CFrame.new(x, y or 0, z) * CFrame.Angles(0, yaw or 0, 0)
+	end
+	local mansion = kind == "Mansion"
+	-- the AC condenser on its pad down the left side, its pipes into the wall
+	if not mansion or rng:NextNumber() < 0.5 then
+		local pad = at(-w / 2 - 0.9 * M, d * 0.1)
+		PartKit.Box(model, "ACPad", Vector3.new(1.0, 0.08, 1.0) * M, pad * CFrame.new(0, 0.04 * M, 0), rgb(190, 188, 182), Enum.Material.Concrete, OPTS)
+		PartKit.Box(model, "Condenser", Vector3.new(0.76, 0.8, 0.76) * M, pad * CFrame.new(0, 0.48 * M, 0), rgb(214, 214, 208), METAL, OPTS)
+		PartKit.Box(model, "CondenserGrille", Vector3.new(0.78, 0.55, 0.78) * M, pad * CFrame.new(0, 0.42 * M, 0), rgb(150, 150, 146), Enum.Material.DiamondPlate, OPTS)
+		disc(model, "CondenserFan", 0.55, 0.02, pad * CFrame.new(0, 0.88 * M, 0), rgb(40, 40, 42), SMOOTH)
+		for _, y in { 0.35, 0.45 } do
+			PartKit.Bar(model, "LineSet", (pad * CFrame.new(0.38 * M, y * M, 0)).Position, (at(-w / 2 - 0.02, d * 0.1 + 0.3 * M, y * M)).Position, 0.04 * M, 0.04 * M, if y < 0.4 then rgb(184, 110, 70) else rgb(30, 30, 30), METAL, OPTS)
+		end
+	end
+	-- the electric meter on the left wall near the front, its conduit down to the ground
+	do
+		local meter = at(-w / 2 - 0.06 * M, -d / 2 + 2 * M, 1.5 * M, math.pi / 2)
+		PartKit.Box(model, "MeterBox", Vector3.new(0.3, 0.42, 0.12) * M, meter, rgb(160, 164, 162), METAL, OPTS)
+		PartKit.Cylinder(model, "MeterGlass", 0.18 * M, 0.08 * M, meter * CFrame.new(0, 0.04 * M, -0.08 * M) * CFrame.Angles(0, math.pi / 2, 0), rgb(220, 226, 230), Enum.Material.Glass, OPTS)
+		PartKit.Box(model, "Conduit", Vector3.new(0.04, 1.3, 0.04) * M, at(-w / 2 - 0.04 * M, -d / 2 + 2 * M, 0.65 * M), rgb(150, 150, 150), METAL, OPTS)
+	end
+	-- downspouts at the front corners of a gabled house, each onto a splash block
+	if kind == "House" then
+		local top = size.Y - 1.8
+		for _, sx in { -1, 1 } do
+			local x = sx * (w / 2 - 0.15 * M)
+			PartKit.Cylinder(model, "Downspout", 0.09 * M, top - 0.35 * M, at(x, -d / 2 - 0.1 * M, (top + 0.35 * M) / 2) * CFrame.Angles(0, 0, math.pi / 2), rgb(244, 244, 242), SMOOTH, OPTS)
+			PartKit.Box(model, "Spout", Vector3.new(0.09, 0.09, 0.3) * M, at(x, -d / 2 - 0.25 * M, 0.3 * M), rgb(244, 244, 242), SMOOTH, OPTS)
+			decal(model, "SplashBlock", Vector3.new(0.3, 0.05, 0.6), at(x, -d / 2 - 0.6 * M), rgb(190, 186, 178), Enum.Material.Concrete)
+		end
+	end
+	-- the wheelie bins: rubbish (green) and recycling (blue), out of the way beside the garage
+	if not mansion then
+		local spot = if kind == "House" then at(w / 2 + 17 + 0.5 * M, -d / 2 + 2 * M, 0, math.pi / 2) elseif kind == "Villa" then at(w / 2 + 11, -d / 2 + 1.5 * M) else at(w / 2 + 0.6 * M, -d / 2 + 3 * M, 0, math.pi / 2)
+		for k, color in { rgb(40, 110, 60), rgb(40, 90, 170) } do
+			local bin = spot * CFrame.new((k - 1.5) * 0.7 * M, 0, 0)
+			PartKit.Box(model, "WheelieBin", Vector3.new(0.58, 0.95, 0.7) * M, bin * CFrame.new(0, 0.5 * M, 0), color, Enum.Material.Plastic, OPTS)
+			PartKit.Box(model, "WheelieLid", Vector3.new(0.62, 0.06, 0.76) * M, bin * CFrame.new(0, 1.0 * M, 0.02 * M), color:Lerp(rgb(0, 0, 0), 0.15), Enum.Material.Plastic, OPTS)
+			for _, wx in { -0.24, 0.24 } do
+				PartKit.Cylinder(model, "WheelieWheel", 0.2 * M, 0.05 * M, bin * CFrame.new(wx * M, 0.1 * M, 0.34 * M), rgb(24, 24, 26), Enum.Material.Rubber, OPTS)
+			end
+		end
+	end
+	-- a hose reel at the left front corner
+	if rng:NextNumber() < 0.6 then
+		local reel = at(-w / 2 - 0.4 * M, -d / 2 + 0.7 * M, 0, math.pi / 2)
+		PartKit.Cylinder(model, "HoseReel", 0.46 * M, 0.26 * M, reel * CFrame.new(0, 0.36 * M, 0), rgb(40, 120, 60), Enum.Material.Plastic, OPTS)
+		PartKit.Cylinder(model, "HoseCoil", 0.4 * M, 0.2 * M, reel * CFrame.new(0, 0.36 * M, 0), rgb(30, 90, 40), Enum.Material.Rubber, OPTS)
+		PartKit.Box(model, "ReelStand", Vector3.new(0.34, 0.12, 0.4) * M, reel * CFrame.new(0, 0.06 * M, 0), rgb(50, 52, 56), METAL, OPTS)
+	end
+	-- the doormat at the front door
+	do
+		local mat = if kind == "House" then at(-w * 0.15, -d / 2 - 0.45 * M) elseif kind == "Villa" then at(w * 0.25, -d / 2 - 0.45 * M) elseif kind == "Bungalow" then at(0, -d / 2 - 0.45 * M, 1.5) else at(-w * 0.32, -d / 2 - 1.2 * M)
+		decal(model, "Doormat", Vector3.new(0.9, 0.02, 0.55), mat, rgb(150, 112, 70), Enum.Material.Fabric)
+	end
+	-- rocking chairs and a potted plant on a bungalow's porch
+	if kind == "Bungalow" then
+		for _, x in { -w * 0.3, w * 0.22 } do
+			local chair = at(x, -d / 2 - 1.6 * M, 1.5, math.pi + rng:NextNumber(-0.3, 0.3))
+			local wood = rgb(250, 250, 246)
+			PartKit.Box(model, "ChairSeat", Vector3.new(0.5, 0.05, 0.48) * M, chair * CFrame.new(0, 0.45 * M, 0), wood, SMOOTH, OPTS)
+			PartKit.Box(model, "ChairBack", Vector3.new(0.5, 0.7, 0.05) * M, chair * CFrame.new(0, 0.82 * M, 0.26 * M) * CFrame.Angles(math.rad(-12), 0, 0), wood, SMOOTH, OPTS)
+			for _, sx in { -0.24, 0.24 } do
+				PartKit.Box(model, "Rocker", Vector3.new(0.04, 0.05, 0.72) * M, chair * CFrame.new(sx * M, 0.05 * M, 0), wood, SMOOTH, OPTS)
+				PartKit.Box(model, "ChairLeg", Vector3.new(0.04, 0.42, 0.04) * M, chair * CFrame.new(sx * M, 0.25 * M, 0), wood, SMOOTH, OPTS)
+			end
+		end
+		local pot = at(w * 0.38, -d / 2 - 0.8 * M, 1.5)
+		PartKit.Cylinder(model, "Pot", 0.4 * M, 0.38 * M, pot * CFrame.new(0, 0.19 * M, 0) * CFrame.Angles(0, 0, math.pi / 2), rgb(176, 96, 64), Enum.Material.Slate, OPTS)
+		PartKit.Ellipsoid(model, "PotPlant", Vector3.new(0.6, 0.55, 0.6) * M, pot * CFrame.new(0, 0.6 * M, 0), rgb(60, 120, 50), Enum.Material.Grass, OPTS)
+	end
+	-- out back: a grill and patio chairs round a table (an umbrella over some)
+	if rng:NextNumber() < 0.45 then
+		local patio = if kind == "House" or kind == "Bungalow" then at(-w * 0.2, d / 2 + 3 * M) else at(-w / 2 + 3 * M, d / 2 + 2.5 * M)
+		local grill = patio * CFrame.new(-2.2 * M, 0, 0)
+		PartKit.Ball(model, "Grill", 0.56 * M, (grill * CFrame.new(0, 0.82 * M, 0)).Position, rgb(24, 24, 26), METAL, OPTS)
+		for k = 0, 2 do
+			local a = k * math.pi * 2 / 3
+			PartKit.Bar(model, "GrillLeg", (grill * CFrame.new(0, 0.7 * M, 0)).Position, (grill * CFrame.new(math.cos(a) * 0.3 * M, 0, math.sin(a) * 0.3 * M)).Position, 0.03 * M, 0.03 * M, rgb(40, 40, 42), METAL, OPTS)
+		end
+		PartKit.Cylinder(model, "PatioTable", 0.8 * M, 0.04 * M, patio * CFrame.new(0, 0.72 * M, 0) * CFrame.Angles(0, 0, math.pi / 2), rgb(236, 236, 230), SMOOTH, OPTS)
+		PartKit.Box(model, "PatioTableLeg", Vector3.new(0.06, 0.7, 0.06) * M, patio * CFrame.new(0, 0.36 * M, 0), rgb(60, 60, 64), METAL, OPTS)
+		local seat = if rng:NextNumber() < 0.5 then rgb(236, 236, 230) else rgb(40, 90, 120)
+		for k = 0, 2 do
+			local a = k * math.pi * 2 / 3 + 0.4
+			local chair = patio * CFrame.new(math.cos(a) * 0.85 * M, 0, math.sin(a) * 0.85 * M) * CFrame.Angles(0, -a + math.pi / 2, 0)
+			PartKit.Box(model, "PatioSeat", Vector3.new(0.48, 0.06, 0.46) * M, chair * CFrame.new(0, 0.44 * M, 0), seat, SMOOTH, OPTS)
+			PartKit.Box(model, "PatioBack", Vector3.new(0.48, 0.5, 0.05) * M, chair * CFrame.new(0, 0.72 * M, 0.24 * M), seat, SMOOTH, OPTS)
+		end
+		if rng:NextNumber() < 0.4 then
+			PartKit.Box(model, "UmbrellaPole", Vector3.new(0.04, 2.3, 0.04) * M, patio * CFrame.new(0, 1.15 * M, 0), rgb(200, 200, 196), METAL, OPTS)
+			PartKit.Cylinder(model, "UmbrellaTop", 2.4 * M, 0.08 * M, patio * CFrame.new(0, 2.25 * M, 0) * CFrame.Angles(0, 0, math.pi / 2), LITTER[rng:NextInteger(1, 4)], Enum.Material.Fabric, OPTS)
+		end
+	end
+	-- solar panels on the street side of some gabled roofs
+	if kind == "House" and rng:NextNumber() < 0.22 then
+		for _, roof in owner:GetChildren() do
+			if roof:IsA("BasePart") and roof.Name == "Roof" and cf:PointToObjectSpace(roof.Position).Z < 0 then
+				local top = roof.Size.Y / 2 + 0.03 * M
+				local cols = math.max(2, math.min(5, math.floor(roof.Size.X / (1.15 * M)) - 2))
+				for row = 0, 1 do
+					for col = 0, cols - 1 do
+						local x = (col - (cols - 1) / 2) * 1.08 * M
+						local z = (row - 0.5) * 1.78 * M
+						local panel = PartKit.Box(model, "SolarPanel", Vector3.new(1.02, 0.04, 1.72) * M, roof.CFrame * CFrame.new(x, top, z), rgb(24, 34, 62), Enum.Material.Glass, OPTS)
+						panel.Reflectance = 0.12
+					end
+				end
+				PartKit.Box(model, "SolarFrame", Vector3.new(cols * 1.08 + 0.06, 0.03, 3.62) * M, roof.CFrame * CFrame.new(0, top - 0.02 * M, 0), rgb(176, 180, 186), METAL, OPTS)
+				break
+			end
+		end
+	end
+	-- on the front lawn, now and then: a pair of pink flamingos, toys, the security sign, the paper
+	if rng:NextNumber() < 0.1 then
+		local spot = at(-w * 0.35, -d / 2 - rng:NextNumber(5, 8) * M, 0, rng:NextNumber(-0.6, 0.6))
+		flamingo(model, spot)
+		flamingo(model, spot * CFrame.new(0.6 * M, 0, 0.3 * M) * CFrame.Angles(0, rng:NextNumber(-0.8, 0.8), 0))
+	end
+	if not mansion and rng:NextNumber() < 0.15 then
+		local spot = at(-w * 0.3 + rng:NextNumber(-2, 2) * M, -d / 2 - rng:NextNumber(3, 6) * M)
+		PartKit.Ball(model, "Ball", 0.24 * M, (spot * CFrame.new(0, 0.12 * M, 0)).Position, LITTER[rng:NextInteger(2, 4)], SMOOTH, OPTS)
+		scooter(model, spot * CFrame.new(1.2 * M, 0, 0.6 * M) * CFrame.Angles(0, rng:NextNumber(0, 6), math.rad(84)), BIKES[rng:NextInteger(2, #BIKES)])
+	end
+	if rng:NextNumber() < 0.2 then
+		local stake = at(w * 0.3, -d / 2 - 2.2 * M, 0, math.pi)
+		PartKit.Box(model, "SignStake", Vector3.new(0.03, 0.7, 0.03) * M, stake * CFrame.new(0, 0.35 * M, 0), rgb(160, 160, 160), METAL, OPTS)
+		local plate = PartKit.Box(model, "SecuritySign", Vector3.new(0.3, 0.3, 0.01) * M, stake * CFrame.new(0, 0.78 * M, 0), rgb(24, 70, 150), SMOOTH, OPTS)
+		PartKit.Sign(plate, Enum.NormalId.Back, SECURITY[rng:NextInteger(1, #SECURITY)], rgb(255, 255, 255), nil, Enum.Font.GothamBlack, 120)
+	end
+	if kind == "House" and rng:NextNumber() < 0.12 then
+		local paper = at(w / 2 + 9 + rng:NextNumber(-3, 3) * M, -d / 2 - rng:NextNumber(4, 9) * M, 0.04 * M, rng:NextNumber(0, 6))
+		PartKit.Cylinder(model, "Newspaper", 0.08 * M, 0.3 * M, paper, rgb(220, 226, 236), Enum.Material.Plastic, OPTS)
+	end
+	return model
+end
+
 local function watchBodies(city: Instance)
 	local function found(d: Instance)
-		if d:IsA("BasePart") and d.Name == "Body" and d.Size.Y > 20 then
-			local owner = d.Parent
-			if owner and owner:IsA("Model") and BUILDING_MODELS[owner.Name] and not bodies[d] then
-				local unit: Unit = { Kind = "Building", Center = d.Position, Seed = math.floor(math.abs(d.Position.X * 3 + d.Position.Z * 7)) % 1000003, Body = d, Model = owner }
-				bodies[d] = unit
-				add(unit)
-			end
+		if not d:IsA("BasePart") then
+			return
+		end
+		local owner = d.Parent
+		if not (owner and owner:IsA("Model")) then
+			return
+		end
+		if d.Name == "Body" and d.Size.Y > 20 and BUILDING_MODELS[owner.Name] and not bodies[d] then
+			local unit: Unit = { Kind = "Building", Center = d.Position, Seed = math.floor(math.abs(d.Position.X * 3 + d.Position.Z * 7)) % 1000003, Body = d, Model = owner }
+			bodies[d] = unit
+			add(unit)
+		elseif HOME_MODELS[owner.Name] == d.Name and not bodies[d] then
+			local unit: Unit = { Kind = "Home", Center = d.Position, Seed = math.floor(math.abs(d.Position.X * 5 + d.Position.Z * 11)) % 1000003, Body = d, Model = owner }
+			bodies[d] = unit
+			add(unit)
+		elseif d.Name == "Trunk" and (owner.Name == "Palm" or owner.Name == "Tree") and not trunks[d] then
+			-- the trunk's lower end (a trunk is a cylinder along its X)
+			local half = d.CFrame.RightVector * (d.Size.X / 2)
+			local foot = if (d.Position + half).Y < (d.Position - half).Y then d.Position + half else d.Position - half
+			local plant: Plant = { Foot = foot, Palm = owner.Name == "Palm" }
+			trunks[d] = plant
+			local k = key(foot.X, foot.Z)
+			local list = plants[k] or {}
+			table.insert(list, plant)
+			plants[k] = list
 		end
 	end
 	for _, d in city:GetDescendants() do
@@ -542,6 +870,15 @@ local function watchBodies(city: Instance)
 			if unit then
 				bodies[d] = nil
 				remove(unit)
+			end
+			local plant = trunks[d]
+			if plant then
+				trunks[d] = nil
+				local list = plants[key(plant.Foot.X, plant.Foot.Z)]
+				local i = if list then table.find(list, plant) else nil
+				if list and i then
+					table.remove(list, i)
+				end
 			end
 		end
 	end)
@@ -594,7 +931,7 @@ local function update()
 	end)
 	for i = 1, math.min(#want, budget) do
 		local unit = want[i].Unit
-		local model = if unit.Kind == "Road" then buildRoad(unit) else buildBuilding(unit)
+		local model = if unit.Kind == "Road" then buildRoad(unit) elseif unit.Kind == "Home" then buildHome(unit) else buildBuilding(unit)
 		if model then
 			model.Parent = folder
 			built[unit] = model
@@ -631,10 +968,21 @@ function CityDetail.BuildAround(city: Instance, parent: Instance, at: Vector3, r
 		indexRoads()
 	end
 	for _, d in city:GetDescendants() do
-		if d:IsA("BasePart") and d.Name == "Body" and d.Size.Y > 20 and (d.CFrame.Position - at).Magnitude < radius then
+		if d:IsA("BasePart") and (d.CFrame.Position - at).Magnitude < radius then
 			local owner = d.Parent
-			if owner and owner:IsA("Model") and BUILDING_MODELS[owner.Name] then
-				add({ Kind = "Building", Center = d.CFrame.Position, Seed = 7, Body = d, Model = owner })
+			if owner and owner:IsA("Model") then
+				if d.Name == "Body" and d.Size.Y > 20 and BUILDING_MODELS[owner.Name] then
+					add({ Kind = "Building", Center = d.CFrame.Position, Seed = 7, Body = d, Model = owner })
+				elseif HOME_MODELS[owner.Name] == d.Name then
+					add({ Kind = "Home", Center = d.CFrame.Position, Seed = math.floor(math.abs(d.CFrame.Position.X * 5 + d.CFrame.Position.Z * 11)) % 1000003, Body = d, Model = owner })
+				elseif d.Name == "Trunk" and (owner.Name == "Palm" or owner.Name == "Tree") then
+					local half = d.CFrame.RightVector * (d.Size.X / 2)
+					local foot = if (d.CFrame.Position + half).Y < (d.CFrame.Position - half).Y then d.CFrame.Position + half else d.CFrame.Position - half
+					local k = key(foot.X, foot.Z)
+					local list = plants[k] or {}
+					table.insert(list, { Foot = foot, Palm = owner.Name == "Palm" })
+					plants[k] = list
+				end
 			end
 		end
 	end
@@ -642,7 +990,7 @@ function CityDetail.BuildAround(city: Instance, parent: Instance, at: Vector3, r
 	for _, list in units do
 		for _, unit in list do
 			if (unit.Center - at).Magnitude < radius then
-				local model = if unit.Kind == "Road" then buildRoad(unit) else buildBuilding(unit)
+				local model = if unit.Kind == "Road" then buildRoad(unit) elseif unit.Kind == "Home" then buildHome(unit) else buildBuilding(unit)
 				if model then
 					model.Parent = parent
 					n += 1

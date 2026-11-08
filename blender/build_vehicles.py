@@ -1367,7 +1367,7 @@ def main():
     # three imports, each small enough for Studio's importer: the bikes and cars, the city kit
     # (facade, street furniture, trees) and the realism pack's texture swatches. The owner imports
     # all three into one VehicleMeshes model (MeshKit and SetupRealism search all of it).
-    groups = {"Vehicles": [], "CityKit": [], "Textures": [], "Textures2": [], "CityKitRound2": [], "CityKitDetail": []}
+    groups = {"Vehicles": [], "CityKit": [], "Textures": [], "Textures2": [], "CityKitRound2": [], "CityKitDetail": [], "Plants": []}
     for ob in bpy.data.objects:
         if ob.parent is None and ob.type == "EMPTY":
             if ob.name == "Realism_Swatches":
@@ -1375,6 +1375,9 @@ def main():
             elif ob.name == "Realism_Swatches2":
                 # (the detail pass's textures: an add-on import next to Textures.fbx)
                 groups["Textures2"].append(ob)
+            elif ob.name == "Realism_Swatches3":
+                # (the detail pass's plants' images ride with their meshes in Plants.fbx)
+                groups["Plants"].append(ob)
             elif ob.name.startswith("Kit_") or ob.name.startswith("Gear_"):
                 groups["CityKit"].append(ob)
                 if ob.name in facadekit.ROUND2:
@@ -1383,6 +1386,9 @@ def main():
                 if ob.name in K.DETAIL:
                     # (and the detail pass's)
                     groups["CityKitDetail"].append(ob)
+                if ob.name in vegetation.ROUND2:
+                    # (the detail pass's plants: an add-on import of their own, images and all)
+                    groups["Plants"].append(ob)
             else:
                 groups["Vehicles"].append(ob)
     for name, roots in groups.items():
