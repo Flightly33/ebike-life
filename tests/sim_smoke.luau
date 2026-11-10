@@ -173,11 +173,23 @@ local bikes = WS:FindFirstChild("Bikes")
 local bike = bikes and bikes:FindFirstChild("Bike_1")
 check(bike ~= nil, "bike spawned next to the player")
 local ride = BikeService.Get(player)
+local BikeModel = server.Require(Shared:WaitForChild("Models"):WaitForChild("BikeModel"))
+local Bikes = server.Require(Shared:WaitForChild("Bikes"))
+local parkedSize = BikeModel.FitScale(Bikes.Get("flit_mini") :: any, Config.Avatar.Height * 0.34)
 if bike and ride then
 	local prompt = bike.PrimaryPart:FindFirstChild("EnterPrompt")
 	check(prompt ~= nil, "bike has an Enter prompt")
+	local size0 = bike:GetAttribute("Scale") :: number
+	local seat0 = (bike:FindFirstChild("Seat") :: BasePart).Size
+	check(math.abs(size0 - parkedSize) < 1e-3, string.format("a parked bike is drawn at the standard size (%.3f, want %.3f)", size0, parkedSize))
 	Sim.Fire(prompt, "Triggered", player)
 	world:Run(0.5)
+	local size1 = bike:GetAttribute("Scale") :: number
+	local seat1 = (bike:FindFirstChild("Seat") :: BasePart).Size
+	print(string.format("[test] bike size parked %.3f, fitted to the rider %.3f", size0, size1))
+	check(math.abs(ride.Spec.Scale - size1) < 1e-6, "the server's numbers follow the fitted size")
+	check(math.abs(seat1.X / seat0.X - size1 / size0) < 1e-3, "getting on resizes the bike's parts to the rider")
+	check(BikeController.Spec ~= nil and math.abs(BikeController.Spec.Scale - size1) < 1e-6, "the rider's controller rides the fitted size")
 end
 check(BikeController.Active == true, "client controller took over the bike")
 check(ride ~= nil and ride.Riding == true, "server sees the player riding")
@@ -608,6 +620,8 @@ if bike then
 	world:Run(1)
 	check(BikeController.Active == false, "getting off ends the ride")
 	check(BikeService.Get(player) ~= nil and BikeService.Get(player).Riding == false, "the bike stays parked")
+	local size = bike:GetAttribute("Scale") :: number
+	check(math.abs(size - parkedSize) < 1e-3, string.format("a bike got off goes back to the standard size (%.3f)", size))
 end
 
 --------------------------------------------------------------------------------

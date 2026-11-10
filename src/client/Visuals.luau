@@ -56,6 +56,7 @@ type BikeRig = {
 	RadiusM: number,
 	Motor: Sound?,
 	Moto: boolean,
+	Size: any, -- the model's Scale attribute it was measured at
 }
 
 type CarRig = {
@@ -69,6 +70,7 @@ type CarRig = {
 }
 
 local bikeRigs: { [Model]: BikeRig } = {}
+local hooked: { [Model]: boolean } = {} -- Destroying hooked up
 local carRigs: { [Model]: CarRig } = {}
 local wind: Sound? = nil
 
@@ -79,8 +81,17 @@ end
 
 local function bikeRig(model: Model): BikeRig?
 	local rig = bikeRigs[model]
-	if rig then
+	local size = model:GetAttribute("Scale")
+	if rig and rig.Size == size then
 		return rig
+	end
+	if rig then
+		-- resized (BikeService fits a bike to its rider as they get on): measured again
+		local motor = rig.Motor
+		if motor then
+			motor:Destroy()
+		end
+		bikeRigs[model] = nil
 	end
 	local root = model.PrimaryPart
 	local id = model:GetAttribute("BikeId")
@@ -88,7 +99,6 @@ local function bikeRig(model: Model): BikeRig?
 	if not root or not bike then
 		return nil
 	end
-	local size = model:GetAttribute("Scale")
 	local spec = BikeStats.Scaled(BikeStats.Compute(bike, nil), if type(size) == "number" then size else 1)
 	local moto = not bike.Pedals
 	local newRig: BikeRig = {
@@ -105,10 +115,8 @@ local function bikeRig(model: Model): BikeRig?
 		Swing = findMotor(model, "SwingJoint"),
 		ShockTop = findMotor(model, "ShockJoint"),
 		ShockEnd = findMotor(model, "ShockRodJoint"),
-		Sus = BikeModel.SuspensionGeometry(bike, (function()
-			local size = model:GetAttribute("Scale")
-			return if type(size) == "number" then size else 1
-		end)()),
+		Sus = BikeModel.SuspensionGeometry(bike, if type(size) == "number" then size else 1),
+		Size = size,
 		Comp = { 0, 0 },
 		WheelAngle = 0,
 		CrankAngle = 0,
@@ -117,13 +125,18 @@ local function bikeRig(model: Model): BikeRig?
 		Moto = moto,
 	}
 	bikeRigs[model] = newRig
-	model.Destroying:Connect(function()
-		local motor = newRig.Motor
-		if motor then
-			motor:Destroy()
-		end
-		bikeRigs[model] = nil
-	end)
+	if not hooked[model] then
+		hooked[model] = true
+		model.Destroying:Connect(function()
+			local current = bikeRigs[model]
+			local motor = current and current.Motor
+			if motor then
+				motor:Destroy()
+			end
+			bikeRigs[model] = nil
+			hooked[model] = nil
+		end)
+	end
 	return newRig
 end
 

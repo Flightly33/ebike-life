@@ -645,9 +645,39 @@ Methods.Model = {
 		end
 		return CFrame.new((lo + hi) / 2), hi - lo
 	end,
-	ScaleTo = function(_self, _scale) end,
-	GetScale = function(_self)
-		return 1
+	-- Like Roblox's: every part's size and offset from the pivot, attachments and joint offsets
+	-- scaled by the change, relative to the scale the model was built at
+	ScaleTo = function(self, scale)
+		local st = states[self]
+		local k = scale / (st.ModelScale or 1)
+		st.ModelScale = scale
+		if math.abs(k - 1) < 1e-9 then
+			return
+		end
+		local pivot = modelPivot(self)
+		local function scaled(cf)
+			return cf - cf.Position + cf.Position * k
+		end
+		for _, d in self:GetDescendants() do
+			local class = states[d].ClassName
+			if isA(class, "BasePart") then
+				local props = states[d].Props
+				props.Size = (props.Size or Vector3.one) * k
+				props.CFrame = pivot * scaled(pivot:Inverse() * partCFrame(d))
+				Sim.Moved[d] = true
+			elseif class == "Attachment" then
+				local props = states[d].Props
+				props.CFrame = scaled(props.CFrame or CFrame.identity)
+				props.Position = props.CFrame.Position
+			elseif isA(class, "JointInstance") then
+				local props = states[d].Props
+				props.C0 = scaled(props.C0 or CFrame.identity)
+				props.C1 = scaled(props.C1 or CFrame.identity)
+			end
+		end
+	end,
+	GetScale = function(self)
+		return states[self].ModelScale or 1
 	end,
 	GetExtentsSize = function(_self)
 		return Vector3.new(4, 5, 2)

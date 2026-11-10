@@ -70,6 +70,7 @@ export type Ride = {
 	AirSince: number?, -- the client's been airborne since (server clock)
 	LastAirAt: number?, -- the rider fell off and is getting back on
 	ParkedAt: number,
+	FittedFor: Model?, -- the character the bike was last sized to (it's resized as they get on)
 	Connections: { RBXScriptConnection },
 }
 
@@ -163,6 +164,63 @@ local function legLength(character: Model): number
 	return 1.76
 end
 
+-- A default R15's legs, hip to ankle, are ~0.34 of its height (1.76 of ~5.2 studs)
+local STANDARD_LEGS = 0.34
+
+-- The size a bike is drawn at while parked: fitted to a standard rider (every character is scaled
+-- to Config.Avatar.Height), so it looks right on the ground whoever owns it
+local function parkedScale(bike: Bikes.Bike): number
+	local height = if Config.Avatar.Height > 0 then Config.Avatar.Height else 5.2
+	return BikeModel.FitScale(bike, height * STANDARD_LEGS)
+end
+
+-- The rider's legs, measured as they get on (CharacterService has scaled them by then; it's waited
+-- for a moment if not). A reading that doesn't fit the body (a part mid-resize, an odd rig) falls
+-- back to the standard share of the body's height.
+local function riderLegs(character: Model): number
+	if Config.Avatar.Height > 0 and character:GetAttribute("BodyHeight") == nil then
+		local since = os.clock()
+		while character.Parent and character:GetAttribute("BodyHeight") == nil and os.clock() - since < 2 do
+			task.wait(0.1)
+		end
+	end
+	local legs = legLength(character)
+	local height = character:GetAttribute("BodyHeight")
+	if type(height) == "number" and height > 0 then
+		local share = legs / height
+		if share < 0.24 or share > 0.48 then
+			legs = height * STANDARD_LEGS
+		end
+	end
+	return legs
+end
+
+-- Redraws the bike at `size` (times BIKE_SIZE) about its pivot on the ground, and the numbers that
+-- go with it (its wheels and wheelbase grow with it). Only while it's parked: not while anyone rides.
+local function resize(ride: Ride, size: number)
+	local model = ride.Model
+	local current = model:GetAttribute("Scale")
+	local now = if type(current) == "number" and current > 0 then current else 1
+	if math.abs(size / now - 1) < 0.01 then
+		return
+	end
+	local pivot = model:GetPivot()
+	model:ScaleTo(model:GetScale() * size / now)
+	model:PivotTo(pivot)
+	model:SetAttribute("Scale", size)
+	local data = DataService.Get(ride.Player)
+	local levels = if data then Profile.Levels(data, ride.Bike.Id) else nil
+	ride.Spec = BikeStats.Scaled(BikeStats.Compute(ride.Bike, levels), size)
+end
+
+-- Fits the bike to its rider as they get on
+local function fitTo(ride: Ride, character: Model)
+	local legs = riderLegs(character)
+	local size = BikeModel.FitScale(ride.Bike, legs)
+	resize(ride, size)
+	print(string.format("[BikeService] %s: legs %.2f studs, %s drawn at %.2f", ride.Player.Name, legs, ride.Bike.Id, size))
+end
+
 -- Parks the bike: stood upright on the ground under it, or (`asItLies`, after a crash) left just as
 -- it came to rest, on its side or upside down; it's stood up when its rider gets back on
 local function park(ride: Ride, asItLies: boolean?)
@@ -200,6 +258,12 @@ local function mount(ride: Ride)
 	if ride.Riding then
 		return
 	end
+	-- sat on without the prompt (touching the seat): sized to them now
+	local rider = ride.Player.Character
+	if rider and ride.FittedFor ~= rider then
+		ride.FittedFor = rider
+		fitTo(ride, rider)
+	end
 	ride.Riding = true
 	ride.Prompt.Enabled = false
 	ride.Root.Anchored = false
@@ -236,6 +300,12 @@ local function dismount(ride: Ride, asItLies: boolean?)
 		RiderLook.Clear(character)
 	end
 	park(ride, asItLies)
+	-- back to the standard size on the ground (a crashed bike keeps its size where it lies, until
+	-- it's picked up)
+	if not asItLies then
+		resize(ride, parkedScale(ride.Bike))
+		ride.FittedFor = nil
+	end
 	if ride.Model.Parent then
 		ride.Prompt.Enabled = true
 	end
@@ -288,21 +358,8 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 	lastSpawn[player] = now
 	BikeService.Despawn(player)
 
-	-- fitted once CharacterService has scaled the character to the standard height (BodyHeight)
-	if Config.Avatar.Height > 0 and character:GetAttribute("BodyHeight") == nil then
-		local ok, loaded = pcall(function()
-			return player:HasAppearanceLoaded()
-		end)
-		if ok then
-			local since = os.clock()
-			while character.Parent and character:GetAttribute("BodyHeight") == nil and os.clock() - since < (if loaded then 1.5 else 4) do
-				task.wait(0.1)
-			end
-		end
-	end
-
-	-- drawn to fit this rider: their legs, hip joint to ankle joint, as they stand
-	local size = BikeModel.FitScale(bike, legLength(character))
+	-- drawn at the standard size while parked; fitted to the rider's legs as they get on
+	local size = parkedScale(bike)
 	local levels = Profile.Levels(data, bikeId)
 	local spec = BikeStats.Scaled(BikeStats.Compute(bike, levels), size)
 	local model = BikeModel.Build(bike, data.Paint[bikeId], { Scale = size })
@@ -358,6 +415,7 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 		AirSince = nil,
 		LastAirAt = nil,
 		ParkedAt = os.clock(),
+		FittedFor = nil,
 		Connections = {},
 	}
 	rides[player] = ride
@@ -371,10 +429,18 @@ function BikeService.Spawn(player: Player, bikeId: string): (boolean, string)
 		end
 		local char = player.Character
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if hum and hum.Health > 0 and not hum.SeatPart then
+		if hum and hum.Health > 0 and not hum.SeatPart and not ride.Riding then
 			-- pick the bike up first if it's lying where it crashed
 			if ride.Root.CFrame.UpVector.Y < 0.95 then
 				park(ride)
+			end
+			-- sized to this rider's legs before they sit (it may wait a moment for CharacterService)
+			if char and ride.FittedFor ~= char then
+				ride.FittedFor = char
+				fitTo(ride, char)
+			end
+			if rides[player] ~= ride or not ride.Model.Parent or ride.Riding or hum.Health <= 0 or hum.SeatPart then
+				return
 			end
 			seat:Sit(hum)
 		end

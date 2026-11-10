@@ -480,9 +480,10 @@ function BikeController.Start(model: Model)
 	BikeCamera.Start(part.CFrame)
 	-- Tuning while riding (attributes from the server)
 	table.insert(connections, model.AttributeChanged:Connect(function(name: string)
-		if string.sub(name, 1, 3) == "Up_" or string.sub(name, 1, 2) == "S_" then
+		if string.sub(name, 1, 3) == "Up_" or string.sub(name, 1, 2) == "S_" or name == "Scale" then
 			local _, newSpec = computeSpec(model)
 			if newSpec then
+				BikeCamera.SetBikeScale(newSpec.Scale)
 				local fraction = BikeController.BatteryFraction()
 				BikeController.Spec = newSpec
 				if BikeController.Physics then
