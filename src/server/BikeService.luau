@@ -178,10 +178,16 @@ end
 -- for a moment if not). A reading that doesn't fit the body (a part mid-resize, an odd rig) falls
 -- back to the standard share of the body's height.
 local function riderLegs(character: Model): number
-	if Config.Avatar.Height > 0 and character:GetAttribute("BodyHeight") == nil then
-		local since = os.clock()
-		while character.Parent and character:GetAttribute("BodyHeight") == nil and os.clock() - since < 2 do
-			task.wait(0.1)
+	local player = Players:GetPlayerFromCharacter(character)
+	if player and Config.Avatar.Height > 0 and character:GetAttribute("BodyHeight") == nil then
+		local ok, loaded = pcall(function()
+			return player:HasAppearanceLoaded()
+		end)
+		if ok then
+			local since = os.clock()
+			while character.Parent and character:GetAttribute("BodyHeight") == nil and os.clock() - since < (if loaded then 1 else 2) do
+				task.wait(0.1)
+			end
 		end
 	end
 	local legs = legLength(character)
